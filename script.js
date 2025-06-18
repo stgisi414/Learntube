@@ -253,6 +253,8 @@ document.addEventListener('DOMContentLoaded', () => {
      * Generates a lesson plan using the real Gemini API.
      */
     async function generateLessonPlan(topic) {
+        console.log('Generating lesson plan for:', topic);
+        
         const prompt = `Create a comprehensive learning curriculum for the topic: "${topic}".
 
 Generate exactly 4 difficulty levels with exactly 5 learning points each:
@@ -294,35 +296,55 @@ Make each learning point specific, engaging, and appropriate for its difficulty 
             });
 
             if (!response.ok) {
+                console.error('Gemini API response not ok:', response.status, response.statusText);
                 throw new Error(`API request failed: ${response.status}`);
             }
 
             const data = await response.json();
             const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
             
+            console.log('Generated text from API:', generatedText?.substring(0, 200) + '...');
+            
             if (!generatedText) {
                 throw new Error('No content generated from API');
             }
 
-            // Extract JSON from the response
-            const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+            // Extract JSON from the response - be more flexible with JSON extraction
+            let jsonMatch = generatedText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
-                throw new Error('Could not extract valid JSON from API response');
+                // Try to find JSON even if it's wrapped in markdown code blocks
+                jsonMatch = generatedText.match(/```json\s*(\{[\s\S]*\})\s*```/);
+                if (jsonMatch) {
+                    jsonMatch[0] = jsonMatch[1];
+                } else {
+                    console.error('Could not extract JSON from response:', generatedText);
+                    throw new Error('Could not extract valid JSON from API response');
+                }
             }
 
-            const lessonPlan = JSON.parse(jsonMatch[0]);
+            let lessonPlan;
+            try {
+                lessonPlan = JSON.parse(jsonMatch[0]);
+                console.log('Successfully parsed lesson plan:', Object.keys(lessonPlan));
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError, 'Raw JSON:', jsonMatch[0]);
+                throw new Error('Invalid JSON format in API response');
+            }
             
             // Validate the structure
             const expectedLevels = ['Apprentice', 'Journeyman', 'Senior', 'Master'];
             for (const level of expectedLevels) {
                 if (!lessonPlan[level] || !Array.isArray(lessonPlan[level]) || lessonPlan[level].length !== 5) {
+                    console.error(`Invalid lesson plan structure for level: ${level}`, lessonPlan[level]);
                     throw new Error(`Invalid lesson plan structure for level: ${level}`);
                 }
             }
 
+            console.log('Lesson plan validated successfully');
             return lessonPlan;
         } catch (error) {
             console.error('Gemini API error:', error);
+            console.log('Falling back to mock data');
             // Fallback to enhanced mock data if API fails
             return generateFallbackLessonPlan(topic);
         }
@@ -403,6 +425,7 @@ Make each learning point specific, engaging, and appropriate for its difficulty 
      * Starts the lesson for the selected difficulty level.
      */
     function startLesson(level) {
+        console.log('Starting lesson at level:', level);
         Analytics.trackEvent('lesson_started', { level, topic: ui.topicInput.value });
         currentLearningPath = level;
         currentSegmentIndex = -1;
@@ -425,6 +448,10 @@ Make each learning point specific, engaging, and appropriate for its difficulty 
         currentSegmentIndex++;
         const learningPoints = currentLessonPlan[currentLearningPath];
 
+        console.log('Processing segment:', currentSegmentIndex + 1, 'of', learningPoints.length);
+        console.log('Current learning path:', currentLearningPath);
+        console.log('Available learning points:', learningPoints);
+
         if (currentSegmentIndex >= learningPoints.length) {
             endLesson();
             return;
@@ -432,6 +459,9 @@ Make each learning point specific, engaging, and appropriate for its difficulty 
 
         const learningPoint = learningPoints[currentSegmentIndex];
         const previousLearningPoint = currentSegmentIndex > 0 ? learningPoints[currentSegmentIndex - 1] : null;
+
+        console.log('Current learning point:', learningPoint);
+        console.log('Previous learning point:', previousLearningPoint);
 
         // Update progress
         updateSegmentProgress();
@@ -446,8 +476,11 @@ Make each learning point specific, engaging, and appropriate for its difficulty 
                 topic: learningPoint 
             });
 
+            console.log('Sourcing video for:', learningPoint);
             const videoInfo = await sourceVideoForLearningPoint(learningPoint);
             showLoadingMessageOnCanvas(`Generating personalized narration...`);
+            
+            console.log('Generating narration for:', learningPoint);
             const narrationText = await generateNarrativeBridge(learningPoint, previousLearningPoint, videoInfo.title);
 
             retryCount = 0; // Reset retry count on success
@@ -547,6 +580,8 @@ Create a clear, engaging 2-3 sentence introduction for this learning segment. Th
 
 Keep it concise but informative, around 50-80 words total.`;
 
+        console.log('Generating narration with prompt:', prompt);
+
         try {
             const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
                 method: 'POST',
@@ -567,11 +602,14 @@ Keep it concise but informative, around 50-80 words total.`;
             });
 
             if (!response.ok) {
+                console.error('Narration API response not ok:', response.status, response.statusText);
                 throw new Error(`Narration API request failed: ${response.status}`);
             }
 
             const data = await response.json();
             const narrationText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            console.log('Generated narration:', narrationText);
             
             if (!narrationText) {
                 throw new Error('No narration generated');
@@ -580,8 +618,13 @@ Keep it concise but informative, around 50-80 words total.`;
             return narrationText.trim();
         } catch (error) {
             console.error('Narration generation error:', error);
-            // Fallback narration
-            return `${contextText} Let's explore ${learningPoint} through this visual content. Pay attention to the key concepts we'll cover.`;
+            // Fallback narration using the actual learning point
+            const fallbackText = previousLearningPoint 
+                ? `Great! Now that we've covered ${previousLearningPoint}, let's move on to ${learningPoint}. This next section will help you understand this important concept.`
+                : `Welcome! Let's start by exploring ${learningPoint}. This is a key concept we'll examine in detail.`;
+            
+            console.log('Using fallback narration:', fallbackText);
+            return fallbackText;
         }
     }
 
