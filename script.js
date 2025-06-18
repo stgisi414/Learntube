@@ -546,71 +546,322 @@ Make each learning point specific, engaging, and appropriate for its difficulty 
     }
 
     /**
-     * Sources video content for a learning point using YouTube API
+     * Sources video content for a learning point using YouTube API with advanced filtering
      */
     async function sourceVideoForLearningPoint(learningPoint) {
         try {
-            // Try multiple search strategies for better results
-            const searchQueries = [
-                `${learningPoint} tutorial explanation`,
-                `${learningPoint} educational video`,
-                `${learningPoint} lesson learning`,
-                `what is ${learningPoint} explained`
-            ];
-
-            let bestVideo = null;
+            // Extract key terms from learning point for better searching
+            const keyTerms = extractKeyTerms(learningPoint);
             
-            for (const query of searchQueries) {
+            // Generate comprehensive search strategies
+            const searchStrategies = generateSearchStrategies(learningPoint, keyTerms);
+            
+            let bestVideo = null;
+            let searchAttempts = 0;
+            const maxSearchAttempts = searchStrategies.length;
+            
+            for (const strategy of searchStrategies) {
+                searchAttempts++;
+                console.log(`Search attempt ${searchAttempts}/${maxSearchAttempts}: "${strategy.query}"`);
+                
                 try {
-                    const searchQuery = encodeURIComponent(query);
-                    const response = await fetch(
-                        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&videoDefinition=high&videoDuration=medium&maxResults=10&key=${YOUTUBE_API_KEY}`
-                    );
-
-                    if (!response.ok) {
-                        console.warn(`YouTube API request failed for query "${query}": ${response.status}`);
-                        continue;
-                    }
-
-                    const data = await response.json();
+                    // Search for videos
+                    const searchResults = await performYouTubeSearch(strategy.query, strategy.filters);
                     
-                    if (data.items && data.items.length > 0) {
-                        // Filter for educational content
-                        const educationalVideo = data.items.find(video => 
-                            video.snippet.title.toLowerCase().includes('learn') ||
-                            video.snippet.title.toLowerCase().includes('tutorial') ||
-                            video.snippet.title.toLowerCase().includes('explain') ||
-                            video.snippet.description.toLowerCase().includes('educational')
-                        ) || data.items[0];
+                    if (searchResults.items && searchResults.items.length > 0) {
+                        // Get detailed video information including captions
+                        const videoWithCaptions = await findVideoWithCaptions(searchResults.items, strategy.priority);
                         
-                        if (educationalVideo) {
-                            bestVideo = educationalVideo;
+                        if (videoWithCaptions) {
+                            bestVideo = videoWithCaptions;
+                            console.log(`Found suitable video: "${bestVideo.title}" (attempt ${searchAttempts})`);
                             break;
                         }
                     }
                 } catch (queryError) {
-                    console.warn(`Error with search query "${query}":`, queryError);
+                    console.warn(`Search strategy failed: "${strategy.query}":`, queryError);
                     continue;
                 }
             }
 
             if (bestVideo) {
                 return {
-                    url: `https://www.youtube.com/embed/${bestVideo.id.videoId}?autoplay=1&controls=0`,
+                    url: `https://www.youtube.com/embed/${bestVideo.id.videoId}?autoplay=1&controls=0&cc_load_policy=1`,
                     youtubeId: bestVideo.id.videoId,
-                    title: bestVideo.snippet.title,
-                    description: bestVideo.snippet.description,
+                    title: bestVideo.title,
+                    description: bestVideo.description,
                     startTime: 0,
-                    endTime: 30
+                    endTime: Math.min(bestVideo.duration || 60, 45), // Cap at 45 seconds
+                    hasCapt‌ions: bestVideo.hasCaptions,
+                    educationalScore: bestVideo.educationalScore
                 };
             } else {
-                throw new Error('No suitable videos found after trying multiple search strategies');
+                console.warn(`No suitable videos found for "${learningPoint}" after ${searchAttempts} attempts`);
+                throw new Error('No suitable educational videos found with captions');
             }
         } catch (error) {
-            console.error('YouTube API error:', error);
-            // Enhanced fallback with topic-specific placeholder
+            console.error('Comprehensive video search failed:', error);
             return createFallbackVideo(learningPoint);
         }
+    }
+
+    /**
+     * Extracts key searchable terms from a learning point
+     */
+    function extractKeyTerms(learningPoint) {
+        // Remove common educational phrases to get core concepts
+        const cleanedPoint = learningPoint
+            .replace(/^(learn about|understand|explore|discover|study)/i, '')
+            .replace(/(concepts?|principles?|basics?|fundamentals?|introduction)/gi, '')
+            .trim();
+        
+        // Split into individual terms and filter meaningful words
+        const terms = cleanedPoint.split(/[\s\-_,\.]+/)
+            .filter(term => term.length > 2)
+            .filter(term => !['the', 'and', 'for', 'with', 'how', 'why', 'what'].includes(term.toLowerCase()));
+            
+        return {
+            primary: terms[0] || learningPoint.split(' ')[0],
+            secondary: terms.slice(1, 3),
+            all: terms
+        };
+    }
+
+    /**
+     * Generates multiple search strategies with different approaches
+     */
+    function generateSearchStrategies(learningPoint, keyTerms) {
+        const strategies = [
+            // Educational content with captions priority
+            {
+                query: `"${keyTerms.primary}" educational explained tutorial`,
+                filters: { videoCategoryId: '27', videoCaption: 'closedCaption' }, // Education category with captions
+                priority: 'educational_with_captions'
+            },
+            // Academic/university content
+            {
+                query: `${keyTerms.primary} university lecture course`,
+                filters: { videoDuration: 'medium', videoCaption: 'closedCaption' },
+                priority: 'academic'
+            },
+            // Khan Academy style explanations
+            {
+                query: `${keyTerms.primary} explained simply animation`,
+                filters: { videoCaption: 'any' },
+                priority: 'accessible_explanation'
+            },
+            // Documentary/educational channels
+            {
+                query: `${keyTerms.primary} documentary educational channel`,
+                filters: { videoDuration: 'medium' },
+                priority: 'documentary'
+            },
+            // How-to and tutorial content
+            {
+                query: `how to understand ${keyTerms.primary} tutorial`,
+                filters: { videoCategoryId: '26' }, // How-to category
+                priority: 'tutorial'
+            },
+            // Broader search with key terms
+            {
+                query: keyTerms.all.slice(0, 3).join(' ') + ' explained',
+                filters: {},
+                priority: 'general'
+            }
+        ];
+
+        // Add subject-specific strategies if we can detect the domain
+        const domain = detectSubjectDomain(learningPoint);
+        if (domain) {
+            strategies.unshift({
+                query: `${keyTerms.primary} ${domain} education`,
+                filters: { videoCategoryId: '27', videoCaption: 'closedCaption' },
+                priority: 'domain_specific'
+            });
+        }
+
+        return strategies;
+    }
+
+    /**
+     * Detects the subject domain for more targeted searching
+     */
+    function detectSubjectDomain(learningPoint) {
+        const domains = {
+            science: ['physics', 'chemistry', 'biology', 'anatomy', 'molecule', 'atom', 'cell', 'DNA', 'evolution'],
+            math: ['mathematics', 'algebra', 'geometry', 'calculus', 'equation', 'formula', 'theorem'],
+            history: ['history', 'historical', 'ancient', 'medieval', 'war', 'empire', 'civilization'],
+            literature: ['literature', 'poetry', 'novel', 'author', 'writing', 'shakespeare'],
+            technology: ['computer', 'programming', 'software', 'algorithm', 'AI', 'machine learning'],
+            art: ['art', 'painting', 'sculpture', 'artist', 'renaissance', 'impressionist']
+        };
+
+        const lowerPoint = learningPoint.toLowerCase();
+        for (const [domain, keywords] of Object.entries(domains)) {
+            if (keywords.some(keyword => lowerPoint.includes(keyword))) {
+                return domain;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Performs YouTube search with advanced parameters
+     */
+    async function performYouTubeSearch(query, filters = {}) {
+        const searchParams = new URLSearchParams({
+            part: 'snippet',
+            q: query,
+            type: 'video',
+            maxResults: '20',
+            order: 'relevance',
+            key: YOUTUBE_API_KEY,
+            ...filters
+        });
+
+        const response = await fetch(
+            `https://www.googleapis.com/youtube/v3/search?${searchParams}`
+        );
+
+        if (!response.ok) {
+            throw new Error(`YouTube Search API failed: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Finds videos with captions and evaluates educational quality
+     */
+    async function findVideoWithCaptions(videoItems, priority) {
+        const videoIds = videoItems.map(item => item.id.videoId).slice(0, 10);
+        
+        try {
+            // Get detailed video information including captions
+            const videoDetails = await getVideoDetails(videoIds);
+            
+            // Score and rank videos
+            const scoredVideos = videoItems.map(item => {
+                const details = videoDetails.find(d => d.id === item.id.videoId);
+                return {
+                    ...item,
+                    id: item.id,
+                    title: item.snippet.title,
+                    description: item.snippet.description,
+                    hasCaptions: details?.contentDetails?.caption === 'true',
+                    duration: parseDuration(details?.contentDetails?.duration),
+                    viewCount: parseInt(details?.statistics?.viewCount || 0),
+                    likeCount: parseInt(details?.statistics?.likeCount || 0),
+                    educationalScore: calculateEducationalScore(item, details, priority)
+                };
+            }).sort((a, b) => b.educationalScore - a.educationalScore);
+
+            // Return the best video that meets our criteria
+            return scoredVideos.find(video => 
+                video.educationalScore > 0 && 
+                (video.hasCaptions || priority === 'general')
+            ) || scoredVideos[0];
+            
+        } catch (error) {
+            console.warn('Could not get video details, using basic ranking:', error);
+            // Fallback to basic educational content filtering
+            return videoItems.find(item => 
+                isEducationalContent(item.snippet.title, item.snippet.description)
+            ) || videoItems[0];
+        }
+    }
+
+    /**
+     * Gets detailed video information including caption availability
+     */
+    async function getVideoDetails(videoIds) {
+        const response = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${videoIds.join(',')}&key=${YOUTUBE_API_KEY}`
+        );
+
+        if (!response.ok) {
+            throw new Error(`YouTube Videos API failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.items || [];
+    }
+
+    /**
+     * Calculates educational score for video ranking
+     */
+    function calculateEducationalScore(item, details, priority) {
+        let score = 0;
+        const title = item.snippet.title.toLowerCase();
+        const description = item.snippet.description.toLowerCase();
+        
+        // Caption bonus
+        if (details?.contentDetails?.caption === 'true') score += 30;
+        
+        // Educational keywords bonus
+        const eduKeywords = ['tutorial', 'explained', 'lesson', 'learn', 'education', 'course', 'lecture', 'guide'];
+        eduKeywords.forEach(keyword => {
+            if (title.includes(keyword)) score += 15;
+            if (description.includes(keyword)) score += 5;
+        });
+        
+        // Quality indicators
+        const qualityKeywords = ['university', 'professor', 'academic', 'khan academy', 'crash course'];
+        qualityKeywords.forEach(keyword => {
+            if (title.includes(keyword) || description.includes(keyword)) score += 20;
+        });
+        
+        // Duration preference (5-20 minutes is ideal)
+        const duration = parseDuration(details?.contentDetails?.duration);
+        if (duration >= 300 && duration <= 1200) score += 10;
+        
+        // View count consideration (popular but not viral)
+        const views = parseInt(details?.statistics?.viewCount || 0);
+        if (views > 1000 && views < 10000000) score += 5;
+        
+        // Priority-specific bonuses
+        switch (priority) {
+            case 'educational_with_captions':
+                if (details?.contentDetails?.caption === 'true') score += 25;
+                break;
+            case 'academic':
+                if (title.includes('university') || title.includes('lecture')) score += 20;
+                break;
+            case 'accessible_explanation':
+                if (title.includes('simple') || title.includes('beginner')) score += 15;
+                break;
+        }
+        
+        return score;
+    }
+
+    /**
+     * Parses YouTube duration format (PT1M30S) to seconds
+     */
+    function parseDuration(duration) {
+        if (!duration) return 0;
+        const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+        if (!match) return 0;
+        
+        const hours = parseInt(match[1]?.replace('H', '') || 0);
+        const minutes = parseInt(match[2]?.replace('M', '') || 0);
+        const seconds = parseInt(match[3]?.replace('S', '') || 0);
+        
+        return hours * 3600 + minutes * 60 + seconds;
+    }
+
+    /**
+     * Basic educational content detection
+     */
+    function isEducationalContent(title, description) {
+        const eduIndicators = [
+            'tutorial', 'explained', 'lesson', 'learn', 'education', 'course', 
+            'lecture', 'guide', 'how to', 'what is', 'introduction to',
+            'basics', 'fundamentals', 'understanding'
+        ];
+        
+        const combinedText = (title + ' ' + description).toLowerCase();
+        return eduIndicators.some(indicator => combinedText.includes(indicator));
     }
 
     /**
