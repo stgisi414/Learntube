@@ -477,11 +477,26 @@ Make each learning point specific, engaging, and appropriate for its difficulty 
             });
 
             console.log('Sourcing video for:', learningPoint);
-            const videoInfo = await sourceVideoForLearningPoint(learningPoint);
+            let videoInfo;
+            let narrationText;
+            
+            // Try to get both video and narration, with fallbacks
+            try {
+                videoInfo = await sourceVideoForLearningPoint(learningPoint);
+            } catch (videoError) {
+                console.warn('Video sourcing failed, using fallback:', videoError);
+                videoInfo = createFallbackVideo(learningPoint);
+            }
+            
             showLoadingMessageOnCanvas(`Generating personalized narration...`);
             
-            console.log('Generating narration for:', learningPoint);
-            const narrationText = await generateNarrativeBridge(learningPoint, previousLearningPoint, videoInfo.title);
+            try {
+                console.log('Generating narration for:', learningPoint);
+                narrationText = await generateNarrativeBridge(learningPoint, previousLearningPoint, videoInfo.title);
+            } catch (narrationError) {
+                console.warn('Narration generation failed, using fallback:', narrationError);
+                narrationText = generateFallbackNarration(learningPoint, previousLearningPoint);
+            }
 
             retryCount = 0; // Reset retry count on success
             synthesizeSpeech(narrationText, videoInfo);
@@ -491,16 +506,29 @@ Make each learning point specific, engaging, and appropriate for its difficulty 
             
             if (retryCount < MAX_RETRIES) {
                 retryCount++;
-                displayErrorOnCanvas(`Error loading segment (Attempt ${retryCount}/${MAX_RETRIES})`, "Retrying in 3 seconds...");
-                setTimeout(() => processNextSegment(forceNext), 3000);
+                displayErrorOnCanvas(`Loading segment... (${retryCount}/${MAX_RETRIES})`, "Please wait...");
+                setTimeout(() => processNextSegment(forceNext), 2000);
             } else {
-                displayErrorOnCanvas("Unable to load this segment", "Skipping to next segment in 5 seconds...");
-                setTimeout(() => {
-                    retryCount = 0;
-                    processNextSegment(true);
-                }, 5000);
+                // Even if everything fails, continue with a basic segment
+                console.log('All retries failed, using emergency fallback');
+                const fallbackVideo = createFallbackVideo(learningPoint);
+                const fallbackNarration = generateFallbackNarration(learningPoint, previousLearningPoint);
+                retryCount = 0;
+                synthesizeSpeech(fallbackNarration, fallbackVideo);
             }
         }
+    }
+
+    /**
+     * Generates fallback narration when API fails
+     */
+    function generateFallbackNarration(learningPoint, previousLearningPoint) {
+        if (previousLearningPoint) {
+            return `Great work on ${previousLearningPoint}! Now let's explore ${learningPoint}. This is an important concept that will help you understand the bigger picture.`;
+        } else {
+            return `Welcome! Let's begin by learning about ${learningPoint}. This is a key concept that will form the foundation for your understanding.`;
+        }
+    }
     }
 
     /**
@@ -522,43 +550,82 @@ Make each learning point specific, engaging, and appropriate for its difficulty 
      */
     async function sourceVideoForLearningPoint(learningPoint) {
         try {
-            const searchQuery = encodeURIComponent(`${learningPoint} educational explanation`);
-            const response = await fetch(
-                `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&videoDefinition=high&videoDuration=medium&maxResults=5&key=${YOUTUBE_API_KEY}`
-            );
+            // Try multiple search strategies for better results
+            const searchQueries = [
+                `${learningPoint} tutorial explanation`,
+                `${learningPoint} educational video`,
+                `${learningPoint} lesson learning`,
+                `what is ${learningPoint} explained`
+            ];
 
-            if (!response.ok) {
-                throw new Error(`YouTube API request failed: ${response.status}`);
+            let bestVideo = null;
+            
+            for (const query of searchQueries) {
+                try {
+                    const searchQuery = encodeURIComponent(query);
+                    const response = await fetch(
+                        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&videoDefinition=high&videoDuration=medium&maxResults=10&key=${YOUTUBE_API_KEY}`
+                    );
+
+                    if (!response.ok) {
+                        console.warn(`YouTube API request failed for query "${query}": ${response.status}`);
+                        continue;
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.items && data.items.length > 0) {
+                        // Filter for educational content
+                        const educationalVideo = data.items.find(video => 
+                            video.snippet.title.toLowerCase().includes('learn') ||
+                            video.snippet.title.toLowerCase().includes('tutorial') ||
+                            video.snippet.title.toLowerCase().includes('explain') ||
+                            video.snippet.description.toLowerCase().includes('educational')
+                        ) || data.items[0];
+                        
+                        if (educationalVideo) {
+                            bestVideo = educationalVideo;
+                            break;
+                        }
+                    }
+                } catch (queryError) {
+                    console.warn(`Error with search query "${query}":`, queryError);
+                    continue;
+                }
             }
 
-            const data = await response.json();
-            
-            if (!data.items || data.items.length === 0) {
-                throw new Error('No suitable videos found');
+            if (bestVideo) {
+                return {
+                    url: `https://www.youtube.com/embed/${bestVideo.id.videoId}?autoplay=1&controls=0`,
+                    youtubeId: bestVideo.id.videoId,
+                    title: bestVideo.snippet.title,
+                    description: bestVideo.snippet.description,
+                    startTime: 0,
+                    endTime: 30
+                };
+            } else {
+                throw new Error('No suitable videos found after trying multiple search strategies');
             }
-
-            // Select the best video (first result for now, could add more logic)
-            const video = data.items[0];
-            
-            return {
-                url: `https://www.youtube.com/embed/${video.id.videoId}?autoplay=1&controls=0`,
-                youtubeId: video.id.videoId,
-                title: video.snippet.title,
-                description: video.snippet.description,
-                startTime: 0,
-                endTime: 30 // Default 30 seconds, could be made dynamic
-            };
         } catch (error) {
             console.error('YouTube API error:', error);
-            // Fallback to placeholder video
-            return {
-                url: 'https://videos.pexels.com/video-files/3209828/3209828-hd_1280_720_25fps.mp4',
-                startTime: 0,
-                endTime: 15,
-                title: 'Educational Visual Content',
-                description: 'Visual content to support learning'
-            };
+            // Enhanced fallback with topic-specific placeholder
+            return createFallbackVideo(learningPoint);
         }
+    }
+
+    /**
+     * Creates a fallback video experience when YouTube API fails
+     */
+    function createFallbackVideo(learningPoint) {
+        return {
+            url: null, // No actual video URL
+            youtubeId: null,
+            title: `Learning: ${learningPoint}`,
+            description: `Educational content about ${learningPoint}`,
+            startTime: 0,
+            endTime: 20,
+            isFallback: true
+        };
     }
 
     /**
@@ -684,10 +751,16 @@ Keep it concise but informative, around 50-80 words total.`;
     /**
      * Enhanced video segment playback
      */
-    function playVideoSegment({ url, startTime, endTime, youtubeId }) {
+    function playVideoSegment({ url, startTime, endTime, youtubeId, title, isFallback }) {
         lessonState = 'playing_video';
         ui.nextSegmentButton.disabled = false;
         updatePlayPauseIcon();
+
+        // Handle fallback case - display visual content instead of video
+        if (isFallback || !url) {
+            displayEducationalVisual(title);
+            return;
+        }
 
         // Handle YouTube videos differently
         if (youtubeId) {
@@ -726,9 +799,24 @@ Keep it concise but informative, around 50-80 words total.`;
         }).catch(e => {
             console.error("Video play error:", e);
             Analytics.trackError(e, { context: 'video_playback' });
-            displayErrorOnCanvas("Could not play video.", "Continuing to next segment...");
-            setTimeout(() => handleVideoEnd(), 3000);
+            // Fallback to visual content instead of error
+            displayEducationalVisual(title || "Educational Content");
         });
+    }
+
+    /**
+     * Displays educational visual content when video is unavailable
+     */
+    function displayEducationalVisual(title) {
+        updateCanvasVisuals(
+            `📚 ${title}`,
+            "Take a moment to think about this concept. Click 'Next Segment' when ready to continue."
+        );
+
+        // Auto-advance after a reasonable time
+        setTimeout(() => {
+            handleVideoEnd();
+        }, 15000); // 15 seconds viewing time
     }
 
     /**
