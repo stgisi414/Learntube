@@ -208,18 +208,32 @@ Return 2-3 sentences, 60-100 words total.`;
 
         parseJSONResponse(response) {
             try {
-                // Extract JSON from response, handling markdown code blocks
-                let jsonMatch = response.match(/\{[\s\S]*\}/);
-                if (!jsonMatch) {
-                    jsonMatch = response.match(/```json\s*(\{[\s\S]*\})\s*```/);
-                    if (jsonMatch) jsonMatch[0] = jsonMatch[1];
+                // First try to parse the entire response as JSON
+                try {
+                    return JSON.parse(response);
+                } catch (e) {
+                    // Continue to extract JSON from markdown
                 }
 
-                if (!jsonMatch) {
-                    throw new Error('No JSON found in response');
+                // Extract JSON from markdown code blocks
+                let jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+                if (jsonMatch) {
+                    return JSON.parse(jsonMatch[1].trim());
                 }
 
-                return JSON.parse(jsonMatch[0]);
+                // Try to find JSON object
+                jsonMatch = response.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    return JSON.parse(jsonMatch[0]);
+                }
+
+                // Try to find JSON array
+                jsonMatch = response.match(/\[[\s\S]*\]/);
+                if (jsonMatch) {
+                    return JSON.parse(jsonMatch[0]);
+                }
+
+                throw new Error('No JSON found in response');
             } catch (error) {
                 console.error('JSON parse error:', error, 'Response:', response);
                 throw new Error('Invalid JSON in Gemini response');
@@ -1010,6 +1024,11 @@ Return 2-3 sentences, 60-100 words total.`;
     function handleVideoEnd() {
         updateCanvasVisuals("Segment Complete! 🎉", "Great job! Preparing the next learning segment...");
         setTimeout(() => processNextSegment(), 2000);
+    }
+
+    function handleVideoError(error) {
+        console.error('Video error:', error);
+        displayErrorOnCanvas("Video Error", "There was an error playing the video. Please try again or skip to the next segment.");
     }
 
     function updateProgressBar() {
