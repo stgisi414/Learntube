@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- API CONFIGURATION --- //
     const GEMINI_API_KEY = "AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA";
     const YOUTUBE_API_KEY = "AIzaSyBQLgFiUYdSNvpbyO_TgdzXmSvT9BFgal4";
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
     // --- STORAGE UTILITIES --- //
     const Storage = {
@@ -628,11 +628,10 @@ Keep it concise but informative, around 50-80 words total.`;
             console.error("Speech synthesis error:", e);
             Analytics.trackError(e, { context: 'speech_synthesis' });
             // Fallback: skip narration and go to video
-            setTimeout(() => {
-                if (lessonState === 'narrating') {
-                    playVideoSegment(videoInfo);
-                }
-            }, 1000);
+            if (lessonState === 'narrating') {
+                lessonState = 'idle';
+                playVideoSegment(videoInfo);
+            }
         };
 
         currentUtterance = utterance;
@@ -864,10 +863,14 @@ Keep it concise but informative, around 50-80 words total.`;
     // --- INITIALIZATION --- //
     initializeUI();
 
-    // Handle voice loading
+    // Handle voice loading - only log once
+    let voicesLoaded = false;
     if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = () => {
-            console.log("Speech synthesis voices loaded.");
+            if (!voicesLoaded) {
+                console.log("Speech synthesis voices loaded.");
+                voicesLoaded = true;
+            }
         };
     }
 
