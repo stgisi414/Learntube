@@ -731,6 +731,37 @@ Return 2-3 sentences, 60-100 words total.`;
     // --- INITIALIZE PIPELINE --- //
     const learningPipeline = new LearningPipeline();
 
+    // --- UTILITY FUNCTIONS (defined early to avoid reference errors) --- //
+    function handleVideoError(error) {
+        console.error('Video error:', error);
+        
+        // Reset video display and show error on canvas
+        ui.canvas.style.opacity = '1';
+        ui.video.style.opacity = '0';
+        ui.video.style.pointerEvents = 'none';
+        ui.video.src = '';
+        
+        displayErrorOnCanvas("Video Error", "There was an error playing the video. Continuing to next segment...");
+        setTimeout(() => processNextSegment(true), 3000);
+    }
+
+    function handleVideoEnd() {
+        // Reset video display
+        ui.canvas.style.opacity = '1';
+        ui.video.style.opacity = '0';
+        ui.video.style.pointerEvents = 'none';
+        ui.video.src = '';
+        
+        updateCanvasVisuals("Segment Complete! 🎉", "Great job! Preparing the next learning segment...");
+        setTimeout(() => processNextSegment(), 2000);
+    }
+
+    function updateProgressBar() {
+        if (!ui.video.duration || ui.video.duration === Infinity) return;
+        const progress = (ui.video.currentTime / ui.video.duration) * 100;
+        ui.progressBar.style.width = `${Math.min(progress, 100)}%`;
+    }
+
     // --- UI EVENT HANDLERS --- //
     function initializeUI() {
         ui.curateButton.addEventListener('click', handleCurateClick);
@@ -1155,35 +1186,7 @@ Return 2-3 sentences, 60-100 words total.`;
         ui.pauseIcon.classList.toggle('hidden', !isPlaying);
     }
 
-    function handleVideoEnd() {
-        // Reset video display
-        ui.canvas.style.opacity = '1';
-        ui.video.style.opacity = '0';
-        ui.video.style.pointerEvents = 'none';
-        ui.video.src = '';
-        
-        updateCanvasVisuals("Segment Complete! 🎉", "Great job! Preparing the next learning segment...");
-        setTimeout(() => processNextSegment(), 2000);
-    }
-
-    function handleVideoError(error) {
-        console.error('Video error:', error);
-        
-        // Reset video display and show error on canvas
-        ui.canvas.style.opacity = '1';
-        ui.video.style.opacity = '0';
-        ui.video.style.pointerEvents = 'none';
-        ui.video.src = '';
-        
-        displayErrorOnCanvas("Video Error", "There was an error playing the video. Continuing to next segment...");
-        setTimeout(() => processNextSegment(true), 3000);
-    }
-
-    function updateProgressBar() {
-        if (!ui.video.duration || ui.video.duration === Infinity) return;
-        const progress = (ui.video.currentTime / ui.video.duration) * 100;
-        ui.progressBar.style.width = `${Math.min(progress, 100)}%`;
-    }
+    
 
     function wrapText(text, x, y, maxWidth, lineHeight) {
         const words = text.split(' ');
