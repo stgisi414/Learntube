@@ -1095,13 +1095,16 @@ Return ONLY valid JSON:
         currentSegmentIndex = -1;
         learningPipeline.completedSegments = [];
 
+        // Hide level selection but keep canvas hidden until videos are ready
         ui.levelSelection.classList.add('hidden');
-        ui.learningCanvasContainer.classList.remove('hidden');
+        
+        // Show loading indicator while preparing videos
+        showLoading(`Preparing ${level} level videos...`);
         
         try {
-            // Prepare all videos for this level before starting
+            // Prepare all videos for this level before showing canvas
             const learningPoints = currentLessonPlan[level];
-            updateCanvasVisuals(`Preparing ${level} Level`, 'Finding and validating educational videos...');
+            updateLoadingMessage('Finding and validating educational videos...');
             
             const prepared = await learningPipeline.prepareLevel(level, learningPoints);
             
@@ -1109,14 +1112,17 @@ Return ONLY valid JSON:
                 throw new Error('Failed to prepare lesson content');
             }
             
+            // Only show canvas after videos are prepared
+            hideLoading();
+            ui.learningCanvasContainer.classList.remove('hidden');
             updateCanvasVisuals(`${level} Level Ready!`, 'All content prepared. Starting your lesson...');
             setTimeout(() => processNextSegment(), 2000);
             
         } catch (error) {
             console.error('Failed to start lesson:', error);
+            hideLoading();
             displayError('Failed to prepare lesson content. Please try a different level or topic.');
             ui.levelSelection.classList.remove('hidden');
-            ui.learningCanvasContainer.classList.add('hidden');
         }
     }
 
