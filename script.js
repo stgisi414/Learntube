@@ -146,20 +146,33 @@ Return ONLY a JSON array: ["query1", "query2", "query3", "query4", "query5"]`;
 
         // NARRATION GENERATION
         async generateNarration(learningPoint, previousPoint, videoTitle, context = {}) {
-            const contextText = previousPoint
-                ? `Previous topic: "${previousPoint}". Current topic: "${learningPoint}".`
-                : `Starting lesson on: "${learningPoint}".`;
-
-            const prompt = `${contextText}
+            let prompt;
+            
+            if (previousPoint) {
+                // Continuation narration - bridge from previous topic
+                prompt = `Previous topic: "${previousPoint}". Current topic: "${learningPoint}".
 
 Create a 2-3 sentence narration bridge for this learning segment:
-1. Acknowledge previous topic if provided
-2. Introduce current topic: "${learningPoint}"
-3. Set expectations for video: "${videoTitle}"
+1. Acknowledge the previous topic we just covered
+2. Transition smoothly to current topic: "${learningPoint}"
+3. Set expectations for the upcoming video: "${videoTitle}"
 4. Be conversational and engaging
 5. Keep it 50-80 words for text-to-speech
 
 Return ONLY the narration text, no quotes or formatting.`;
+            } else {
+                // Opening narration - start of lesson
+                prompt = `Starting a new lesson on: "${learningPoint}".
+
+Create a 2-3 sentence opening narration for this learning segment:
+1. Welcome the learner and introduce the topic: "${learningPoint}"
+2. Explain what they'll learn in this first segment
+3. Set expectations for the upcoming video: "${videoTitle}"
+4. Be enthusiastic and engaging to start the lesson
+5. Keep it 50-80 words for text-to-speech
+
+Return ONLY the narration text, no quotes or formatting.`;
+            }
 
             return await this.makeRequest(prompt, { temperature: 0.8, maxOutputTokens: 256 });
         }
