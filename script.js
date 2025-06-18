@@ -315,21 +315,106 @@ Return 2-3 sentences, 60-100 words total.`;
 
             if (items.length === 0) return null;
 
-            // Score and select best video
+            // Score and select best video with captions
             const scoredVideos = items.map(item => ({
                 ...item,
                 score: this.scoreVideo(item)
             })).sort((a, b) => b.score - a.score);
 
-            const bestVideo = scoredVideos[0];
+            // Try to get video details and captions for the best candidates
+            for (const video of scoredVideos.slice(0, 3)) {
+                try {
+                    const videoDetails = await this.getVideoWithCaptions(video.id.videoId);
+                    if (videoDetails) {
+                        return videoDetails;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to get captions for video ${video.id.videoId}:`, error);
+                    continue;
+                }
+            }
 
+            // Fallback to best scored video without caption verification
+            const bestVideo = scoredVideos[0];
             return {
                 youtubeId: bestVideo.id.videoId,
                 title: bestVideo.snippet.title,
                 description: bestVideo.snippet.description,
-                url: `https://www.youtube.com/embed/${bestVideo.id.videoId}?autoplay=1&controls=0&cc_load_policy=1`,
-                duration: 30 // Default duration
+                url: `https://www.youtube.com/embed/${bestVideo.id.videoId}?autoplay=1&controls=0&cc_load_policy=1&start=0&end=60`,
+                duration: 60,
+                captionSnippet: null
             };
+        }
+
+        async getVideoWithCaptions(videoId) {
+            try {
+                // Get video details first
+                const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`);
+                if (!videoResponse.ok) return null;
+                
+                const videoData = await videoResponse.json();
+                const video = videoData.items?.[0];
+                if (!video) return null;
+
+                // Parse video duration
+                const duration = this.parseDuration(video.contentDetails.duration);
+                
+                // Get available captions
+                const captionsResponse = await fetch(`https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${YOUTUBE_API_KEY}`);
+                if (!captionsResponse.ok) {
+                    // Return video without captions
+                    return {
+                        youtubeId: videoId,
+                        title: video.snippet.title,
+                        description: video.snippet.description,
+                        url: `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&cc_load_policy=1&start=0&end=${Math.min(duration, 120)}`,
+                        duration: Math.min(duration, 120),
+                        captionSnippet: null
+                    };
+                }
+
+                const captionsData = await captionsResponse.json();
+                const captions = captionsData.items || [];
+                
+                // Find English captions
+                const englishCaption = captions.find(cap => 
+                    cap.snippet.language === 'en' || 
+                    cap.snippet.language === 'en-US'
+                );
+
+                if (englishCaption) {
+                    // For now, we'll use the video with a reasonable time segment
+                    // In a full implementation, you'd download and parse the caption file
+                    const segmentDuration = Math.min(duration, 90);
+                    
+                    return {
+                        youtubeId: videoId,
+                        title: video.snippet.title,
+                        description: video.snippet.description,
+                        url: `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&cc_load_policy=1&start=0&end=${segmentDuration}`,
+                        duration: segmentDuration,
+                        captionSnippet: `Educational content from: ${video.snippet.title}`,
+                        hasCaptions: true
+                    };
+                }
+
+                return null;
+            } catch (error) {
+                console.error('Error getting video with captions:', error);
+                return null;
+            }
+        }
+
+        parseDuration(duration) {
+            // Parse ISO 8601 duration (PT1M30S format)
+            const matches = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+            if (!matches) return 60;
+            
+            const hours = parseInt(matches[1] || 0);
+            const minutes = parseInt(matches[2] || 0);
+            const seconds = parseInt(matches[3] || 0);
+            
+            return hours * 3600 + minutes * 60 + seconds;
         }
 
         scoreVideo(item) {
@@ -563,11 +648,36 @@ Return 2-3 sentences, 60-100 words total.`;
                 );
                 setTimeout(() => handleVideoEnd(), 15000);
             } else {
-                updateCanvasVisuals(
-                    "Educational Video",
-                    `Watch: ${videoInfo.title}`
-                );
-                setTimeout(() => handleVideoEnd(), 25000);
+                // Hide canvas and show video
+                ui.canvas.style.opacity = '0.3';
+                ui.video.style.opacity = '1';
+                ui.video.style.pointerEvents = 'auto';
+                
+                // Set video source and play
+                ui.video.src = videoInfo.url;
+                ui.video.load();
+                
+                try {
+                    await ui.video.play();
+                    
+                    // Auto-advance after video duration
+                    setTimeout(() => {
+                        if (lessonState === 'playing_video') {
+                            handleVideoEnd();
+                        }
+                    }, (videoInfo.duration * 1000) + 2000); // Add 2 seconds buffer
+                    
+                } catch (error) {
+                    console.error('Video play failed:', error);
+                    // Fallback to canvas display
+                    ui.canvas.style.opacity = '1';
+                    ui.video.style.opacity = '0';
+                    updateCanvasVisuals(
+                        "Educational Content",
+                        `Learning about: ${videoInfo.title}`
+                    );
+                    setTimeout(() => handleVideoEnd(), 20000);
+                }
             }
         }
 
@@ -636,7 +746,7 @@ Return 2-3 sentences, 60-100 words total.`;
         });
         ui.video.addEventListener('timeupdate', updateProgressBar);
         ui.video.addEventListener('ended', handleVideoEnd);
-        ui.video.addEventListener('error', handleVideoError);
+        ui.video.addEventListener('error', (e) => handleVideoError(e));
 
         document.addEventListener('keydown', handleKeyboardShortcuts);
         loadPreviousSession();
@@ -960,6 +1070,10 @@ Return 2-3 sentences, 60-100 words total.`;
         ui.inputSection.classList.remove('hidden');
         ui.curateButton.disabled = false;
         ui.canvas.style.display = 'block';
+        ui.canvas.style.opacity = '1';
+        ui.video.style.opacity = '0';
+        ui.video.style.pointerEvents = 'none';
+        ui.video.src = '';
 
         // Remove any quiz containers
         const quizContainers = ui.learningCanvasContainer.querySelectorAll('.bg-gray-800\\/50');
@@ -1016,11 +1130,18 @@ Return 2-3 sentences, 60-100 words total.`;
 
     function playPauseLesson() {
         if (lessonState === 'playing_video') {
-            ui.video.pause();
-            lessonState = 'paused';
+            if (!ui.video.paused) {
+                ui.video.pause();
+                lessonState = 'paused';
+            }
         } else if (lessonState === 'paused') {
-            ui.video.play();
-            lessonState = 'playing_video';
+            if (ui.video.paused) {
+                ui.video.play().catch(error => {
+                    console.error('Play failed:', error);
+                    handleVideoError(error);
+                });
+                lessonState = 'playing_video';
+            }
         } else if (lessonState === 'narrating') {
             speechSynthesis.cancel();
             lessonState = 'idle';
@@ -1035,13 +1156,27 @@ Return 2-3 sentences, 60-100 words total.`;
     }
 
     function handleVideoEnd() {
+        // Reset video display
+        ui.canvas.style.opacity = '1';
+        ui.video.style.opacity = '0';
+        ui.video.style.pointerEvents = 'none';
+        ui.video.src = '';
+        
         updateCanvasVisuals("Segment Complete! 🎉", "Great job! Preparing the next learning segment...");
         setTimeout(() => processNextSegment(), 2000);
     }
 
     function handleVideoError(error) {
         console.error('Video error:', error);
-        displayErrorOnCanvas("Video Error", "There was an error playing the video. Please try again or skip to the next segment.");
+        
+        // Reset video display and show error on canvas
+        ui.canvas.style.opacity = '1';
+        ui.video.style.opacity = '0';
+        ui.video.style.pointerEvents = 'none';
+        ui.video.src = '';
+        
+        displayErrorOnCanvas("Video Error", "There was an error playing the video. Continuing to next segment...");
+        setTimeout(() => processNextSegment(true), 3000);
     }
 
     function updateProgressBar() {
