@@ -115,12 +115,53 @@ Generate exactly 4 difficulty levels with exactly 5 learning points each:
 3. Senior (Advanced): Complex theories, advanced applications, critical analysis
 4. Master (Expert): Cutting-edge developments, philosophical implications, synthesis
 
+Each learning point should be:
+- Specific and focused on one concept
+- Searchable on YouTube with educational content
+- Appropriate for the difficulty level
+- Progressive in complexity within each level
+
 Return ONLY valid JSON in this exact format:
 {
   "Apprentice": ["point1", "point2", "point3", "point4", "point5"],
   "Journeyman": ["point1", "point2", "point3", "point4", "point5"],
   "Senior": ["point1", "point2", "point3", "point4", "point5"],
   "Master": ["point1", "point2", "point3", "point4", "point5"]
+}`;
+
+            const response = await this.makeRequest(prompt);
+            return this.parseJSONResponse(response);
+        }
+
+        // LESSON PLAN VALIDATION
+        async validateLessonPlan(lessonPlan, topic) {
+            const prompt = `Review this lesson plan for "${topic}" and ensure quality:
+
+${JSON.stringify(lessonPlan, null, 2)}
+
+Check for:
+1. Logical progression within each level
+2. Clear distinction between difficulty levels
+3. Searchable learning points that would have educational YouTube videos
+4. Comprehensive coverage of the topic
+5. Appropriate complexity for each level
+
+Rate each aspect 1-10 and provide specific improvements if any score is below 8.
+If the lesson plan needs major revisions, suggest specific replacements.
+
+Return ONLY valid JSON:
+{
+  "scores": {
+    "progression": 8,
+    "distinction": 9,
+    "searchability": 7,
+    "coverage": 8,
+    "complexity": 9
+  },
+  "overallQuality": 8.2,
+  "needsRevision": false,
+  "improvements": ["specific suggestion 1", "specific suggestion 2"],
+  "revisedPlan": null
 }`;
 
             const response = await this.makeRequest(prompt);
@@ -261,8 +302,29 @@ Return 2-3 sentences, 60-100 words total.`;
             this.cache = new Map();
         }
 
-        async findVideo(learningPoint, topic) {
-            const cacheKey = `${topic}:${learningPoint}`;
+        // Pre-source all videos for a lesson plan level
+        async preSourceVideos(learningPoints, topic, level) {
+            const videoMap = new Map();
+            showLoading(`Finding educational videos for ${level} level...`);
+            
+            for (let i = 0; i < learningPoints.length; i++) {
+                const point = learningPoints[i];
+                updateLoadingMessage(`Finding video ${i + 1}/${learningPoints.length}: ${point}`);
+                
+                try {
+                    const video = await this.findAndValidateVideo(point, topic, level);
+                    videoMap.set(point, video);
+                } catch (error) {
+                    console.warn(`Failed to source video for: ${point}`, error);
+                    videoMap.set(point, this.createFallbackVideo(point));
+                }
+            }
+            
+            return videoMap;
+        }
+
+        async findAndValidateVideo(learningPoint, topic, level) {
+            const cacheKey = `${topic}:${learningPoint}:${level}`;
             if (this.cache.has(cacheKey)) {
                 return this.cache.get(cacheKey);
             }
@@ -275,8 +337,12 @@ Return 2-3 sentences, 60-100 words total.`;
                     try {
                         const video = await this.searchYouTube(query);
                         if (video) {
-                            this.cache.set(cacheKey, video);
-                            return video;
+                            // Validate video relevance
+                            const isRelevant = await this.validateVideoRelevance(video, learningPoint, topic);
+                            if (isRelevant) {
+                                this.cache.set(cacheKey, video);
+                                return video;
+                            }
                         }
                     } catch (error) {
                         console.warn(`Search failed for: ${query}`, error);
@@ -290,6 +356,42 @@ Return 2-3 sentences, 60-100 words total.`;
                 console.error('Video sourcing failed:', error);
                 return this.createFallbackVideo(learningPoint);
             }
+        }
+
+        async validateVideoRelevance(video, learningPoint, topic) {
+            if (!video.title || !video.description) return false;
+            
+            try {
+                const prompt = `Does this YouTube video match the learning objective?
+
+Learning Point: "${learningPoint}"
+Topic: "${topic}"
+
+Video Title: "${video.title}"
+Video Description: "${video.description.substring(0, 500)}"
+
+Rate relevance 1-10 and explain if this video would help someone learn about "${learningPoint}" in the context of "${topic}".
+
+Return ONLY valid JSON:
+{
+  "relevanceScore": 8,
+  "isRelevant": true,
+  "reasoning": "This video directly explains the concept with clear examples"
+}`;
+
+                const response = await this.gemini.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 256 });
+                const validation = this.gemini.parseJSONResponse(response);
+                
+                return validation.relevanceScore >= 7 && validation.isRelevant;
+            } catch (error) {
+                console.warn('Video validation failed:', error);
+                // Default to true for fallback
+                return true;
+            }
+        }
+
+        async findVideo(learningPoint, topic) {
+            return await this.findAndValidateVideo(learningPoint, topic, 'general');
         }
 
         async searchYouTube(query) {
@@ -576,6 +678,7 @@ Return 2-3 sentences, 60-100 words total.`;
             this.quizEngine = new QuizEngine(this.gemini);
             this.currentTopic = '';
             this.completedSegments = [];
+            this.videoMaps = new Map(); // Store pre-sourced videos by level
         }
 
         async generateLessonPlan(topic) {
@@ -583,8 +686,22 @@ Return 2-3 sentences, 60-100 words total.`;
             showLoading("Generating comprehensive lesson plan...");
 
             try {
-                const lessonPlan = await this.gemini.generateLessonPlan(topic);
-                console.log('Generated lesson plan:', lessonPlan);
+                // Step 1: Generate initial lesson plan
+                let lessonPlan = await this.gemini.generateLessonPlan(topic);
+                
+                // Step 2: Validate the lesson plan
+                updateLoadingMessage("Validating lesson plan quality...");
+                const validation = await this.gemini.validateLessonPlan(lessonPlan, topic);
+                
+                // Step 3: Use revised plan if needed
+                if (validation.needsRevision && validation.revisedPlan) {
+                    lessonPlan = validation.revisedPlan;
+                    console.log('Using revised lesson plan');
+                }
+                
+                // Step 4: Log quality assessment
+                console.log('Lesson plan validation:', validation);
+                
                 return lessonPlan;
             } catch (error) {
                 console.error('Lesson plan generation failed:', error);
@@ -592,17 +709,39 @@ Return 2-3 sentences, 60-100 words total.`;
             }
         }
 
-        async processSegment(learningPoint, previousPoint = null) {
-            showLoadingMessageOnCanvas(`Sourcing content for: "${learningPoint}"`);
+        async prepareLevel(level, learningPoints) {
+            try {
+                // Pre-source and validate all videos for this level
+                const videoMap = await this.videoSourcer.preSourceVideos(learningPoints, this.currentTopic, level);
+                this.videoMaps.set(level, videoMap);
+                console.log(`Pre-sourced ${videoMap.size} videos for ${level} level`);
+                return true;
+            } catch (error) {
+                console.error(`Failed to prepare ${level} level:`, error);
+                return false;
+            }
+        }
+
+        async processSegment(learningPoint, previousPoint = null, level) {
+            showLoadingMessageOnCanvas(`Preparing: "${learningPoint}"`);
 
             try {
-                // Parallel processing for efficiency
-                const [videoInfo, narrationText] = await Promise.all([
-                    this.videoSourcer.findVideo(learningPoint, this.currentTopic),
-                    this.gemini.generateNarration(learningPoint, previousPoint, 'Educational Content')
-                ]);
+                // Get pre-sourced video for this learning point
+                const videoMap = this.videoMaps.get(level);
+                const videoInfo = videoMap ? videoMap.get(learningPoint) : null;
+                
+                if (!videoInfo) {
+                    throw new Error('No pre-sourced video found');
+                }
 
-                console.log('Segment processed:', { learningPoint, videoInfo, narrationText });
+                // Generate narration with video context
+                const narrationText = await this.gemini.generateNarration(
+                    learningPoint, 
+                    previousPoint, 
+                    videoInfo.title
+                );
+
+                console.log('Segment ready:', { learningPoint, videoInfo, narrationText });
 
                 // Execute narration and video sequence
                 await this.executeSegment(narrationText, videoInfo);
@@ -913,7 +1052,7 @@ Return 2-3 sentences, 60-100 words total.`;
         ui.levelSelection.classList.remove('hidden');
     }
 
-    function startLesson(level) {
+    async function startLesson(level) {
         console.log('Starting lesson at level:', level);
         currentLearningPath = level;
         currentSegmentIndex = -1;
@@ -921,9 +1060,27 @@ Return 2-3 sentences, 60-100 words total.`;
 
         ui.levelSelection.classList.add('hidden');
         ui.learningCanvasContainer.classList.remove('hidden');
-        updateCanvasVisuals(`Starting ${level} Level`, 'Preparing your personalized learning experience...');
-
-        setTimeout(() => processNextSegment(), 1500);
+        
+        try {
+            // Prepare all videos for this level before starting
+            const learningPoints = currentLessonPlan[level];
+            updateCanvasVisuals(`Preparing ${level} Level`, 'Finding and validating educational videos...');
+            
+            const prepared = await learningPipeline.prepareLevel(level, learningPoints);
+            
+            if (!prepared) {
+                throw new Error('Failed to prepare lesson content');
+            }
+            
+            updateCanvasVisuals(`${level} Level Ready!`, 'All content prepared. Starting your lesson...');
+            setTimeout(() => processNextSegment(), 2000);
+            
+        } catch (error) {
+            console.error('Failed to start lesson:', error);
+            displayError('Failed to prepare lesson content. Please try a different level or topic.');
+            ui.levelSelection.classList.remove('hidden');
+            ui.learningCanvasContainer.classList.add('hidden');
+        }
     }
 
     async function processNextSegment(forceNext = false) {
@@ -948,7 +1105,7 @@ Return 2-3 sentences, 60-100 words total.`;
         ui.nextSegmentButton.disabled = true;
 
         try {
-            await learningPipeline.processSegment(learningPoint, previousPoint);
+            await learningPipeline.processSegment(learningPoint, previousPoint, currentLearningPath);
             retryCount = 0;
         } catch (error) {
             console.error("Error processing segment:", error);
@@ -1098,6 +1255,10 @@ Return 2-3 sentences, 60-100 words total.`;
         ui.inputSection.classList.add('hidden');
         ui.loadingMessage.textContent = message;
         ui.loadingIndicator.classList.remove('hidden');
+    }
+
+    function updateLoadingMessage(message) {
+        ui.loadingMessage.textContent = message;
     }
 
     function hideLoading() {
