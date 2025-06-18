@@ -806,26 +806,45 @@ Return ONLY valid JSON:
                 existingIframe.remove();
             }
 
+            // Clear any existing error timeouts
+            clearTimeout(window.videoErrorTimeout);
+
             // Hide canvas and video element
             ui.canvas.style.opacity = '0.3';
             ui.video.style.opacity = '0';
             ui.video.style.pointerEvents = 'none';
 
-            // Create iframe container
-            const iframeContainer = document.createElement('div');
-            iframeContainer.className = 'youtube-iframe absolute top-0 left-0 w-full h-full';
-            
-            const iframe = document.createElement('iframe');
-            iframe.src = `https://www.youtube.com/embed/${videoInfo.youtubeId}?autoplay=1&controls=1&rel=0&modestbranding=1&start=0&end=${videoInfo.duration}`;
-            iframe.className = 'w-full h-full';
-            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-            iframe.allowFullscreen = true;
-            
-            iframeContainer.appendChild(iframe);
-            
-            // Add to the video container area
-            const videoContainer = ui.learningCanvasContainer.querySelector('.relative');
-            videoContainer.appendChild(iframeContainer);
+            try {
+                // Create iframe container
+                const iframeContainer = document.createElement('div');
+                iframeContainer.className = 'youtube-iframe absolute top-0 left-0 w-full h-full';
+                
+                const iframe = document.createElement('iframe');
+                iframe.src = `https://www.youtube.com/embed/${videoInfo.youtubeId}?autoplay=1&controls=1&rel=0&modestbranding=1&start=0&end=${videoInfo.duration}`;
+                iframe.className = 'w-full h-full';
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                iframe.allowFullscreen = true;
+                
+                // Add error handling for iframe
+                iframe.onerror = () => {
+                    console.warn('YouTube iframe failed to load');
+                    handleVideoError(new Error('YouTube iframe loading failed'));
+                };
+                
+                iframeContainer.appendChild(iframe);
+                
+                // Add to the video container area
+                const videoContainer = ui.learningCanvasContainer.querySelector('.relative');
+                if (videoContainer) {
+                    videoContainer.appendChild(iframeContainer);
+                } else {
+                    console.error('Video container not found');
+                    handleVideoError(new Error('Video container not found'));
+                }
+            } catch (error) {
+                console.error('Failed to create YouTube iframe:', error);
+                handleVideoError(error);
+            }
         }
 
         async generateFinalQuiz(level) {
@@ -882,6 +901,10 @@ Return ONLY valid JSON:
     function handleVideoError(error) {
         console.error('Video error:', error);
         
+        // Prevent multiple error calls
+        if (lessonState === 'error') return;
+        lessonState = 'error';
+        
         // Reset video display and show error on canvas
         ui.canvas.style.opacity = '1';
         ui.video.style.opacity = '0';
@@ -894,11 +917,25 @@ Return ONLY valid JSON:
             existingIframe.remove();
         }
         
+        // Remove any existing error timeouts
+        clearTimeout(window.videoErrorTimeout);
+        
         displayErrorOnCanvas("Video Error", "There was an error playing the video. Continuing to next segment...");
-        setTimeout(() => processNextSegment(true), 3000);
+        window.videoErrorTimeout = setTimeout(() => {
+            if (lessonState === 'error') {
+                processNextSegment(true);
+            }
+        }, 3000);
     }
 
     function handleVideoEnd() {
+        // Prevent multiple calls
+        if (lessonState === 'ending' || lessonState === 'error') return;
+        lessonState = 'ending';
+        
+        // Clear any existing timeouts
+        clearTimeout(window.videoErrorTimeout);
+        
         // Reset video display and remove iframe
         ui.canvas.style.opacity = '1';
         ui.video.style.opacity = '0';
@@ -1086,8 +1123,20 @@ Return ONLY valid JSON:
     async function processNextSegment(forceNext = false) {
         if (lessonState === 'narrating' && !forceNext) return;
 
+        // Clear any existing timeouts
+        clearTimeout(window.videoErrorTimeout);
+        
+        // Reset lesson state
+        lessonState = 'idle';
+        
         learningPipeline.speechEngine.stop();
         if (!ui.video.paused) ui.video.pause();
+
+        // Remove any existing YouTube iframes
+        const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
+        if (existingIframe) {
+            existingIframe.remove();
+        }
 
         currentSegmentIndex++;
         const learningPoints = currentLessonPlan[currentLearningPath];
