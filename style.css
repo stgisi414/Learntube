@@ -1,4 +1,20 @@
-html {
-  height: 100%;
-  width: 100%;
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Custom styles for the loader */
+.loader {
+  border-top-color: #3498db;
+  -webkit-animation: spin 1s linear infinite;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+      -webkit-transform: rotate(360deg);
+  }
+}
+
+h1 {
+  letter-spacing: -0.075em !important;
 }
