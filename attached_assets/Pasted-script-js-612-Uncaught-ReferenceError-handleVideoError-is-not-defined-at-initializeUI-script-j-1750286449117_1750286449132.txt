@@ -1,0 +1,48 @@
+script.js:612 Uncaught ReferenceError: handleVideoError is not defined
+    at initializeUI (script.js:612:44)
+    at HTMLDocument.<anonymous> (script.js:1087:5)
+initializeUI @ script.js:612
+(anonymous) @ script.js:1087Understand this error
+script.js:475 Generated lesson plan: {Apprentice: Array(5), Journeyman: Array(5), Senior: Array(5), Master: Array(5)}
+script.js:729 Starting lesson at level: Apprentice
+script.js:224 JSON parse error: Error: No JSON found in response
+    at GeminiOrchestrator.parseJSONResponse (script.js:219:27)
+    at GeminiOrchestrator.generateSearchQueries (script.js:144:25)
+    at async VideoSourcer.findVideo (script.js:245:39)
+    at async Promise.all (/index 0)
+    at async LearningPipeline.processSegment (script.js:488:52)
+    at async processNextSegment (script.js:763:13) Response: ```json
+[
+"Care Bears history 1981-1985 origin design educational video captions",
+"Care Bears early designs documentary captions university lecture",
+"tutorial Care Bears 1981-1985 character design history explanation",
+"how to understand Care Bears origins 1980s academic analysis captions",
+"Care Bears 80s animation history documentary style educational video"
+]
+```
+parseJSONResponse @ script.js:224
+generateSearchQueries @ script.js:144
+await in generateSearchQueries
+findVideo @ script.js:245
+processSegment @ script.js:489
+processNextSegment @ script.js:763
+(anonymous) @ script.js:738
+setTimeout
+startLesson @ script.js:738
+button.onclick @ script.js:718Understand this error
+script.js:263 Video sourcing failed: Error: Invalid JSON in Gemini response
+    at GeminiOrchestrator.parseJSONResponse (script.js:225:23)
+    at GeminiOrchestrator.generateSearchQueries (script.js:144:25)
+    at async VideoSourcer.findVideo (script.js:245:39)
+    at async Promise.all (/index 0)
+    at async LearningPipeline.processSegment (script.js:488:52)
+    at async processNextSegment (script.js:763:13)
+findVideo @ script.js:263
+await in findVideo
+processSegment @ script.js:489
+processNextSegment @ script.js:763
+(anonymous) @ script.js:738
+setTimeout
+startLesson @ script.js:738
+button.onclick @ script.js:718Understand this error
+script.js:493 Segment processed: {learningPoint: 'Introduction to the Care Bears: Origin and early designs (1981-1985)', videoInfo: {…}, narrationText: "Okay, we just explored the history of plush toys, …ur favorite stuffed friend and let's get started!"}
