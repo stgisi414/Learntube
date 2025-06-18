@@ -340,7 +340,7 @@ Return 2-3 sentences, 60-100 words total.`;
                 youtubeId: bestVideo.id.videoId,
                 title: bestVideo.snippet.title,
                 description: bestVideo.snippet.description,
-                url: `https://www.youtube.com/embed/${bestVideo.id.videoId}?autoplay=1&controls=0&cc_load_policy=1&start=0&end=60`,
+                url: null, // We'll use iframe instead
                 duration: 60,
                 captionSnippet: null
             };
@@ -367,7 +367,7 @@ Return 2-3 sentences, 60-100 words total.`;
                         youtubeId: videoId,
                         title: video.snippet.title,
                         description: video.snippet.description,
-                        url: `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&cc_load_policy=1&start=0&end=${Math.min(duration, 120)}`,
+                        url: null, // We'll use iframe instead
                         duration: Math.min(duration, 120),
                         captionSnippet: null
                     };
@@ -391,7 +391,7 @@ Return 2-3 sentences, 60-100 words total.`;
                         youtubeId: videoId,
                         title: video.snippet.title,
                         description: video.snippet.description,
-                        url: `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&cc_load_policy=1&start=0&end=${segmentDuration}`,
+                        url: null, // We'll use iframe instead
                         duration: segmentDuration,
                         captionSnippet: `Educational content from: ${video.snippet.title}`,
                         hasCaptions: true
@@ -648,37 +648,45 @@ Return 2-3 sentences, 60-100 words total.`;
                 );
                 setTimeout(() => handleVideoEnd(), 15000);
             } else {
-                // Hide canvas and show video
-                ui.canvas.style.opacity = '0.3';
-                ui.video.style.opacity = '1';
-                ui.video.style.pointerEvents = 'auto';
+                // Instead of using video element, create YouTube iframe
+                this.createYouTubeIframe(videoInfo);
                 
-                // Set video source and play
-                ui.video.src = videoInfo.url;
-                ui.video.load();
-                
-                try {
-                    await ui.video.play();
-                    
-                    // Auto-advance after video duration
-                    setTimeout(() => {
-                        if (lessonState === 'playing_video') {
-                            handleVideoEnd();
-                        }
-                    }, (videoInfo.duration * 1000) + 2000); // Add 2 seconds buffer
-                    
-                } catch (error) {
-                    console.error('Video play failed:', error);
-                    // Fallback to canvas display
-                    ui.canvas.style.opacity = '1';
-                    ui.video.style.opacity = '0';
-                    updateCanvasVisuals(
-                        "Educational Content",
-                        `Learning about: ${videoInfo.title}`
-                    );
-                    setTimeout(() => handleVideoEnd(), 20000);
-                }
+                // Auto-advance after video duration
+                setTimeout(() => {
+                    if (lessonState === 'playing_video') {
+                        handleVideoEnd();
+                    }
+                }, (videoInfo.duration * 1000) + 2000); // Add 2 seconds buffer
             }
+        }
+
+        createYouTubeIframe(videoInfo) {
+            // Remove existing iframe if any
+            const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
+            if (existingIframe) {
+                existingIframe.remove();
+            }
+
+            // Hide canvas and video element
+            ui.canvas.style.opacity = '0.3';
+            ui.video.style.opacity = '0';
+            ui.video.style.pointerEvents = 'none';
+
+            // Create iframe container
+            const iframeContainer = document.createElement('div');
+            iframeContainer.className = 'youtube-iframe absolute top-0 left-0 w-full h-full';
+            
+            const iframe = document.createElement('iframe');
+            iframe.src = `https://www.youtube.com/embed/${videoInfo.youtubeId}?autoplay=1&controls=1&rel=0&modestbranding=1&start=0&end=${videoInfo.duration}`;
+            iframe.className = 'w-full h-full';
+            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+            iframe.allowFullscreen = true;
+            
+            iframeContainer.appendChild(iframe);
+            
+            // Add to the video container area
+            const videoContainer = ui.learningCanvasContainer.querySelector('.relative');
+            videoContainer.appendChild(iframeContainer);
         }
 
         async generateFinalQuiz(level) {
@@ -741,16 +749,28 @@ Return 2-3 sentences, 60-100 words total.`;
         ui.video.style.pointerEvents = 'none';
         ui.video.src = '';
         
+        // Remove YouTube iframe if it exists
+        const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
+        if (existingIframe) {
+            existingIframe.remove();
+        }
+        
         displayErrorOnCanvas("Video Error", "There was an error playing the video. Continuing to next segment...");
         setTimeout(() => processNextSegment(true), 3000);
     }
 
     function handleVideoEnd() {
-        // Reset video display
+        // Reset video display and remove iframe
         ui.canvas.style.opacity = '1';
         ui.video.style.opacity = '0';
         ui.video.style.pointerEvents = 'none';
         ui.video.src = '';
+        
+        // Remove YouTube iframe if it exists
+        const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
+        if (existingIframe) {
+            existingIframe.remove();
+        }
         
         updateCanvasVisuals("Segment Complete! 🎉", "Great job! Preparing the next learning segment...");
         setTimeout(() => processNextSegment(), 2000);
