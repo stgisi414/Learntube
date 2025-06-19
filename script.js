@@ -407,7 +407,12 @@ Return ONLY valid JSON:
             });
 
             const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams}`, {
-                referrerPolicy: "origin"
+                method: 'GET',
+                headers: {
+                    'Referer': 'https://learntube.cc/',
+                    'Origin': 'https://learntube.cc'
+                },
+                referrerPolicy: "unsafe-url"
             });
 
             if (!response.ok) {
@@ -472,7 +477,12 @@ Return ONLY valid JSON:
 
                 // Get available captions
                 const captionsResponse = await fetch(`https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${YOUTUBE_API_KEY}`, {
-                    referrerPolicy: "origin"
+                    method: 'GET',
+                    headers: {
+                        'Referer': 'https://learntube.cc/',
+                        'Origin': 'https://learntube.cc'
+                    },
+                    referrerPolicy: "unsafe-url"
                 });
                 if (!captionsResponse.ok) {
                     // Return video without captions
