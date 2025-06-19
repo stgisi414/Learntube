@@ -126,8 +126,7 @@ Return ONLY valid JSON in this exact format:
 {
   "Apprentice": ["point1", "point2", "point3", "point4", "point5"],
   "Journeyman": ["point1", "point2", "point3", "point4", "point5"],
-  "Senior": ["point1", "point2", "point3", "point4", "point5"],
-  "Master": ["point1", "point2", "point3", "point4", "point5"]
+  "Senior": ["point1", "point2", "point3", "point4", "point5"]
 }`;
 
             const response = await this.makeRequest(prompt);
@@ -1106,6 +1105,14 @@ Return ONLY valid JSON:
          const savedNarrationVolume = Storage.load('narrationVolume');
          if (savedVideoVolume !== null) ui.videoVolume.value = savedVideoVolume;
          if (savedNarrationVolume !== null) ui.narrationVolume.value = savedNarrationVolume;
+
+         // Adding skip video button listener
+         const skipVideoButton = document.getElementById('skip-video-button');
+         if (skipVideoButton) {
+             skipVideoButton.addEventListener('click', () => {
+                 handleVideoEnd(); // Skip to the next segment
+             });
+         }
     }
 
     function validateInput() {
@@ -1589,7 +1596,7 @@ Return ONLY valid JSON:
         // For simplicity, we'll keep the core updateCanvasVisuals and add highlighting
         const mainText = fullText.substring(0, charIndex);
         const remainingText = fullText.substring(charIndex);
-        
+
         // This is a simplified redraw, a better version would calculate lines and scroll
         updateCanvasVisuals(fullText, 'Listen to the introduction...');
         // In a full implementation, you'd draw the `mainText` in a different color
