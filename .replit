@@ -8,6 +8,7 @@ packages = ["static-web-server"]
 [deployment]
 publicDir = "/"
 deploymentTarget = "static"
+run = ["sh", "-c", "static-web-server -w ./.config/static-web-server.toml"]
 
 [[deployment.responseHeaders]]
 path = "/*"
