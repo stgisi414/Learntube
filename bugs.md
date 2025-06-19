@@ -53,3 +53,25 @@ Problem: The logs show the application crashes with an Uncaught ReferenceError: 
 Logical Step to Fix: To prevent this crash, the function handleVideoError(error) definition in script.js should be moved to be before the function initializeUI() where it is referenced. This guarantees the error-handling function exists before it can be called
 
 FIXED: Moved handleVideoError function before initializeUI() and removed duplicate definition.
+
+Bug 5: Video Loading Failure After Code Changes ❌ NEW
+This is a critical regression bug where video functionality was broken after recent code modifications.
+
+Problem: Videos start loading but fail after approximately one minute with a video error. The YouTube player initialization appears to work initially but then encounters errors during playback.
+
+Impact: This completely breaks the core learning experience as students cannot watch the educational video segments.
+
+Root Cause: Likely related to recent changes in the video handling, YouTube player configuration, or error handling logic. The error may be related to:
+- YouTube player API configuration issues
+- Event handler problems in the createYouTubePlayer function
+- Timing issues with player initialization
+- Network/CORS issues with YouTube API calls
+
+Bug 6: Narration Pause/Resume Not Working ❌ NEW
+This is a UI/UX bug affecting the speech synthesis controls.
+
+Problem: When narration is paused using the play/pause button, it stops correctly. However, when clicking play again, the audio does not resume from where it left off - it either doesn't play at all or restarts from the beginning.
+
+Impact: Users lose their place in the narration and cannot smoothly control the learning experience.
+
+Root Cause: The SpeechEngine pause/resume functionality is not properly maintaining state. The speechSynthesis.pause() and speechSynthesis.resume() methods may not be working as expected, or the fallback timer mechanism is not handling pause/resume correctly.
