@@ -9,6 +9,26 @@ packages = ["static-web-server"]
 publicDir = "/"
 deploymentTarget = "static"
 
+[[deployment.responseHeaders]]
+path = "/*"
+name = "Referrer-Policy"
+value = "origin"
+
+[[deployment.responseHeaders]]
+path = "/*"
+name = "Access-Control-Allow-Origin"
+value = "*"
+
+[[deployment.responseHeaders]]
+path = "/*"
+name = "Access-Control-Allow-Methods"
+value = "GET, POST, OPTIONS"
+
+[[deployment.responseHeaders]]
+path = "/*"
+name = "Access-Control-Allow-Headers"
+value = "Content-Type, Authorization, X-Requested-With"
+
 [workflows]
 runButton = "Serve static"
 
