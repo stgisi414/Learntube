@@ -710,27 +710,27 @@ Return ONLY valid JSON:
                 let timerInterval = null;
                 let speechStartTime = Date.now();
                 let lastCharIndex = 0;
-                
+
                 // Calculate estimated speech duration (average 180 words per minute)
                 const words = text.split(' ').length;
                 const estimatedDuration = (words / 180) * 60 * 1000; // in milliseconds
-                
+
                 // Timer-based fallback that simulates speech progression
                 const startTimerFallback = () => {
                     console.log('Starting timer-based teleprompter fallback');
                     const updateInterval = 100; // Update every 100ms
                     const totalChars = text.length;
-                    
+
                     timerInterval = setInterval(() => {
                         const elapsed = Date.now() - speechStartTime;
                         const progress = Math.min(elapsed / estimatedDuration, 1);
                         const currentCharIndex = Math.floor(progress * totalChars);
-                        
+
                         if (onBoundaryCallback && currentCharIndex > lastCharIndex) {
                             onBoundaryCallback({ charIndex: currentCharIndex });
                             lastCharIndex = currentCharIndex;
                         }
-                        
+
                         if (progress >= 1) {
                             clearInterval(timerInterval);
                             resolve();
@@ -789,7 +789,7 @@ Return ONLY valid JSON:
                         };
 
                         window.speechSynthesis.speak(utterance);
-                        
+
                         // Start timer fallback as backup in case boundary events don't fire
                         setTimeout(() => {
                             if (!speechSuccessful || !this.speechSynthAvailable) {
@@ -1147,6 +1147,7 @@ Return ONLY valid JSON:
     const learningPipeline = new LearningPipeline();
 
     // --- UTILITY FUNCTIONS (defined early to avoid reference errors) --- //
+    // Handle video errors
     function handleVideoError(error) {
         console.error('Video error:', error);
 
@@ -1757,7 +1758,7 @@ Return ONLY valid JSON:
         if (ui.canvas.width < 600) { // Mobile devices
             fontSize = Math.max(18, Math.min(ui.canvas.width / 18, 24));
         }
-        
+
         canvasCtx.font = `${fontSize}px Inter, sans-serif`;
         canvasCtx.textAlign = 'center';
         canvasCtx.textBaseline = 'middle';
@@ -1776,7 +1777,7 @@ Return ONLY valid JSON:
         for (let word of words) {
             const testLine = currentLine + (currentLine ? ' ' : '') + word;
             const testWidth = canvasCtx.measureText(testLine).width;
-            
+
             if (testWidth > maxWidth && currentLine.length > 0) {
                 lines.push(currentLine);
                 lineCharCounts.push(currentCharCount);
@@ -1788,7 +1789,7 @@ Return ONLY valid JSON:
                 currentCharCount += word.length;
             }
         }
-        
+
         if (currentLine) {
             lines.push(currentLine);
             lineCharCounts.push(currentCharCount);
@@ -1797,11 +1798,10 @@ Return ONLY valid JSON:
         // Find which line contains the current character
         let currentLineIndex = 0;
         let charsSoFar = 0;
-        
+
         for (let i = 0; i < lineCharCounts.length; i++) {
             if (charIndex <= charsSoFar + lines[i].length + (i > 0 ? 1 : 0)) {
-                currentLineIndex = i;
-                break;
+                currentLineIndex = i                break;
             }
             charsSoFar += lines[i].length + 1; // +1 for space between lines
         }
@@ -1810,7 +1810,7 @@ Return ONLY valid JSON:
         const totalLines = lines.length;
         const visibleLines = Math.floor(ui.canvas.height / lineHeight) - 1; // Leave space for progress
         const maxScroll = Math.max(0, totalLines - visibleLines);
-        
+
         // Smooth scrolling: keep current line in the middle third of screen
         let scrollOffset = 0;
         if (totalLines > visibleLines) {
@@ -1823,16 +1823,16 @@ Return ONLY valid JSON:
 
         // Draw visible lines with proper coloring
         let lineCharOffset = 0;
-        
+
         for (let i = 0; i < lines.length; i++) {
             const lineY = startY + (i - scrollOffset) * lineHeight;
-            
+
             // Only draw lines that are visible on screen
             if (lineY > -lineHeight && lineY < ui.canvas.height + lineHeight) {
                 const line = lines[i];
                 const lineStartChar = lineCharOffset;
                 const lineEndChar = lineCharOffset + line.length;
-                
+
                 // Determine line coloring based on progress
                 let lineColor;
                 if (charIndex > lineEndChar) {
@@ -1841,7 +1841,7 @@ Return ONLY valid JSON:
                 } else if (charIndex >= lineStartChar && charIndex <= lineEndChar) {
                     // Currently reading this line - make it prominent
                     lineColor = 'rgba(255, 255, 255, 1)'; // White (current)
-                    
+
                     // Add subtle highlight background for current line
                     canvasCtx.fillStyle = 'rgba(59, 130, 246, 0.1)';
                     canvasCtx.fillRect(0, lineY - lineHeight/2, ui.canvas.width, lineHeight);
@@ -1849,11 +1849,11 @@ Return ONLY valid JSON:
                     // Line hasn't been read yet
                     lineColor = 'rgba(255, 255, 255, 0.5)'; // Dim white (upcoming)
                 }
-                
+
                 canvasCtx.fillStyle = lineColor;
                 canvasCtx.fillText(line, centerX, lineY);
             }
-            
+
             lineCharOffset += line.length + 1; // +1 for space
         }
 
@@ -1940,6 +1940,44 @@ Return ONLY valid JSON:
             // In production, send to error tracking service
         }
     };
+
+    // --- UI EVENT HANDLERS --- //
+    // Initialize the application
+    function initializeUI() {
+        ui.curateButton.addEventListener('click', handleCurateClick);
+        ui.topicInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') handleCurateClick();
+        });
+        ui.topicInput.addEventListener('input', validateInput);
+        ui.playPauseButton.addEventListener('click', playPauseLesson);
+        ui.nextSegmentButton.addEventListener('click', () => processNextSegment(true));
+
+        ui.videoVolume.addEventListener('input', (e) => ui.video.volume = parseFloat(e.target.value));
+        ui.narrationVolume.addEventListener('input', (e) => { 
+            Storage.save('narrationVolume', e.target.value);
+        });
+        ui.video.addEventListener('timeupdate', updateProgressBar);
+        ui.video.addEventListener('ended', handleVideoEnd);
+        ui.video.addEventListener('error', (e) => handleVideoError(e));
+
+        document.addEventListener('keydown', handleKeyboardShortcuts);
+        loadPreviousSession();
+
+         // Load saved settings
+         const savedVideoVolume = Storage.load('videoVolume');
+         const savedNarrationVolume = Storage.load('narrationVolume');
+         if (savedVideoVolume !== null) ui.videoVolume.value = savedVideoVolume;
+         if (savedNarrationVolume !== null) ui.narrationVolume.value = savedNarrationVolume;
+
+         // Initialize skip video button (avoid duplicate listeners)
+         if (ui.skipVideoButton && !ui.skipVideoButton.hasAttribute('data-initialized')) {
+             ui.skipVideoButton.setAttribute('data-initialized', 'true');
+             ui.skipVideoButton.addEventListener('click', () => {
+                 console.log('Skip video button clicked');
+                 handleVideoEnd(); // Skip to next segment immediately
+             });
+         }
+    }
 
     // --- INITIALIZE APPLICATION --- //
     initializeUI();
