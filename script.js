@@ -1734,7 +1734,7 @@ Return ONLY valid JSON:
     }
 
     function updatePlayPauseIcon() {
-        const isPlaying = lessonState === 'playing_video';
+        const isPlaying = lessonState === 'playing_video' || lessonState === 'narrating';
         ui.playIcon.classList.toggle('hidden', isPlaying);
         ui.pauseIcon.classList.toggle('hidden', !isPlaying);
     }
@@ -1754,56 +1754,65 @@ Return ONLY valid JSON:
         const maxWidth = ui.canvas.width * 0.85;
         let fontSize = Math.max(18, Math.min(ui.canvas.width / 30, 24));
         canvasCtx.font = `${fontSize}px Inter, sans-serif`;
-        canvasCtx.textAlign = 'center';
-        canvasCtx.textBaseline = 'middle';
+        canvasCtx.textAlign = 'left';
+        canvasCtx.textBaseline = 'top';
 
-        // Split text into spoken and unspoken parts
-        const spokenText = fullText.substring(0, charIndex);
-        const unspokenText = fullText.substring(charIndex);
+        // Calculate line height and starting position
+        const lineHeight = fontSize + 8;
+        const startX = (ui.canvas.width - maxWidth) / 2;
+        const startY = ui.canvas.height / 2 - 60;
 
-        // Wrap the full text and find which lines are spoken/unspoken
-        const words = fullText.split(' ');
-        let currentCharCount = 0;
-        let spokenWords = [];
-        let unspokenWords = [];
+        // Split text into characters for precise tracking
+        const allChars = fullText.split('');
+        let currentX = startX;
+        let currentY = startY;
+        let currentLine = '';
+        let charPosition = 0;
 
-        for (let word of words) {
-            if (currentCharCount + word.length + 1 <= charIndex) {
-                spokenWords.push(word);
-                currentCharCount += word.length + 1; // +1 for space
+        // Render each character with appropriate color
+        for (let i = 0; i < allChars.length; i++) {
+            const char = allChars[i];
+            
+            // Check if we need to wrap to new line
+            const testLine = currentLine + char;
+            const testWidth = canvasCtx.measureText(testLine).width;
+            
+            if (testWidth > maxWidth && currentLine.length > 0) {
+                // Move to next line
+                currentY += lineHeight;
+                currentX = startX;
+                currentLine = char;
             } else {
-                unspokenWords.push(word);
-                currentCharCount += word.length + 1;
+                currentLine += char;
+            }
+
+            // Set color based on whether this character has been spoken
+            if (i < charIndex) {
+                canvasCtx.fillStyle = 'rgba(34, 197, 94, 0.9)'; // Green for spoken
+            } else if (i === charIndex) {
+                canvasCtx.fillStyle = 'rgba(255, 215, 0, 1)'; // Gold for current character
+            } else {
+                canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.7)'; // White for unspoken
+            }
+
+            // Draw the character
+            if (char === ' ') {
+                currentX += canvasCtx.measureText(' ').width;
+            } else {
+                canvasCtx.fillText(char, currentX, currentY);
+                currentX += canvasCtx.measureText(char).width;
             }
         }
 
-        const spokenLine = spokenWords.join(' ');
-        const unspokenLine = unspokenWords.join(' ');
-
-        // Draw spoken text in green
-        if (spokenLine) {
-            canvasCtx.fillStyle = 'rgba(34, 197, 94, 0.9)';
-            const spokenLines = wrapText(spokenLine, maxWidth);
-            let startY = ui.canvas.height / 2 - 40;
-            spokenLines.forEach((line, index) => {
-                canvasCtx.fillText(line, ui.canvas.width / 2, startY + (index * (fontSize + 4)));
-            });
-        }
-
-        // Draw unspoken text in white
-        if (unspokenLine) {
-            canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            const unspokenLines = wrapText(unspokenLine, maxWidth);
-            let startY = ui.canvas.height / 2 + 10;
-            unspokenLines.forEach((line, index) => {
-                canvasCtx.fillText(line, ui.canvas.width / 2, startY + (index * (fontSize + 4)));
-            });
-        }
-
-        // Add subtitle
-        canvasCtx.font = `14px Inter, sans-serif`;
+        // Add progress indicator
+        const progress = Math.min((charIndex / fullText.length) * 100, 100);
         canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-        canvasCtx.fillText('🎤 AI Narration Active', ui.canvas.width / 2, ui.canvas.height - 30);
+        canvasCtx.font = `14px Inter, sans-serif`;
+        canvasCtx.textAlign = 'center';
+        canvasCtx.fillText(`🎤 AI Narration Active - ${Math.round(progress)}%`, ui.canvas.width / 2, ui.canvas.height - 30);
+        
+        // Reset text alignment for other functions
+        canvasCtx.textAlign = 'center';
     }
 
 
