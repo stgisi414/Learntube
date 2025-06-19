@@ -3,10 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLessonPlan = null;
     let currentLearningPath = null;
     let currentSegmentIndex = -1;
-    let lessonState = 'idle';
+    let lessonState = 'idle'; // 'idle', 'narrating', 'narration_paused', 'playing_video', 'paused', 'ending'
     let currentUtterance = null;
     let retryCount = 0;
     const MAX_RETRIES = 3;
+    let isScrolling = false;
 
     // --- HTML ELEMENT REFERENCES --- //
     const ui = {
@@ -260,6 +261,20 @@ Return 2-3 sentences, 60-100 words total.`;
             return await this.makeRequest(prompt, { temperature: 0.7, maxOutputTokens: 256 });
         }
 
+        // VIDEO SEGMENT FINDING
+        async findVideoSegment(videoTitle, videoDescription, learningPoint) {
+            const prompt = `Analyze the title and description of a YouTube video to find the most relevant 30-second segment for the learning topic: "${learningPoint}".
+
+Video Title: "${videoTitle}"
+Video Description: "${videoDescription.substring(0, 500)}"
+
+Return ONLY a valid JSON object with "startTime" and "endTime" in seconds. The segment should be between 20 and 40 seconds.
+Example: {"startTime": 125, "endTime": 155}`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.4, maxOutputTokens: 128 });
+            return this.parseJSONResponse(response);
+        }
+
         parseJSONResponse(response) {
             try {
                 // First try to parse the entire response as JSON
@@ -340,6 +355,25 @@ Return 2-3 sentences, 60-100 words total.`;
                             // Validate video relevance
                             const isRelevant = await this.validateVideoRelevance(video, learningPoint, topic);
                             if (isRelevant) {
+                                // Find the specific segment
+                                try {
+                                    const segment = await this.gemini.findVideoSegment(video.title, video.description, learningPoint);
+                                    if (segment && segment.startTime !== undefined && segment.endTime !== undefined) {
+                                        video.startTime = segment.startTime;
+                                        video.endTime = segment.endTime;
+                                        video.duration = segment.endTime - segment.startTime;
+                                    } else {
+                                        // Use default segment if AI segment finding fails
+                                        video.startTime = 0;
+                                        video.endTime = Math.min(video.duration || 60, 30);
+                                        video.duration = video.endTime - video.startTime;
+                                    }
+                                } catch (segmentError) {
+                                    console.warn(`Segment finding failed for: ${video.title}`, segmentError);
+                                    video.startTime = 0;
+                                    video.endTime = Math.min(video.duration || 60, 30);
+                                    video.duration = video.endTime - video.startTime;
+                                }
                                 this.cache.set(cacheKey, video);
                                 return video;
                             }
@@ -613,8 +647,9 @@ Return ONLY valid JSON:
             this.isReady = false;
             this.voices = [];
             this.preferredVoice = null;
-            this.initializeVoices();
             this.currentUtterance = null;
+            this.onBoundary = null;
+            this.initializeVoices();
         }
 
         initializeVoices() {
@@ -638,13 +673,31 @@ Return ONLY valid JSON:
                    voices[0];
         }
 
-        async speak(text, volume = 1.0) {
+        speak(text, volume = 1.0, onBoundaryCallback) {
             return new Promise((resolve, reject) => {
-                speechSynthesis.cancel();
+                if (speechSynthesis.speaking) {
+                    speechSynthesis.cancel();
+                }
 
                 const utterance = new SpeechSynthesisUtterance(text);
-                this.currentUtterance = utterance; // Keep track of the current utterance
-                // ... (rest of the speak method)
+                this.currentUtterance = utterance;
+                this.onBoundary = onBoundaryCallback;
+
+                utterance.volume = volume;
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                if (this.preferredVoice) {
+                    utterance.voice = this.preferredVoice;
+                }
+
+                utterance.onboundary = (event) => {
+                    if (this.onBoundary) {
+                        this.onBoundary(event);
+                    }
+                };
+
+                utterance.onend = resolve;
+                utterance.onerror = reject;
 
                 speechSynthesis.speak(utterance);
             });
@@ -663,6 +716,7 @@ Return ONLY valid JSON:
         }
 
         stop() {
+            this.currentUtterance = null;
             speechSynthesis.cancel();
         }
     }
@@ -739,6 +793,7 @@ Return ONLY valid JSON:
             this.currentTopic = '';
             this.completedSegments = [];
             this.videoMaps = new Map(); // Store pre-sourced videos by level
+            this.youtubePlayer = null; // Hold the player instance
         }
 
         async generateLessonPlan(topic) {
@@ -820,11 +875,14 @@ Return ONLY valid JSON:
         async executeSegment(narrationText, videoInfo) {
             // Phase 1: Narration
             lessonState = 'narrating';
-            updateCanvasVisuals(narrationText, 'Listen to the introduction...', true); // enable scrolling
+            updateCanvasVisuals(narrationText, 'Listen to the introduction...');
 
             try {
                 const volume = parseFloat(ui.narrationVolume.value);
-                await this.speechEngine.speak(narrationText, volume);
+                // Pass the teleprompter update function as a callback
+                await this.speechEngine.speak(narrationText, volume, (event) => {
+                    updateTeleprompter(narrationText, event.charIndex);
+                });
             } catch (error) {
                 console.warn('Speech synthesis failed:', error);
             }
@@ -837,74 +895,66 @@ Return ONLY valid JSON:
 
         async playVideoContent(videoInfo) {
             lessonState = 'playing_video';
-            ui.nextSegmentButton.disabled = false;
+            ui.nextSegmentButton.disabled = true; // Disable until segment ends
             updatePlayPauseIcon();
 
-            if (videoInfo.isFallback) {
+            if (videoInfo.isFallback || !videoInfo.youtubeId) {
                 updateCanvasVisuals(
-                    `📚 ${videoInfo.title}`,
-                    "Take a moment to reflect on this concept. Click 'Next Segment' when ready."
+                    `🎬 ${videoInfo.title}`,
+                    "Take a moment to reflect. Click 'Next Segment' when ready."
                 );
                 setTimeout(() => handleVideoEnd(), 15000);
+                ui.nextSegmentButton.disabled = false;
             } else {
-                // Instead of using video element, create YouTube iframe
-                this.createYouTubeIframe(videoInfo);
-
-                // Auto-advance after video duration
-                setTimeout(() => {
-                    if (lessonState === 'playing_video') {
-                        handleVideoEnd();
-                    }
-                }, (videoInfo.duration * 1000) + 2000); // Add 2 seconds buffer
+                this.createYouTubePlayer(videoInfo);
             }
         }
 
-        createYouTubeIframe(videoInfo) {
-            // Remove existing iframe if any
-            const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
-            if (existingIframe) {
-                existingIframe.remove();
+        createYouTubePlayer(videoInfo) {
+            // Remove old player if it exists
+            if (this.youtubePlayer) {
+                this.youtubePlayer.destroy();
+            }
+            const playerContainer = document.getElementById('youtube-player-container');
+            if (playerContainer) {
+                playerContainer.innerHTML = '';
             }
 
-            // Clear any existing error timeouts
-            clearTimeout(window.videoErrorTimeout);
-
-            // Hide canvas and video element
             ui.canvas.style.opacity = '0.3';
-            ui.video.style.opacity = '0';
-            ui.video.style.pointerEvents = 'none';
 
-            try {
-                // Create iframe container
-                const iframeContainer = document.createElement('div');
-                iframeContainer.className = 'youtube-iframe absolute top-0 left-0 w-full h-full';
-
-                const iframe = document.createElement('iframe');
-                iframe.src = `https://www.youtube.com/embed/${videoInfo.youtubeId}?autoplay=1&controls=1&rel=0&modestbranding=1&start=0&end=${videoInfo.duration}`;
-                iframe.className = 'w-full h-full';
-                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-                iframe.allowFullscreen = true;
-
-                // Add error handling for iframe
-                iframe.onerror = () => {
-                    console.warn('YouTube iframe failed to load');
-                    handleVideoError(new Error('YouTube iframe loading failed'));
-                };
-
-                iframeContainer.appendChild(iframe);
-
-                // Add to the video container area
-                const videoContainer = ui.learningCanvasContainer.querySelector('.relative');
-                if (videoContainer) {
-                    videoContainer.appendChild(iframeContainer);
-                } else {
-                    console.error('Video container not found');
-                    handleVideoError(new Error('Video container not found'));
+            this.youtubePlayer = new YT.Player('youtube-player-container', {
+                height: '100%',
+                width: '100%',
+                videoId: videoInfo.youtubeId,
+                playerVars: {
+                    autoplay: 1,
+                    controls: 1,
+                    rel: 0,
+                    start: videoInfo.startTime || 0,
+                    end: videoInfo.endTime || videoInfo.duration || 30,
+                    modestbranding: 1
+                },
+                events: {
+                    'onReady': (event) => {
+                        event.target.playVideo();
+                        const segmentDuration = ((videoInfo.endTime || videoInfo.duration || 30) - (videoInfo.startTime || 0)) * 1000;
+                        setTimeout(() => {
+                            if (lessonState === 'playing_video') {
+                                handleVideoEnd();
+                            }
+                        }, segmentDuration + 1000); // 1s buffer
+                    },
+                    'onStateChange': (event) => {
+                        if (event.data === YT.PlayerState.ENDED) {
+                            handleVideoEnd();
+                        }
+                    },
+                    'onError': (error) => {
+                        console.error('YouTube Player Error:', error);
+                        handleVideoError(new Error('YouTube Player failed'));
+                    }
                 }
-            } catch (error) {
-                console.error('Failed to create YouTube iframe:', error);
-                handleVideoError(error);
-            }
+            });
         }
 
         async generateFinalQuiz(level) {
@@ -965,16 +1015,22 @@ Return ONLY valid JSON:
         if (lessonState === 'error') return;
         lessonState = 'error';
 
+        // Clean up YouTube player
+        if (learningPipeline.youtubePlayer) {
+            learningPipeline.youtubePlayer.destroy();
+            learningPipeline.youtubePlayer = null;
+        }
+
         // Reset video display and show error on canvas
         ui.canvas.style.opacity = '1';
         ui.video.style.opacity = '0';
         ui.video.style.pointerEvents = 'none';
         ui.video.src = '';
 
-        // Remove YouTube iframe if it exists
-        const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
-        if (existingIframe) {
-            existingIframe.remove();
+        // Clear player container
+        const playerContainer = document.getElementById('youtube-player-container');
+        if (playerContainer) {
+            playerContainer.innerHTML = '';
         }
 
         // Remove any existing error timeouts
@@ -996,16 +1052,22 @@ Return ONLY valid JSON:
         // Clear any existing timeouts
         clearTimeout(window.videoErrorTimeout);
 
-        // Reset video display and remove iframe
+        // Clean up YouTube player
+        if (learningPipeline.youtubePlayer) {
+            learningPipeline.youtubePlayer.destroy();
+            learningPipeline.youtubePlayer = null;
+        }
+
+        // Reset video display
         ui.canvas.style.opacity = '1';
         ui.video.style.opacity = '0';
         ui.video.style.pointerEvents = 'none';
         ui.video.src = '';
 
-        // Remove YouTube iframe if it exists
-        const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
-        if (existingIframe) {
-            existingIframe.remove();
+        // Clear player container
+        const playerContainer = document.getElementById('youtube-player-container');
+        if (playerContainer) {
+            playerContainer.innerHTML = '';
         }
 
         updateCanvasVisuals("Segment Complete! 🎉", "Great job! Preparing the next learning segment...");
@@ -1495,25 +1557,22 @@ Return ONLY valid JSON:
     }
 
     function playPauseLesson() {
-        if (lessonState === 'playing_video') {
-            if (!ui.video.paused) {
-                ui.video.pause();
-                lessonState = 'paused';
-            }
-        } else if (lessonState === 'paused') {
-            if (ui.video.paused) {
-                ui.video.play().catch(error => {
-                    console.error('Play failed:', error);
-                    handleVideoError(error);
-                });
-                lessonState = 'playing_video';
-            }
-        } else if (lessonState === 'narrating') {
+        if (lessonState === 'narrating') {
             learningPipeline.speechEngine.pause();
             lessonState = 'narration_paused';
         } else if (lessonState === 'narration_paused') {
             learningPipeline.speechEngine.resume();
             lessonState = 'narrating';
+        } else if (lessonState === 'playing_video') {
+            if (learningPipeline.youtubePlayer && typeof learningPipeline.youtubePlayer.pauseVideo === 'function') {
+                learningPipeline.youtubePlayer.pauseVideo();
+            }
+            lessonState = 'paused';
+        } else if (lessonState === 'paused') {
+            if (learningPipeline.youtubePlayer && typeof learningPipeline.youtubePlayer.playVideo === 'function') {
+                learningPipeline.youtubePlayer.playVideo();
+            }
+            lessonState = 'playing_video';
         }
         updatePlayPauseIcon();
     }
@@ -1522,6 +1581,18 @@ Return ONLY valid JSON:
         const isPlaying = lessonState === 'playing_video';
         ui.playIcon.classList.toggle('hidden', isPlaying);
         ui.pauseIcon.classList.toggle('hidden', !isPlaying);
+    }
+
+    // NEW Teleprompter Function
+    function updateTeleprompter(fullText, charIndex) {
+        // This is where the canvas is redrawn with highlighted text
+        // For simplicity, we'll keep the core updateCanvasVisuals and add highlighting
+        const mainText = fullText.substring(0, charIndex);
+        const remainingText = fullText.substring(charIndex);
+        
+        // This is a simplified redraw, a better version would calculate lines and scroll
+        updateCanvasVisuals(fullText, 'Listen to the introduction...');
+        // In a full implementation, you'd draw the `mainText` in a different color
     }
 
 
@@ -1589,6 +1660,11 @@ Return ONLY valid JSON:
 
     // --- INITIALIZE APPLICATION --- //
     initializeUI();
+
+    // YouTube API ready callback
+    window.onYouTubeIframeAPIReady = function() {
+        console.log("YouTube Iframe API is ready.");
+    };
 
     // Handle voice loading - only log once
     let voicesLoaded = false;
