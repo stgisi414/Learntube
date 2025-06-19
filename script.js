@@ -296,108 +296,78 @@ Return ONLY valid JSON:
                     // Continue to extract JSON from text
                 }
 
-                // Clean up common formatting issues
-                let cleanedResponse = response
-                    .replace(/```json/gi, '')
-                    .replace(/```/g, '')
-                    .replace(/^\s*[\w\s]*?(?=[\{\[])/i, '') // Remove text before JSON
-                    .replace(/[\}\]]\s*[\w\s]*$/i, match => match.replace(/[\w\s]*$/, '')) // Remove text after JSON
+                // Clean the response by removing markdown code blocks and extra text
+                let cleanResponse = response
+                    .replace(/```json\s*/gi, '')
+                    .replace(/```\s*/g, '')
+                    .replace(/^[^{[]*/, '') // Remove text before first { or [
+                    .replace(/[^}\]]*$/, '') // Remove text after last } or ]
                     .trim();
 
-                // Try parsing cleaned response
+                // Try parsing the cleaned response
                 try {
-                    return JSON.parse(cleanedResponse);
+                    return JSON.parse(cleanResponse);
                 } catch (e) {
-                    // Continue with pattern matching
+                    // Continue with more aggressive extraction
                 }
 
-                // Extract JSON from markdown code blocks (more flexible)
-                let jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-                if (jsonMatch) {
-                    try {
-                        return JSON.parse(jsonMatch[1].trim());
-                    } catch (e) {
-                        // Continue trying other methods
-                    }
-                }
-
-                // Try to find JSON object with better bracket matching
-                let braceCount = 0;
-                let startIndex = -1;
-                let endIndex = -1;
-
-                for (let i = 0; i < response.length; i++) {
-                    if (response[i] === '{') {
-                        if (braceCount === 0) startIndex = i;
-                        braceCount++;
-                    } else if (response[i] === '}') {
-                        braceCount--;
-                        if (braceCount === 0 && startIndex !== -1) {
-                            endIndex = i;
-                            break;
-                        }
-                    }
-                }
-
-                if (startIndex !== -1 && endIndex !== -1) {
-                    try {
-                        const jsonStr = response.substring(startIndex, endIndex + 1);
-                        return JSON.parse(jsonStr);
-                    } catch (e) {
-                        // Continue trying
-                    }
-                }
-
-                // Try to find JSON array with better bracket matching
-                let bracketCount = 0;
-                startIndex = -1;
-                endIndex = -1;
-
-                for (let i = 0; i < response.length; i++) {
-                    if (response[i] === '[') {
-                        if (bracketCount === 0) startIndex = i;
-                        bracketCount++;
-                    } else if (response[i] === ']') {
-                        bracketCount--;
-                        if (bracketCount === 0 && startIndex !== -1) {
-                            endIndex = i;
-                            break;
-                        }
-                    }
-                }
-
-                if (startIndex !== -1 && endIndex !== -1) {
-                    try {
-                        const jsonStr = response.substring(startIndex, endIndex + 1);
-                        return JSON.parse(jsonStr);
-                    } catch (e) {
-                        // Continue trying
-                    }
-                }
-
-                // Last resort: try simple regex patterns
-                jsonMatch = response.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/);
+                // Look for JSON object patterns with better regex
+                let jsonMatch = response.match(/\{[\s\S]*?\}/);
                 if (jsonMatch) {
                     try {
                         return JSON.parse(jsonMatch[0]);
                     } catch (e) {
-                        // Continue
+                        // Try to fix common JSON issues
+                        let fixedJson = jsonMatch[0]
+                            .replace(/,\s*}/g, '}') // Remove trailing commas
+                            .replace(/,\s*]/g, ']')
+                            .replace(/'/g, '"') // Replace single quotes with double quotes
+                            .replace(/(\w+):/g, '"$1":'); // Add quotes around keys
+
+                        try {
+                            return JSON.parse(fixedJson);
+                        } catch (e2) {
+                            // Continue trying
+                        }
                     }
                 }
 
-                jsonMatch = response.match(/\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\]/);
-                if (jsonMatch) {
+                // Look for array patterns
+                let arrayMatch = response.match(/\[[\s\S]*?\]/);
+                if (arrayMatch) {
                     try {
-                        return JSON.parse(jsonMatch[0]);
+                        return JSON.parse(arrayMatch[0]);
                     } catch (e) {
-                        // Final attempt failed
+                        // Try to fix common JSON issues in arrays
+                        let fixedJson = arrayMatch[0]
+                            .replace(/,\s*]/g, ']')
+                            .replace(/'/g, '"');
+
+                        try {
+                            return JSON.parse(fixedJson);
+                        } catch (e2) {
+                            // Continue trying
+                        }
                     }
                 }
 
-                throw new Error('No valid JSON found in response');
+                // Extract multiple JSON objects if present
+                const jsonObjects = response.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+                if (jsonObjects && jsonObjects.length > 0) {
+                    for (let jsonStr of jsonObjects) {
+                        try {
+                            return JSON.parse(jsonStr);
+                        } catch (e) {
+                            // Try next one
+                        }
+                    }
+                }
+
+                console.error('Failed to parse JSON from response:', response);
+                return null;
             } catch (error) {
-                console.error('JSON parse error:', error, 'Response:', response);
-                throw new Error('Invalid JSON in Gemini response');
+                console.error('Error in parseJSONResponse:', error);
+                return null;
             }
         }
     }
