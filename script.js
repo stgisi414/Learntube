@@ -406,14 +406,27 @@ Return ONLY valid JSON:
                 key: YOUTUBE_API_KEY
             });
 
-            const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams}`, {
+            // Try multiple approaches for referrer handling
+            const requestOptions = {
                 method: 'GET',
+                mode: 'cors',
+                credentials: 'omit',
                 headers: {
-                    'Referer': 'https://learntube.cc/',
-                    'Origin': 'https://learntube.cc'
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                referrerPolicy: "unsafe-url"
-            });
+                referrerPolicy: "no-referrer-when-downgrade"
+            };
+
+            // Add domain-specific headers if deployed
+            const currentDomain = window.location.hostname;
+            if (currentDomain.includes('replit.app') || currentDomain.includes('learntube.cc')) {
+                requestOptions.headers['Referer'] = window.location.origin + '/';
+                requestOptions.headers['Origin'] = window.location.origin;
+                requestOptions.referrerPolicy = "strict-origin-when-cross-origin";
+            }
+
+            const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams}`, requestOptions);
 
             if (!response.ok) {
                 throw new Error(`YouTube API failed: ${response.status}`);
@@ -458,14 +471,25 @@ Return ONLY valid JSON:
         async getVideoWithCaptions(videoId) {
             try {
                 // Get video details first
-                const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`, {
+                const requestOptions = {
                     method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
                     headers: {
-                        'Referer': 'https://learntube.cc/',
-                        'Origin': 'https://learntube.cc'
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
                     },
-                    referrerPolicy: "unsafe-url"
-                });
+                    referrerPolicy: "no-referrer-when-downgrade"
+                };
+
+                const currentDomain = window.location.hostname;
+                if (currentDomain.includes('replit.app') || currentDomain.includes('learntube.cc')) {
+                    requestOptions.headers['Referer'] = window.location.origin + '/';
+                    requestOptions.headers['Origin'] = window.location.origin;
+                    requestOptions.referrerPolicy = "strict-origin-when-cross-origin";
+                }
+
+                const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`, requestOptions);
                 if (!videoResponse.ok) return null;
 
                 const videoData = await videoResponse.json();
@@ -476,14 +500,24 @@ Return ONLY valid JSON:
                 const duration = this.parseDuration(video.contentDetails.duration);
 
                 // Get available captions
-                const captionsResponse = await fetch(`https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${YOUTUBE_API_KEY}`, {
+                const captionsRequestOptions = {
                     method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
                     headers: {
-                        'Referer': 'https://learntube.cc/',
-                        'Origin': 'https://learntube.cc'
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
                     },
-                    referrerPolicy: "unsafe-url"
-                });
+                    referrerPolicy: "no-referrer-when-downgrade"
+                };
+
+                if (currentDomain.includes('replit.app') || currentDomain.includes('learntube.cc')) {
+                    captionsRequestOptions.headers['Referer'] = window.location.origin + '/';
+                    captionsRequestOptions.headers['Origin'] = window.location.origin;
+                    captionsRequestOptions.referrerPolicy = "strict-origin-when-cross-origin";
+                }
+
+                const captionsResponse = await fetch(`https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${YOUTUBE_API_KEY}`, captionsRequestOptions);
                 if (!captionsResponse.ok) {
                     // Return video without captions
                     return {
