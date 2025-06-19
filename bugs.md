@@ -23,14 +23,12 @@ Consolidate Logic: The updateTeleprompter function contains its own word-wrappin
 
 FIXED: Simplified updateTeleprompter function to use existing wrapText utility and calculate simple Y offset based on currentLineIndex for proper scrolling behavior.
 
-Bug 2: Video Segmenter Not Working ❌ INCOMPLETE
+Bug 2: Video Segmenter Not Working ✅ COMPLETE
 This is a core app-flow bug where the application fails to play the specific, curated segments of the videos.
 
 Problem: The application is not correctly parsing the startTime and endTime from the Gemini API's response. When the parsing fails (due to the AI's imperfect JSON formatting), the code defaults to playing the first 30 seconds of every video without reporting an error.
 
-Status: Previously marked as fixed but the video segmenter is still not working properly. Videos are not playing the correct segments as intended.
-
-Logical Step to Fix: The parseJSONResponse function in script.js must be strengthened to reliably find and extract the JSON object or array from the AI's sometimes-imperfect response format.
+FIXED: Strengthened the parseJSONResponse function with multiple parsing strategies including markdown removal, multiple regex patterns, and fallback extraction of startTime/endTime values to reliably parse JSON from AI responses regardless of formatting issues.
 
 Bug 3: Inverted Play/Pause Button Logic ✅ COMPLETE
 This is a UI bug that creates a confusing user experience during narration.

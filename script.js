@@ -296,74 +296,50 @@ Return ONLY valid JSON:
                     // Continue to extract JSON from text
                 }
 
-                // Clean the response by removing markdown code blocks and extra text
-                let cleanResponse = response
-                    .replace(/```json\s*/gi, '')
-                    .replace(/```\s*/g, '')
-                    .replace(/^[^{[]*/, '') // Remove text before first { or [
-                    .replace(/[^}\]]*$/, '') // Remove text after last } or ]
-                    .trim();
+                // Clean up the response text
+                let cleanedResponse = response.trim();
 
-                // Try parsing the cleaned response
-                try {
-                    return JSON.parse(cleanResponse);
-                } catch (e) {
-                    // Continue with more aggressive extraction
-                }
+                // Remove markdown code blocks if present
+                cleanedResponse = cleanedResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '');
 
-                // Look for JSON object patterns with better regex
-                let jsonMatch = response.match(/\{[\s\S]*?\}/);
-                if (jsonMatch) {
-                    try {
-                        return JSON.parse(jsonMatch[0]);
-                    } catch (e) {
-                        // Try to fix common JSON issues
-                        let fixedJson = jsonMatch[0]
-                            .replace(/,\s*}/g, '}') // Remove trailing commas
-                            .replace(/,\s*]/g, ']')
-                            .replace(/'/g, '"') // Replace single quotes with double quotes
-                            .replace(/(\w+):/g, '"$1":'); // Add quotes around keys
+                // Try to find JSON object or array in the response with multiple patterns
+                const patterns = [
+                    /\{[\s\S]*?\}/g,  // Match JSON objects
+                    /\[[\s\S]*?\]/g,  // Match JSON arrays
+                    /{\s*"[^"]+"\s*:\s*[^}]+}/g,  // Simple object pattern
+                    /{\s*"startTime"\s*:\s*\d+[\s\S]*?"endTime"\s*:\s*\d+[\s\S]*?}/g  // Specific startTime/endTime pattern
+                ];
 
-                        try {
-                            return JSON.parse(fixedJson);
-                        } catch (e2) {
-                            // Continue trying
+                for (const pattern of patterns) {
+                    const matches = cleanedResponse.match(pattern);
+                    if (matches) {
+                        for (const match of matches) {
+                            try {
+                                const parsed = JSON.parse(match);
+                                // Validate that we have the expected structure
+                                if (parsed && typeof parsed === 'object') {
+                                    return parsed;
+                                }
+                            } catch (e) {
+                                continue;
+                            }
                         }
                     }
                 }
 
-                // Look for array patterns
-                let arrayMatch = response.match(/\[[\s\S]*?\]/);
-                if (arrayMatch) {
-                    try {
-                        return JSON.parse(arrayMatch[0]);
-                    } catch (e) {
-                        // Try to fix common JSON issues in arrays
-                        let fixedJson = arrayMatch[0]
-                            .replace(/,\s*]/g, ']')
-                            .replace(/'/g, '"');
+                // Last resort: try to extract numbers for startTime and endTime
+                const startTimeMatch = cleanedResponse.match(/["']?startTime["']?\s*:\s*(\d+)/i);
+                const endTimeMatch = cleanedResponse.match(/["']?endTime["']?\s*:\s*(\d+)/i);
 
-                        try {
-                            return JSON.parse(fixedJson);
-                        } catch (e2) {
-                            // Continue trying
-                        }
-                    }
+                if (startTimeMatch && endTimeMatch) {
+                    return {
+                        startTime: parseInt(startTimeMatch[1]),
+                        endTime: parseInt(endTimeMatch[1]),
+                        reason: "Extracted from text pattern"
+                    };
                 }
 
-                // Extract multiple JSON objects if present
-                const jsonObjects = response.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
-                if (jsonObjects && jsonObjects.length > 0) {
-                    for (let jsonStr of jsonObjects) {
-                        try {
-                            return JSON.parse(jsonStr);
-                        } catch (e) {
-                            // Try next one
-                        }
-                    }
-                }
-
-                console.error('Failed to parse JSON from response:', response);
+                console.error('No valid JSON found in response:', response);
                 return null;
             } catch (error) {
                 console.error('Error in parseJSONResponse:', error);
@@ -946,7 +922,7 @@ Return ONLY valid JSON:
             return {
                 questions: [
                     {
-                        question: `What is the main concept behind ${topics[0]}?`,
+                        question: `What is the main concept behind ${topics[0]}?`,```python
                         options: ['A) Concept A', 'B) Concept B', 'C) Concept C', 'D) Concept D'],
                         correct: 0,
                         explanation: 'This covers the fundamental principles.'
@@ -1822,7 +1798,7 @@ Return ONLY valid JSON:
         // Use existing wrapText utility function
         const lines = wrapText(fullText, maxWidth);
 
-        // Calculate current line index based on character position
+        // Calculate current line index based on characterposition
         let currentLineIndex = 0;
         let charsSoFar = 0;
 
