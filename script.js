@@ -933,7 +933,6 @@ Return ONLY valid JSON:
                     `Advanced Theoretical Frameworks in ${topic}`,
                     `Complex Case Studies and Edge Cases`,
                     `Current Research and Recent Developments`,
-                    ```text
                     `Critical Analysis of Different Approaches to ${topic}`,
                     `Technical Implementation and Advanced Applications`
                 ],
