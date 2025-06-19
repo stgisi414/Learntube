@@ -660,8 +660,17 @@ Return ONLY valid JSON:
             this.preferredVoice = null;
             this.currentUtterance = null;
             this.onBoundary = null;
-            this.speechSynthAvailable = typeof speechSynthesis !== 'undefined';
+            this.speechSynthAvailable = this.checkSpeechSynthesis();
             this.initializeVoices();
+        }
+
+        checkSpeechSynthesis() {
+            try {
+                return typeof speechSynthesis !== 'undefined' && speechSynthesis !== null;
+            } catch (error) {
+                console.warn('Speech synthesis not available:', error);
+                return false;
+            }
         }
 
         initializeVoices() {
@@ -671,15 +680,20 @@ Return ONLY valid JSON:
                 return;
             }
 
-            const loadVoices = () => {
-                this.voices = speechSynthesis.getVoices();
-                this.preferredVoice = this.selectBestVoice();
-                this.isReady = true;
-            };
+            try {
+                const loadVoices = () => {
+                    this.voices = speechSynthesis.getVoices();
+                    this.preferredVoice = this.selectBestVoice();
+                    this.isReady = true;
+                };
 
-            loadVoices();
-            if (speechSynthesis.onvoiceschanged !== undefined) {
-                speechSynthesis.onvoiceschanged = loadVoices;
+                loadVoices();
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = loadVoices;
+                }
+            } catch (error) {
+                console.warn('Failed to initialize voices:', error);
+                this.isReady = false;
             }
         }
 
@@ -699,53 +713,75 @@ Return ONLY valid JSON:
                     return;
                 }
 
-                if (speechSynthesis.speaking) {
-                    speechSynthesis.cancel();
-                }
-
-                const utterance = new SpeechSynthesisUtterance(text);
-                this.currentUtterance = utterance;
-                this.onBoundary = onBoundaryCallback;
-
-                utterance.volume = volume;
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
-                if (this.preferredVoice) {
-                    utterance.voice = this.preferredVoice;
-                }
-
-                utterance.onboundary = (event) => {
-                    if (this.onBoundary) {
-                        this.onBoundary(event);
+                try {
+                    if (speechSynthesis.speaking) {
+                        speechSynthesis.cancel();
                     }
-                };
 
-                utterance.onend = resolve;
-                utterance.onerror = (error) => {
-                    console.warn('Speech synthesis error:', error);
-                    resolve(); // Continue despite error
-                };
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    this.currentUtterance = utterance;
+                    this.onBoundary = onBoundaryCallback;
 
-                speechSynthesis.speak(utterance);
+                    utterance.volume = volume;
+                    utterance.rate = 1.0;
+                    utterance.pitch = 1.0;
+                    if (this.preferredVoice) {
+                        utterance.voice = this.preferredVoice;
+                    }
+
+                    utterance.onboundary = (event) => {
+                        try {
+                            if (this.onBoundary) {
+                                this.onBoundary(event);
+                            }
+                        } catch (error) {
+                            console.warn('Boundary callback error:', error);
+                        }
+                    };
+
+                    utterance.onend = resolve;
+                    utterance.onerror = (error) => {
+                        console.warn('Speech synthesis error:', error);
+                        resolve(); // Continue despite error
+                    };
+
+                    speechSynthesis.speak(utterance);
+                } catch (error) {
+                    console.warn('Speech synthesis failed:', error);
+                    resolve(); // Continue without speech
+                }
             });
         }
 
         pause() {
-            if (this.speechSynthAvailable && speechSynthesis.speaking) {
-                speechSynthesis.pause();
+            if (!this.speechSynthAvailable) return;
+            try {
+                if (speechSynthesis.speaking) {
+                    speechSynthesis.pause();
+                }
+            } catch (error) {
+                console.warn('Failed to pause speech:', error);
             }
         }
 
         resume() {
-            if (this.speechSynthAvailable && speechSynthesis.paused) {
-                speechSynthesis.resume();
+            if (!this.speechSynthAvailable) return;
+            try {
+                if (speechSynthesis.paused) {
+                    speechSynthesis.resume();
+                }
+            } catch (error) {
+                console.warn('Failed to resume speech:', error);
             }
         }
 
         stop() {
             this.currentUtterance = null;
-            if (this.speechSynthAvailable) {
+            if (!this.speechSynthAvailable) return;
+            try {
                 speechSynthesis.cancel();
+            } catch (error) {
+                console.warn('Failed to stop speech:', error);
             }
         }
     }
@@ -1159,8 +1195,9 @@ Return ONLY valid JSON:
          if (savedVideoVolume !== null) ui.videoVolume.value = savedVideoVolume;
          if (savedNarrationVolume !== null) ui.narrationVolume.value = savedNarrationVolume;
 
-         // Initialize skip video button
-         if (ui.skipVideoButton) {
+         // Initialize skip video button (avoid duplicate listeners)
+         if (ui.skipVideoButton && !ui.skipVideoButton.hasAttribute('data-initialized')) {
+             ui.skipVideoButton.setAttribute('data-initialized', 'true');
              ui.skipVideoButton.addEventListener('click', () => {
                  console.log('Skip video button clicked');
                  handleVideoEnd(); // Skip to next segment immediately
@@ -1785,13 +1822,17 @@ Return ONLY valid JSON:
 
     // Handle voice loading - only log once
     let voicesLoaded = false;
-    if (speechSynthesis.onvoiceschanged !== undefined) {
-        speechSynthesis.onvoiceschanged = () => {
-            if (!voicesLoaded) {
-                console.log("Speech synthesis voices loaded.");
-                voicesLoaded = true;
-            }
-        };
+    try {
+        if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = () => {
+                if (!voicesLoaded) {
+                    console.log("Speech synthesis voices loaded.");
+                    voicesLoaded = true;
+                }
+            };
+        }
+    } catch (error) {
+        console.warn('Could not set up voice loading callback:', error);
     }
 
     // Performance monitoring
