@@ -707,48 +707,105 @@ Return ONLY valid JSON:
 
         speak(text, volume = 1.0, onBoundaryCallback) {
             return new Promise((resolve, reject) => {
-                if (!this.speechSynthAvailable) {
-                    console.warn('Speech synthesis not available, skipping narration');
-                    resolve(); // Continue without speech
-                    return;
-                }
-
-                try {
-                    if (speechSynthesis.speaking) {
-                        speechSynthesis.cancel();
-                    }
-
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    this.currentUtterance = utterance;
-                    this.onBoundary = onBoundaryCallback;
-
-                    utterance.volume = volume;
-                    utterance.rate = 1.0;
-                    utterance.pitch = 1.0;
-                    if (this.preferredVoice) {
-                        utterance.voice = this.preferredVoice;
-                    }
-
-                    utterance.onboundary = (event) => {
-                        try {
-                            if (this.onBoundary) {
-                                this.onBoundary(event);
-                            }
-                        } catch (error) {
-                            console.warn('Boundary callback error:', error);
+                let timerInterval = null;
+                let speechStartTime = Date.now();
+                let lastCharIndex = 0;
+                
+                // Calculate estimated speech duration (average 180 words per minute)
+                const words = text.split(' ').length;
+                const estimatedDuration = (words / 180) * 60 * 1000; // in milliseconds
+                
+                // Timer-based fallback that simulates speech progression
+                const startTimerFallback = () => {
+                    console.log('Starting timer-based teleprompter fallback');
+                    const updateInterval = 100; // Update every 100ms
+                    const totalChars = text.length;
+                    
+                    timerInterval = setInterval(() => {
+                        const elapsed = Date.now() - speechStartTime;
+                        const progress = Math.min(elapsed / estimatedDuration, 1);
+                        const currentCharIndex = Math.floor(progress * totalChars);
+                        
+                        if (onBoundaryCallback && currentCharIndex > lastCharIndex) {
+                            onBoundaryCallback({ charIndex: currentCharIndex });
+                            lastCharIndex = currentCharIndex;
                         }
-                    };
+                        
+                        if (progress >= 1) {
+                            clearInterval(timerInterval);
+                            resolve();
+                        }
+                    }, updateInterval);
+                };
 
-                    utterance.onend = resolve;
-                    utterance.onerror = (error) => {
-                        console.warn('Speech synthesis error:', error);
-                        resolve(); // Continue despite error
-                    };
+                // Try speech synthesis first
+                if (this.speechSynthAvailable) {
+                    try {
+                        if (speechSynthesis.speaking) {
+                            speechSynthesis.cancel();
+                        }
 
-                    speechSynthesis.speak(utterance);
-                } catch (error) {
-                    console.warn('Speech synthesis failed:', error);
-                    resolve(); // Continue without speech
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        this.currentUtterance = utterance;
+                        this.onBoundary = onBoundaryCallback;
+                        let speechSuccessful = false;
+
+                        utterance.volume = volume;
+                        utterance.rate = 1.0;
+                        utterance.pitch = 1.0;
+                        if (this.preferredVoice) {
+                            utterance.voice = this.preferredVoice;
+                        }
+
+                        utterance.onstart = () => {
+                            speechSuccessful = true;
+                            console.log('Speech synthesis started successfully');
+                        };
+
+                        utterance.onboundary = (event) => {
+                            try {
+                                if (onBoundaryCallback && event.charIndex !== undefined) {
+                                    onBoundaryCallback(event);
+                                }
+                            } catch (error) {
+                                console.warn('Boundary callback error:', error);
+                            }
+                        };
+
+                        utterance.onend = () => {
+                            if (timerInterval) clearInterval(timerInterval);
+                            resolve();
+                        };
+
+                        utterance.onerror = (error) => {
+                            console.warn('Speech synthesis error:', error);
+                            if (timerInterval) clearInterval(timerInterval);
+                            if (!speechSuccessful) {
+                                // Speech failed to start, use timer fallback
+                                startTimerFallback();
+                            } else {
+                                resolve();
+                            }
+                        };
+
+                        speechSynthesis.speak(utterance);
+                        
+                        // Start timer fallback as backup in case boundary events don't fire
+                        setTimeout(() => {
+                            if (!speechSuccessful || !this.speechSynthAvailable) {
+                                console.log('Speech synthesis may have failed, starting timer fallback');
+                                startTimerFallback();
+                            }
+                        }, 500);
+
+                    } catch (error) {
+                        console.warn('Speech synthesis failed:', error);
+                        startTimerFallback();
+                    }
+                } else {
+                    // No speech synthesis available, use timer fallback
+                    console.warn('Speech synthesis not available, using timer-based teleprompter');
+                    startTimerFallback();
                 }
             });
         }
