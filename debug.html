@@ -289,8 +289,11 @@
         }
 
         function pauseSpeech() {
-            if (speechSynthesis.speaking) {
-                // The onboundary event has already saved our position in speechContext.
+            if (speechSynthesis.speaking && currentUtterance) {
+                // **THE FIX**: Temporarily disable the error handler before we cancel.
+                // This prevents the 'interrupted' error from being displayed to the user.
+                currentUtterance.onerror = null;
+
                 speechSynthesis.cancel(); // Use cancel instead of the unreliable pause()
                 log('Speech paused (by cancellation)');
                 document.getElementById('speechStatus').textContent = 'Speech paused';
@@ -299,6 +302,7 @@
             }
         }
 
+        // This function doesn't need changes, but is here for context.
         function resumeSpeech() {
             if (speechContext) {
                 const textToResume = speechContext.text.substring(speechContext.lastCharIndex);
@@ -310,6 +314,7 @@
 
                 log(`Resuming from char ${speechContext.lastCharIndex}`);
 
+                // A new utterance is created here, which gets its own new error handler.
                 currentUtterance = new SpeechSynthesisUtterance(textToResume);
                 currentUtterance.volume = speechContext.volume;
                 currentUtterance.rate = speechContext.rate;
@@ -327,6 +332,7 @@
                     speechContext = null;
                 };
 
+                // The new error handler for the resumed speech.
                 currentUtterance.onerror = (error) => {
                     log(`Speech error on resume: ${error.error}`);
                     document.getElementById('speechStatus').textContent = `Error on resume: ${error.error}`;
@@ -334,7 +340,6 @@
                 };
 
                 currentUtterance.onboundary = (event) => {
-                    // Update the index relative to the original text
                     if(speechContext) {
                         speechContext.lastCharIndex = baseIndex + event.charIndex;
                         log(`Speech boundary on resume: char ${speechContext.lastCharIndex}`);
@@ -350,6 +355,10 @@
         function stopSpeech() {
             try {
                 if (speechSynthesis.speaking || speechSynthesis.paused) {
+                    // **THE FIX**: Also apply the same logic here for the stop button.
+                    if (currentUtterance) {
+                        currentUtterance.onerror = null;
+                    }
                     speechSynthesis.cancel();
                 }
                 currentUtterance = null;
