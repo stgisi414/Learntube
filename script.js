@@ -688,6 +688,11 @@ Return ONLY valid JSON:
             this.currentUtterance = null;
             this.onBoundary = null;
             this.speechSynthAvailable = this.checkSpeechSynthesis();
+            this.isPaused = false;
+            this.timerInterval = null;
+            this.speechStartTime = null;
+            this.pausedTime = null;
+            this.totalPausedDuration = 0;
             this.initializeVoices();
         }
 
@@ -734,8 +739,9 @@ Return ONLY valid JSON:
 
         speak(text, volume = 1.0, onBoundaryCallback) {
             return new Promise((resolve, reject) => {
-                let timerInterval = null;
-                let speechStartTime = Date.now();
+                this.speechStartTime = Date.now();
+                this.totalPausedDuration = 0;
+                this.isPaused = false;
                 let lastCharIndex = 0;
 
                 // Calculate estimated speech duration (average 180 words per minute)
@@ -748,8 +754,10 @@ Return ONLY valid JSON:
                     const updateInterval = 100; // Update every 100ms
                     const totalChars = text.length;
 
-                    timerInterval = setInterval(() => {
-                        const elapsed = Date.now() - speechStartTime;
+                    this.timerInterval = setInterval(() => {
+                        if (this.isPaused) return; // Skip updates when paused
+
+                        const elapsed = Date.now() - this.speechStartTime - this.totalPausedDuration;
                         const progress = Math.min(elapsed / estimatedDuration, 1);
                         const currentCharIndex = Math.floor(progress * totalChars);
 
@@ -759,7 +767,8 @@ Return ONLY valid JSON:
                         }
 
                         if (progress >= 1) {
-                            clearInterval(timerInterval);
+                            clearInterval(this.timerInterval);
+                            this.timerInterval = null;
                             resolve();
                         }
                     }, updateInterval);
@@ -800,13 +809,19 @@ Return ONLY valid JSON:
                         };
 
                         utterance.onend = () => {
-                            if (timerInterval) clearInterval(timerInterval);
+                            if (this.timerInterval) {
+                                clearInterval(this.timerInterval);
+                                this.timerInterval = null;
+                            }
                             resolve();
                         };
 
                         utterance.onerror = (error) => {
                             console.warn('Speech synthesis error:', error);
-                            if (timerInterval) clearInterval(timerInterval);
+                            if (this.timerInterval) {
+                                clearInterval(this.timerInterval);
+                                this.timerInterval = null;
+                            }
                             if (!speechSuccessful) {
                                 // Speech failed to start, use timer fallback
                                 startTimerFallback();
@@ -838,34 +853,55 @@ Return ONLY valid JSON:
         }
 
         pause() {
-            if (!this.speechSynthAvailable) return;
-            try {
-                if (window.speechSynthesis.speaking) {
-                    window.speechSynthesis.pause();
+            this.isPaused = true;
+            this.pausedTime = Date.now();
+            
+            if (this.speechSynthAvailable) {
+                try {
+                    if (window.speechSynthesis.speaking) {
+                        window.speechSynthesis.pause();
+                    }
+                } catch (error) {
+                    console.warn('Failed to pause speech synthesis:', error);
                 }
-            } catch (error) {
-                console.warn('Failed to pause speech:', error);
             }
         }
 
         resume() {
-            if (!this.speechSynthAvailable) return;
-            try {
-                if (window.speechSynthesis.paused) {
-                    window.speechSynthesis.resume();
+            if (this.isPaused && this.pausedTime) {
+                this.totalPausedDuration += Date.now() - this.pausedTime;
+                this.pausedTime = null;
+            }
+            this.isPaused = false;
+            
+            if (this.speechSynthAvailable) {
+                try {
+                    if (window.speechSynthesis.paused) {
+                        window.speechSynthesis.resume();
+                    }
+                } catch (error) {
+                    console.warn('Failed to resume speech synthesis:', error);
                 }
-            } catch (error) {
-                console.warn('Failed to resume speech:', error);
             }
         }
 
         stop() {
             this.currentUtterance = null;
-            if (!this.speechSynthAvailable) return;
-            try {
-                window.speechSynthesis.cancel();
-            } catch (error) {
-                console.warn('Failed to stop speech:', error);
+            this.isPaused = false;
+            this.pausedTime = null;
+            this.totalPausedDuration = 0;
+            
+            if (this.timerInterval) {
+                clearInterval(this.timerInterval);
+                this.timerInterval = null;
+            }
+            
+            if (this.speechSynthAvailable) {
+                try {
+                    window.speechSynthesis.cancel();
+                } catch (error) {
+                    console.warn('Failed to stop speech:', error);
+                }
             }
         }
     }

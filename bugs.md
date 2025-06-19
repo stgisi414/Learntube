@@ -67,7 +67,7 @@ Root Cause: Likely related to recent changes in the video handling, YouTube play
 
 FIXED: added backup API key because I reached quota limits again
 
-Bug 6: Narration Pause/Resume Not Working ❌ NEW
+Bug 6: Narration Pause/Resume Not Working ✅ COMPLETE
 This is a UI/UX bug affecting the speech synthesis controls.
 
 Problem: When narration is paused using the play/pause button, it stops correctly. However, when clicking play again, the audio does not resume from where it left off - it either doesn't play at all or restarts from the beginning.
@@ -77,6 +77,8 @@ Additional Note: The teleprompter scrolling continues to work properly when resu
 Impact: Users lose their place in the narration and cannot smoothly control the learning experience.
 
 Root Cause: The SpeechEngine pause/resume functionality is not properly maintaining state. The speechSynthesis.pause() and speechSynthesis.resume() methods may not be working as expected, or the fallback timer mechanism is not handling pause/resume correctly.
+
+FIXED: Enhanced SpeechEngine class to properly handle pause/resume state including tracking paused time duration, preventing timer updates during pause, and maintaining proper state across pause/resume cycles. Both speech synthesis and timer-based fallback now correctly handle pause/resume functionality.
 
 Bug 7: Next Segment Button Not Working ❌ NEW
 This is a critical UI bug affecting lesson progression.
