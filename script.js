@@ -670,7 +670,7 @@ Return ONLY valid JSON:
             return {
                 questions: [
                     {
-                        question": `What is the main concept behind ${topics[0]}?`,
+                        question: `What is the main concept behind ${topics[0]}?`,
                         options: ['A) Concept A', 'B) Concept B', 'C) Concept C', 'D) Concept D'],
                         correct: 0,
                         explanation: 'This covers the fundamental principles.'
