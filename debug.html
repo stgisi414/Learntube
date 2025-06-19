@@ -275,6 +275,12 @@
         function pauseSpeech() {
             if (speechSynthesis.speaking) {
                 speechSynthesis.pause();
+                
+                // Also pause teleprompter if it's running
+                if (teleprompterInterval && !teleprompterPaused) {
+                    pauseTeleprompter();
+                }
+                
                 log('Speech paused');
                 document.getElementById('speechStatus').textContent = 'Speech paused';
             }
@@ -283,6 +289,12 @@
         function resumeSpeech() {
             if (speechSynthesis.paused) {
                 speechSynthesis.resume();
+                
+                // Also resume teleprompter if it was paused
+                if (teleprompterInterval && teleprompterPaused) {
+                    resumeTeleprompter();
+                }
+                
                 log('Speech resumed');
                 document.getElementById('speechStatus').textContent = 'Speaking...';
             }
