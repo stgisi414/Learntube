@@ -666,7 +666,7 @@ Return ONLY valid JSON:
 
         checkSpeechSynthesis() {
             try {
-                return typeof speechSynthesis !== 'undefined' && speechSynthesis !== null;
+                return typeof window.speechSynthesis !== 'undefined' && window.speechSynthesis !== null;
             } catch (error) {
                 console.warn('Speech synthesis not available:', error);
                 return false;
@@ -682,14 +682,14 @@ Return ONLY valid JSON:
 
             try {
                 const loadVoices = () => {
-                    this.voices = speechSynthesis.getVoices();
+                    this.voices = window.speechSynthesis.getVoices();
                     this.preferredVoice = this.selectBestVoice();
                     this.isReady = true;
                 };
 
                 loadVoices();
-                if (speechSynthesis.onvoiceschanged !== undefined) {
-                    speechSynthesis.onvoiceschanged = loadVoices;
+                if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                    window.speechSynthesis.onvoiceschanged = loadVoices;
                 }
             } catch (error) {
                 console.warn('Failed to initialize voices:', error);
@@ -741,8 +741,8 @@ Return ONLY valid JSON:
                 // Try speech synthesis first
                 if (this.speechSynthAvailable) {
                     try {
-                        if (speechSynthesis.speaking) {
-                            speechSynthesis.cancel();
+                        if (window.speechSynthesis.speaking) {
+                            window.speechSynthesis.cancel();
                         }
 
                         const utterance = new SpeechSynthesisUtterance(text);
@@ -788,7 +788,7 @@ Return ONLY valid JSON:
                             }
                         };
 
-                        speechSynthesis.speak(utterance);
+                        window.speechSynthesis.speak(utterance);
                         
                         // Start timer fallback as backup in case boundary events don't fire
                         setTimeout(() => {
@@ -813,8 +813,8 @@ Return ONLY valid JSON:
         pause() {
             if (!this.speechSynthAvailable) return;
             try {
-                if (speechSynthesis.speaking) {
-                    speechSynthesis.pause();
+                if (window.speechSynthesis.speaking) {
+                    window.speechSynthesis.pause();
                 }
             } catch (error) {
                 console.warn('Failed to pause speech:', error);
@@ -824,8 +824,8 @@ Return ONLY valid JSON:
         resume() {
             if (!this.speechSynthAvailable) return;
             try {
-                if (speechSynthesis.paused) {
-                    speechSynthesis.resume();
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume();
                 }
             } catch (error) {
                 console.warn('Failed to resume speech:', error);
@@ -836,7 +836,7 @@ Return ONLY valid JSON:
             this.currentUtterance = null;
             if (!this.speechSynthAvailable) return;
             try {
-                speechSynthesis.cancel();
+                window.speechSynthesis.cancel();
             } catch (error) {
                 console.warn('Failed to stop speech:', error);
             }
@@ -1606,8 +1606,8 @@ Return ONLY valid JSON:
         currentSegmentIndex = -1;
         lessonState = 'idle';
         retryCount = 0;
-        if (typeof speechSynthesis !== 'undefined') {
-            speechSynthesis.cancel();
+        if (typeof window.speechSynthesis !== 'undefined') {
+            window.speechSynthesis.cancel();
         }
     }
 
@@ -1880,8 +1880,8 @@ Return ONLY valid JSON:
     // Handle voice loading - only log once
     let voicesLoaded = false;
     try {
-        if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = () => {
+        if (typeof window.speechSynthesis !== 'undefined' && window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = () => {
                 if (!voicesLoaded) {
                     console.log("Speech synthesis voices loaded.");
                     voicesLoaded = true;
