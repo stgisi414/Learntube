@@ -407,10 +407,8 @@ Return ONLY valid JSON:
             });
 
             const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams}`, {
-            headers: {
-                'Referer': window.location.origin
-            }
-        });
+                referrerPolicy: "origin"
+            });
 
             if (!response.ok) {
                 throw new Error(`YouTube API failed: ${response.status}`);
@@ -456,9 +454,7 @@ Return ONLY valid JSON:
             try {
                 // Get video details first
                 const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`, {
-                    headers: {
-                        'Referer': window.location.origin
-                    }
+                    referrerPolicy: "origin"
                 });
                 if (!videoResponse.ok) return null;
                 
@@ -471,9 +467,7 @@ Return ONLY valid JSON:
                 
                 // Get available captions
                 const captionsResponse = await fetch(`https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${YOUTUBE_API_KEY}`, {
-                    headers: {
-                        'Referer': window.location.origin
-                    }
+                    referrerPolicy: "origin"
                 });
                 if (!captionsResponse.ok) {
                     // Return video without captions
