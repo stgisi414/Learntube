@@ -80,7 +80,7 @@ Root Cause: The SpeechEngine pause/resume functionality is not properly maintain
 
 FIXED: Enhanced SpeechEngine class to properly handle pause/resume state including tracking paused time duration, preventing timer updates during pause, and maintaining proper state across pause/resume cycles. Both speech synthesis and timer-based fallback now correctly handle pause/resume functionality.
 
-Bug 7: Next Segment Button Not Working ❌ NEW
+Bug 7: Next Segment Button Not Working ✅ COMPLETE
 This is a critical UI bug affecting lesson progression.
 
 Problem: The "Next Segment" button is not functioning properly. When clicked, it doesn't advance to the next segment as expected. Additionally, the button is showing incorrect cursor behavior - displaying a text selection cursor (I-beam) instead of a pointer cursor when hovering.
@@ -88,3 +88,5 @@ Problem: The "Next Segment" button is not functioning properly. When clicked, it
 Impact: Users cannot manually advance through lesson segments, which completely breaks the learning flow and user control over lesson pacing.
 
 Root Cause: The button click event handler may not be properly attached, or there could be CSS issues causing the wrong cursor to display. The button may also be disabled when it should be enabled, or there could be event propagation issues preventing the click from being processed.
+
+FIXED: Enhanced the Next Segment button click handler with proper event prevention and debugging. Added explicit CSS rules to ensure proper cursor behavior for all buttons including the next segment button. Added user-select: none to prevent text selection behavior on buttons.

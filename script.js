@@ -1299,7 +1299,18 @@ Return ONLY valid JSON:
         });
         ui.topicInput.addEventListener('input', validateInput);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
-        ui.nextSegmentButton.addEventListener('click', () => processNextSegment(true));
+        // Fix Next Segment button with proper event handling
+        ui.nextSegmentButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Next Segment button clicked');
+            if (!ui.nextSegmentButton.disabled) {
+                processNextSegment(true);
+            }
+        });
+        
+        // Ensure proper cursor styling
+        ui.nextSegmentButton.style.cursor = 'pointer';
 
         ui.videoVolume.addEventListener('input', (e) => ui.video.volume = parseFloat(e.target.value));
         ui.narrationVolume.addEventListener('input', (e) => { 
