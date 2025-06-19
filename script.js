@@ -188,7 +188,7 @@ Return ONLY a JSON array: ["query1", "query2", "query3", "query4", "query5"]`;
         // NARRATION GENERATION
         async generateNarration(learningPoint, previousPoint, videoTitle, context = {}) {
             let prompt;
-            
+
             if (previousPoint) {
                 // Continuation narration - bridge from previous topic
                 prompt = `Previous topic: "${previousPoint}". Current topic: "${learningPoint}".
@@ -306,11 +306,11 @@ Return 2-3 sentences, 60-100 words total.`;
         async preSourceVideos(learningPoints, topic, level) {
             const videoMap = new Map();
             showLoading(`Finding educational videos for ${level} level...`);
-            
+
             for (let i = 0; i < learningPoints.length; i++) {
                 const point = learningPoints[i];
                 updateLoadingMessage(`Finding video ${i + 1}/${learningPoints.length}: ${point}`);
-                
+
                 try {
                     const video = await this.findAndValidateVideo(point, topic, level);
                     videoMap.set(point, video);
@@ -319,7 +319,7 @@ Return 2-3 sentences, 60-100 words total.`;
                     videoMap.set(point, this.createFallbackVideo(point));
                 }
             }
-            
+
             return videoMap;
         }
 
@@ -360,7 +360,7 @@ Return 2-3 sentences, 60-100 words total.`;
 
         async validateVideoRelevance(video, learningPoint, topic) {
             if (!video.title || !video.description) return false;
-            
+
             try {
                 const prompt = `Does this YouTube video match the learning objective?
 
@@ -381,7 +381,7 @@ Return ONLY valid JSON:
 
                 const response = await this.gemini.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 256 });
                 const validation = this.gemini.parseJSONResponse(response);
-                
+
                 return validation.relevanceScore >= 7 && validation.isRelevant;
             } catch (error) {
                 console.warn('Video validation failed:', error);
@@ -454,18 +454,21 @@ Return ONLY valid JSON:
             try {
                 // Get video details first
                 const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`, {
-                    referrer: "https://learntube.cc",
-                    referrerPolicy: "origin"
+                    referrerPolicy: "origin-when-cross-origin",
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Referer': window.location.href
+                    }
                 });
                 if (!videoResponse.ok) return null;
-                
+
                 const videoData = await videoResponse.json();
                 const video = videoData.items?.[0];
                 if (!video) return null;
 
                 // Parse video duration
                 const duration = this.parseDuration(video.contentDetails.duration);
-                
+
                 // Get available captions
                 const captionsResponse = await fetch(`https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${YOUTUBE_API_KEY}`, {
                     referrerPolicy: "origin"
@@ -484,7 +487,7 @@ Return ONLY valid JSON:
 
                 const captionsData = await captionsResponse.json();
                 const captions = captionsData.items || [];
-                
+
                 // Find English captions
                 const englishCaption = captions.find(cap => 
                     cap.snippet.language === 'en' || 
@@ -495,7 +498,7 @@ Return ONLY valid JSON:
                     // For now, we'll use the video with a reasonable time segment
                     // In a full implementation, you'd download and parse the caption file
                     const segmentDuration = Math.min(duration, 90);
-                    
+
                     return {
                         youtubeId: videoId,
                         title: video.snippet.title,
@@ -518,11 +521,11 @@ Return ONLY valid JSON:
             // Parse ISO 8601 duration (PT1M30S format)
             const matches = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
             if (!matches) return 60;
-            
+
             const hours = parseInt(matches[1] || 0);
             const minutes = parseInt(matches[2] || 0);
             const seconds = parseInt(matches[3] || 0);
-            
+
             return hours * 3600 + minutes * 60 + seconds;
         }
 
@@ -666,7 +669,7 @@ Return ONLY valid JSON:
             return {
                 questions: [
                     {
-                        question: `What is the main concept behind ${topics[0]}?`,
+                        question": `What is the main concept behind ${topics[0]}?`,
                         options: ['A) Concept A', 'B) Concept B', 'C) Concept C', 'D) Concept D'],
                         correct: 0,
                         explanation: 'This covers the fundamental principles.'
@@ -695,20 +698,20 @@ Return ONLY valid JSON:
             try {
                 // Step 1: Generate initial lesson plan
                 let lessonPlan = await this.gemini.generateLessonPlan(topic);
-                
+
                 // Step 2: Validate the lesson plan
                 updateLoadingMessage("Validating lesson plan quality...");
                 const validation = await this.gemini.validateLessonPlan(lessonPlan, topic);
-                
+
                 // Step 3: Use revised plan if needed
                 if (validation.needsRevision && validation.revisedPlan) {
                     lessonPlan = validation.revisedPlan;
                     console.log('Using revised lesson plan');
                 }
-                
+
                 // Step 4: Log quality assessment
                 console.log('Lesson plan validation:', validation);
-                
+
                 return lessonPlan;
             } catch (error) {
                 console.error('Lesson plan generation failed:', error);
@@ -736,7 +739,7 @@ Return ONLY valid JSON:
                 // Get pre-sourced video for this learning point
                 const videoMap = this.videoMaps.get(level);
                 const videoInfo = videoMap ? videoMap.get(learningPoint) : null;
-                
+
                 if (!videoInfo) {
                     throw new Error('No pre-sourced video found');
                 }
@@ -796,7 +799,7 @@ Return ONLY valid JSON:
             } else {
                 // Instead of using video element, create YouTube iframe
                 this.createYouTubeIframe(videoInfo);
-                
+
                 // Auto-advance after video duration
                 setTimeout(() => {
                     if (lessonState === 'playing_video') {
@@ -825,21 +828,21 @@ Return ONLY valid JSON:
                 // Create iframe container
                 const iframeContainer = document.createElement('div');
                 iframeContainer.className = 'youtube-iframe absolute top-0 left-0 w-full h-full';
-                
+
                 const iframe = document.createElement('iframe');
                 iframe.src = `https://www.youtube.com/embed/${videoInfo.youtubeId}?autoplay=1&controls=1&rel=0&modestbranding=1&start=0&end=${videoInfo.duration}`;
                 iframe.className = 'w-full h-full';
                 iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
                 iframe.allowFullscreen = true;
-                
+
                 // Add error handling for iframe
                 iframe.onerror = () => {
                     console.warn('YouTube iframe failed to load');
                     handleVideoError(new Error('YouTube iframe loading failed'));
                 };
-                
+
                 iframeContainer.appendChild(iframe);
-                
+
                 // Add to the video container area
                 const videoContainer = ui.learningCanvasContainer.querySelector('.relative');
                 if (videoContainer) {
@@ -907,26 +910,26 @@ Return ONLY valid JSON:
     // --- UTILITY FUNCTIONS (defined early to avoid reference errors) --- //
     function handleVideoError(error) {
         console.error('Video error:', error);
-        
+
         // Prevent multiple error calls
         if (lessonState === 'error') return;
         lessonState = 'error';
-        
+
         // Reset video display and show error on canvas
         ui.canvas.style.opacity = '1';
         ui.video.style.opacity = '0';
         ui.video.style.pointerEvents = 'none';
         ui.video.src = '';
-        
+
         // Remove YouTube iframe if it exists
         const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
         if (existingIframe) {
             existingIframe.remove();
         }
-        
+
         // Remove any existing error timeouts
         clearTimeout(window.videoErrorTimeout);
-        
+
         displayErrorOnCanvas("Video Error", "There was an error playing the video. Continuing to next segment...");
         window.videoErrorTimeout = setTimeout(() => {
             if (lessonState === 'error') {
@@ -939,22 +942,22 @@ Return ONLY valid JSON:
         // Prevent multiple calls
         if (lessonState === 'ending' || lessonState === 'error') return;
         lessonState = 'ending';
-        
+
         // Clear any existing timeouts
         clearTimeout(window.videoErrorTimeout);
-        
+
         // Reset video display and remove iframe
         ui.canvas.style.opacity = '1';
         ui.video.style.opacity = '0';
         ui.video.style.pointerEvents = 'none';
         ui.video.src = '';
-        
+
         // Remove YouTube iframe if it exists
         const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
         if (existingIframe) {
             existingIframe.remove();
         }
-        
+
         updateCanvasVisuals("Segment Complete! 🎉", "Great job! Preparing the next learning segment...");
         setTimeout(() => processNextSegment(), 2000);
     }
@@ -1104,27 +1107,27 @@ Return ONLY valid JSON:
 
         // Hide level selection but keep canvas hidden until videos are ready
         ui.levelSelection.classList.add('hidden');
-        
+
         // Show loading indicator while preparing videos
         showLoading(`Preparing ${level} level videos...`);
-        
+
         try {
             // Prepare all videos for this level before showing canvas
             const learningPoints = currentLessonPlan[level];
             updateLoadingMessage('Finding and validating educational videos...');
-            
+
             const prepared = await learningPipeline.prepareLevel(level, learningPoints);
-            
+
             if (!prepared) {
                 throw new Error('Failed to prepare lesson content');
             }
-            
+
             // Only show canvas after videos are prepared
             hideLoading();
             ui.learningCanvasContainer.classList.remove('hidden');
             updateCanvasVisuals(`${level} Level Ready!`, 'All content prepared. Starting your lesson...');
             setTimeout(() => processNextSegment(), 2000);
-            
+
         } catch (error) {
             console.error('Failed to start lesson:', error);
             hideLoading();
@@ -1138,10 +1141,10 @@ Return ONLY valid JSON:
 
         // Clear any existing timeouts
         clearTimeout(window.videoErrorTimeout);
-        
+
         // Reset lesson state
         lessonState = 'idle';
-        
+
         learningPipeline.speechEngine.stop();
         if (!ui.video.paused) ui.video.pause();
 
@@ -1429,7 +1432,7 @@ Return ONLY valid JSON:
         ui.pauseIcon.classList.toggle('hidden', !isPlaying);
     }
 
-    
+
 
     function wrapText(text, x, y, maxWidth, lineHeight) {
         const words = text.split(' ');
