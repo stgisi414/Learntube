@@ -454,6 +454,7 @@ Return ONLY valid JSON:
             try {
                 // Get video details first
                 const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`, {
+                    referrer: "https://learntube.cc",
                     referrerPolicy: "origin"
                 });
                 if (!videoResponse.ok) return null;
