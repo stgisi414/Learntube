@@ -406,11 +406,7 @@ Return ONLY valid JSON:
                 key: YOUTUBE_API_KEY
             });
 
-            const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams}`, {
-                headers: {
-                    'Referrer': 'https://learntube.cc'
-                }
-            });
+            const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams}`);
 
             if (!response.ok) {
                 throw new Error(`YouTube API failed: ${response.status}`);
@@ -455,11 +451,7 @@ Return ONLY valid JSON:
         async getVideoWithCaptions(videoId) {
             try {
                 // Get video details first
-                const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`, {
-                    headers: {
-                        'Referrer': 'https://learntube.cc'
-                    }
-                });
+                const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`);
                 if (!videoResponse.ok) return null;
                 
                 const videoData = await videoResponse.json();
@@ -470,11 +462,7 @@ Return ONLY valid JSON:
                 const duration = this.parseDuration(video.contentDetails.duration);
                 
                 // Get available captions
-                const captionsResponse = await fetch(`https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${YOUTUBE_API_KEY}`, {
-                    headers: {
-                        'Referrer': 'https://learntube.cc'
-                    }
-                });
+                const captionsResponse = await fetch(`https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${YOUTUBE_API_KEY}`);
                 if (!captionsResponse.ok) {
                     // Return video without captions
                     return {
