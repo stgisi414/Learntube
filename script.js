@@ -1980,42 +1980,7 @@ Return ONLY valid JSON:
     };
 
     // --- UI EVENT HANDLERS --- //
-    // Initialize the application
-    function initializeUI() {
-        ui.curateButton.addEventListener('click', handleCurateClick);
-        ui.topicInput.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter') handleCurateClick();
-        });
-        ui.topicInput.addEventListener('input', validateInput);
-        ui.playPauseButton.addEventListener('click', playPauseLesson);
-        ui.nextSegmentButton.addEventListener('click', () => processNextSegment(true));
-
-        ui.videoVolume.addEventListener('input', (e) => ui.video.volume = parseFloat(e.target.value));
-        ui.narrationVolume.addEventListener('input', (e) => { 
-            Storage.save('narrationVolume', e.target.value);
-        });
-        ui.video.addEventListener('timeupdate', updateProgressBar);
-        ui.video.addEventListener('ended', handleVideoEnd);
-        ui.video.addEventListener('error', (e) => handleVideoError(e));
-
-        document.addEventListener('keydown', handleKeyboardShortcuts);
-        loadPreviousSession();
-
-         // Load saved settings
-         const savedVideoVolume = Storage.load('videoVolume');
-         const savedNarrationVolume = Storage.load('narrationVolume');
-         if (savedVideoVolume !== null) ui.videoVolume.value = savedVideoVolume;
-         if (savedNarrationVolume !== null) ui.narrationVolume.value = savedNarrationVolume;
-
-         // Initialize skip video button (avoid duplicate listeners)
-         if (ui.skipVideoButton && !ui.skipVideoButton.hasAttribute('data-initialized')) {
-             ui.skipVideoButton.setAttribute('data-initialized', 'true');
-             ui.skipVideoButton.addEventListener('click', () => {
-                 console.log('Skip video button clicked');
-                 handleVideoEnd(); // Skip to next segment immediately
-             });
-         }
-    }
+    // (initializeUI function already defined above - removing duplicate)
 
     // --- INITIALIZE APPLICATION --- //
     initializeUI();
