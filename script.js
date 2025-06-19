@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playIcon: document.getElementById('play-icon'),
         pauseIcon: document.getElementById('pause-icon'),
         nextSegmentButton: document.getElementById('next-segment-button'),
+        skipVideoButton: document.getElementById('skip-video-button'),
         currentTopicDisplay: document.getElementById('current-topic-display'),
         videoVolume: document.getElementById('video-volume'),
         narrationVolume: document.getElementById('narration-volume'),
@@ -905,9 +906,8 @@ Return ONLY valid JSON:
             lessonState = 'narrating';
             
             // Hide skip video button during narration
-            const skipButton = document.getElementById('skip-video-button');
-            if (skipButton) {
-                skipButton.style.display = 'none';
+            if (ui.skipVideoButton) {
+                ui.skipVideoButton.style.display = 'none';
             }
             
             updateCanvasVisuals(narrationText, 'Listen to the introduction...');
@@ -933,10 +933,9 @@ Return ONLY valid JSON:
             ui.nextSegmentButton.disabled = true; // Disable until segment ends
             updatePlayPauseIcon();
             
-            // Show skip video button during video playback
-            const skipButton = document.getElementById('skip-video-button');
-            if (skipButton) {
-                skipButton.style.display = 'block';
+            // Show skip video button during video playbook
+            if (ui.skipVideoButton) {
+                ui.skipVideoButton.style.display = 'block';
             }
 
             if (videoInfo.isFallback || !videoInfo.youtubeId) {
@@ -1101,9 +1100,8 @@ Return ONLY valid JSON:
         clearTimeout(window.videoErrorTimeout);
         
         // Hide skip video button
-        const skipButton = document.getElementById('skip-video-button');
-        if (skipButton) {
-            skipButton.style.display = 'none';
+        if (ui.skipVideoButton) {
+            ui.skipVideoButton.style.display = 'none';
         }
 
         // Clean up YouTube player
@@ -1163,9 +1161,8 @@ Return ONLY valid JSON:
          if (savedNarrationVolume !== null) ui.narrationVolume.value = savedNarrationVolume;
 
          // Initialize skip video button
-         const skipVideoButton = document.getElementById('skip-video-button');
-         if (skipVideoButton) {
-             skipVideoButton.addEventListener('click', () => {
+         if (ui.skipVideoButton) {
+             ui.skipVideoButton.addEventListener('click', () => {
                  console.log('Skip video button clicked');
                  handleVideoEnd(); // Skip to next segment immediately
              });
