@@ -1,0 +1,79 @@
+Request URL
+https://www.googleapis.com/youtube/v3/search?part=snippet&q=care+bears+introduction+academic+lecture+original+characters&type=video&maxResults=10&order=relevance&videoCategoryId=27&videoCaption=closedCaption&key=AIzaSyBQLgFiUYdSNvpbyO_TgdzXmSvT9BFgal4
+Request Method
+GET
+Status Code
+403 Forbidden
+Remote Address
+[2607:f8b0:4009:80a::200a]:443
+Referrer Policy
+origin
+access-control-allow-origin
+https://learntube.cc
+access-control-expose-headers
+vary,vary,vary,content-encoding,date,server,content-length
+alt-svc
+h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+content-encoding
+gzip
+content-length
+212
+content-type
+application/json; charset=UTF-8
+date
+Thu, 19 Jun 2025 01:43:21 GMT
+server
+scaffolding on HTTPServer2
+vary
+Origin
+vary
+X-Origin
+vary
+Referer
+x-content-type-options
+nosniff
+x-frame-options
+SAMEORIGIN
+x-xss-protection
+0
+:authority
+www.googleapis.com
+:method
+GET
+:path
+/youtube/v3/search?part=snippet&q=care+bears+introduction+academic+lecture+original+characters&type=video&maxResults=10&order=relevance&videoCategoryId=27&videoCaption=closedCaption&key=AIzaSyBQLgFiUYdSNvpbyO_TgdzXmSvT9BFgal4
+:scheme
+https
+accept
+*/*
+accept-encoding
+gzip, deflate, br, zstd
+accept-language
+en-US,en;q=0.9,ko;q=0.8,zh-CN;q=0.7,zh;q=0.6,ja;q=0.5,ru;q=0.4
+origin
+https://learntube.cc
+priority
+u=1, i
+referer
+https://learntube.cc/
+sec-ch-ua
+"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"
+sec-ch-ua-mobile
+?0
+sec-ch-ua-platform
+"Windows"
+sec-fetch-dest
+empty
+sec-fetch-mode
+cors
+sec-fetch-site
+cross-site
+user-agent
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36
+x-client-data
+CK+1yQEIlbbJAQimtskBCKmdygEI//vKAQiVocsBCJKjywEIhaDNAQjh8M4BCJP2zgE=
+Decoded:
+message ClientVariations {
+  // Active Google-visible variation IDs on this client. These are reported for analysis, but do not directly affect any server-side behavior.
+  repeated int32 variation_id = [3300015, 3300117, 3300134, 3313321, 3325439, 3330197, 3330450, 3362821, 3389537, 3390227];
+}
