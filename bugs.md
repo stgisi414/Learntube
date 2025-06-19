@@ -23,14 +23,14 @@ Consolidate Logic: The updateTeleprompter function contains its own word-wrappin
 
 FIXED: Simplified updateTeleprompter function to use existing wrapText utility and calculate simple Y offset based on currentLineIndex for proper scrolling behavior.
 
-Bug 2: Video Segmenter Not Working ✅ COMPLETE
+Bug 2: Video Segmenter Not Working ❌ INCOMPLETE
 This is a core app-flow bug where the application fails to play the specific, curated segments of the videos.
 
 Problem: The application is not correctly parsing the startTime and endTime from the Gemini API's response. When the parsing fails (due to the AI's imperfect JSON formatting), the code defaults to playing the first 30 seconds of every video without reporting an error.
 
-Logical Step to Fix: The parseJSONResponse function in script.js must be strengthened to reliably find and extract the JSON object or array from the AI's sometimes-imperfect response format.
+Status: Previously marked as fixed but the video segmenter is still not working properly. Videos are not playing the correct segments as intended.
 
-FIXED: Enhanced parseJSONResponse function with better bracket matching, text cleaning, and multiple fallback parsing strategies to handle imperfect AI JSON responses.
+Logical Step to Fix: The parseJSONResponse function in script.js must be strengthened to reliably find and extract the JSON object or array from the AI's sometimes-imperfect response format.
 
 Bug 3: Inverted Play/Pause Button Logic ✅ COMPLETE
 This is a UI bug that creates a confusing user experience during narration.
@@ -77,3 +77,12 @@ Additional Note: The teleprompter scrolling continues to work properly when resu
 Impact: Users lose their place in the narration and cannot smoothly control the learning experience.
 
 Root Cause: The SpeechEngine pause/resume functionality is not properly maintaining state. The speechSynthesis.pause() and speechSynthesis.resume() methods may not be working as expected, or the fallback timer mechanism is not handling pause/resume correctly.
+
+Bug 7: Next Segment Button Not Working ❌ NEW
+This is a critical UI bug affecting lesson progression.
+
+Problem: The "Next Segment" button is not functioning properly. When clicked, it doesn't advance to the next segment as expected. Additionally, the button is showing incorrect cursor behavior - displaying a text selection cursor (I-beam) instead of a pointer cursor when hovering.
+
+Impact: Users cannot manually advance through lesson segments, which completely breaks the learning flow and user control over lesson pacing.
+
+Root Cause: The button click event handler may not be properly attached, or there could be CSS issues causing the wrong cursor to display. The button may also be disabled when it should be enabled, or there could be event propagation issues preventing the click from being processed.
