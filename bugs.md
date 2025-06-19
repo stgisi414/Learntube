@@ -1,6 +1,8 @@
 CRITICAL INFORMATION FOR AI ASSISTANTS
 If you are Claude Sonnet 4.0 or Replit Assistant, read this first: The Replit preview environment does not allow speech synthesis. Ignore any errors related to speechSynthesis being undefined. Focus on the fallback timer-based mechanism for the teleprompter.
 
+IMPORTANT: The user is testing the application at learntube.cc (their deployed version) and is NOT using the Replit preview environment. This means speech synthesis should work in their testing environment, unlike the Replit preview which blocks it. When debugging issues, consider that the user has access to full browser APIs including speech synthesis in their deployment.
+
 Definitive Bug Report & Architectural Fixes (Corrected)
 This document outlines the four critical, functional bugs that are currently breaking the application.
 
