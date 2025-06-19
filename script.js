@@ -904,12 +904,12 @@ Return ONLY valid JSON:
         async executeSegment(narrationText, videoInfo) {
             // Phase 1: Narration
             lessonState = 'narrating';
-            
+
             // Hide skip video button during narration
             if (ui.skipVideoButton) {
                 ui.skipVideoButton.style.display = 'none';
             }
-            
+
             updateCanvasVisuals(narrationText, 'Listen to the introduction...');
 
             try {
@@ -924,15 +924,14 @@ Return ONLY valid JSON:
 
             // Phase 2: Video/Visual Content
             if (lessonState === 'narrating') {
-                await this.playVideoContent(videoInfo);
-            }
+                await this.playVideoContent(videoInfo);            }
         }
 
         async playVideoContent(videoInfo) {
             lessonState = 'playing_video';
             ui.nextSegmentButton.disabled = true; // Disable until segment ends
             updatePlayPauseIcon();
-            
+
             // Show skip video button during video playbook
             if (ui.skipVideoButton) {
                 ui.skipVideoButton.style.display = 'block';
@@ -981,9 +980,9 @@ Return ONLY valid JSON:
                         const startTime = videoInfo.startTime || 0;
                         const endTime = videoInfo.endTime || Math.min(videoInfo.duration || 60, startTime + 90); // Max 90 seconds
                         const segmentDuration = Math.min((endTime - startTime), 180) * 1000; // Max 3 minutes total
-                        
+
                         console.log(`Playing video segment: ${startTime}s to ${endTime}s (${segmentDuration/1000}s duration)`);
-                        
+
                         setTimeout(() => {
                             if (lessonState === 'playing_video') {
                                 console.log('Auto-advancing to next segment after timer');
@@ -1098,7 +1097,7 @@ Return ONLY valid JSON:
 
         // Clear any existing timeouts
         clearTimeout(window.videoErrorTimeout);
-        
+
         // Hide skip video button
         if (ui.skipVideoButton) {
             ui.skipVideoButton.style.display = 'none';
@@ -1142,7 +1141,7 @@ Return ONLY valid JSON:
         ui.topicInput.addEventListener('input', validateInput);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
         ui.nextSegmentButton.addEventListener('click', () => processNextSegment(true));
-        
+
         ui.videoVolume.addEventListener('input', (e) => ui.video.volume = parseFloat(e.target.value));
         ui.narrationVolume.addEventListener('input', (e) => { 
             Storage.save('narrationVolume', e.target.value);
@@ -1673,7 +1672,7 @@ Return ONLY valid JSON:
         let currentCharCount = 0;
         let spokenWords = [];
         let unspokenWords = [];
-        
+
         for (let word of words) {
             if (currentCharCount + word.length + 1 <= charIndex) {
                 spokenWords.push(word);
