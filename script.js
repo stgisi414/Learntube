@@ -1739,7 +1739,7 @@ Return ONLY valid JSON:
         ui.pauseIcon.classList.toggle('hidden', !isPlaying);
     }
 
-    // IMPROVED Teleprompter Function
+    // SCROLLING TELEPROMPTER Function
     function updateTeleprompter(fullText, charIndex) {
         ui.canvas.width = ui.canvas.clientWidth;
         ui.canvas.height = ui.canvas.clientHeight;
@@ -1751,68 +1751,131 @@ Return ONLY valid JSON:
         canvasCtx.fillStyle = gradient;
         canvasCtx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
 
-        const maxWidth = ui.canvas.width * 0.85;
-        let fontSize = Math.max(18, Math.min(ui.canvas.width / 30, 24));
+        // Responsive font sizing
+        const maxWidth = ui.canvas.width * 0.9;
+        let fontSize = Math.max(16, Math.min(ui.canvas.width / 20, 28));
+        if (ui.canvas.width < 600) { // Mobile devices
+            fontSize = Math.max(18, Math.min(ui.canvas.width / 18, 24));
+        }
+        
         canvasCtx.font = `${fontSize}px Inter, sans-serif`;
-        canvasCtx.textAlign = 'left';
-        canvasCtx.textBaseline = 'top';
+        canvasCtx.textAlign = 'center';
+        canvasCtx.textBaseline = 'middle';
 
-        // Calculate line height and starting position
-        const lineHeight = fontSize + 8;
-        const startX = (ui.canvas.width - maxWidth) / 2;
-        const startY = ui.canvas.height / 2 - 60;
+        const lineHeight = fontSize + 12;
+        const centerX = ui.canvas.width / 2;
+        const centerY = ui.canvas.height / 2;
 
-        // Split text into characters for precise tracking
-        const allChars = fullText.split('');
-        let currentX = startX;
-        let currentY = startY;
+        // Split text into words and create lines that fit within maxWidth
+        const words = fullText.split(' ');
+        const lines = [];
         let currentLine = '';
-        let charPosition = 0;
+        let currentCharCount = 0;
+        const lineCharCounts = [];
 
-        // Render each character with appropriate color
-        for (let i = 0; i < allChars.length; i++) {
-            const char = allChars[i];
-            
-            // Check if we need to wrap to new line
-            const testLine = currentLine + char;
+        for (let word of words) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
             const testWidth = canvasCtx.measureText(testLine).width;
             
             if (testWidth > maxWidth && currentLine.length > 0) {
-                // Move to next line
-                currentY += lineHeight;
-                currentX = startX;
-                currentLine = char;
+                lines.push(currentLine);
+                lineCharCounts.push(currentCharCount);
+                currentLine = word;
+                currentCharCount += word.length + 1; // +1 for space
             } else {
-                currentLine += char;
-            }
-
-            // Set color based on whether this character has been spoken
-            if (i < charIndex) {
-                canvasCtx.fillStyle = 'rgba(34, 197, 94, 0.9)'; // Green for spoken
-            } else if (i === charIndex) {
-                canvasCtx.fillStyle = 'rgba(255, 215, 0, 1)'; // Gold for current character
-            } else {
-                canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.7)'; // White for unspoken
-            }
-
-            // Draw the character
-            if (char === ' ') {
-                currentX += canvasCtx.measureText(' ').width;
-            } else {
-                canvasCtx.fillText(char, currentX, currentY);
-                currentX += canvasCtx.measureText(char).width;
+                currentLine = testLine;
+                if (currentLine !== word) currentCharCount += 1; // space
+                currentCharCount += word.length;
             }
         }
-
-        // Add progress indicator
-        const progress = Math.min((charIndex / fullText.length) * 100, 100);
-        canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-        canvasCtx.font = `14px Inter, sans-serif`;
-        canvasCtx.textAlign = 'center';
-        canvasCtx.fillText(`🎤 AI Narration Active - ${Math.round(progress)}%`, ui.canvas.width / 2, ui.canvas.height - 30);
         
-        // Reset text alignment for other functions
-        canvasCtx.textAlign = 'center';
+        if (currentLine) {
+            lines.push(currentLine);
+            lineCharCounts.push(currentCharCount);
+        }
+
+        // Find which line contains the current character
+        let currentLineIndex = 0;
+        let charsSoFar = 0;
+        
+        for (let i = 0; i < lineCharCounts.length; i++) {
+            if (charIndex <= charsSoFar + lines[i].length + (i > 0 ? 1 : 0)) {
+                currentLineIndex = i;
+                break;
+            }
+            charsSoFar += lines[i].length + 1; // +1 for space between lines
+        }
+
+        // Calculate scroll offset to keep current line in view
+        const totalLines = lines.length;
+        const visibleLines = Math.floor(ui.canvas.height / lineHeight) - 1; // Leave space for progress
+        const maxScroll = Math.max(0, totalLines - visibleLines);
+        
+        // Smooth scrolling: keep current line in the middle third of screen
+        let scrollOffset = 0;
+        if (totalLines > visibleLines) {
+            const targetScroll = Math.max(0, currentLineIndex - Math.floor(visibleLines / 3));
+            scrollOffset = Math.min(targetScroll, maxScroll);
+        }
+
+        // Calculate starting Y position
+        const startY = centerY - (visibleLines * lineHeight / 2) + (scrollOffset * lineHeight);
+
+        // Draw visible lines with proper coloring
+        let lineCharOffset = 0;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const lineY = startY + (i - scrollOffset) * lineHeight;
+            
+            // Only draw lines that are visible on screen
+            if (lineY > -lineHeight && lineY < ui.canvas.height + lineHeight) {
+                const line = lines[i];
+                const lineStartChar = lineCharOffset;
+                const lineEndChar = lineCharOffset + line.length;
+                
+                // Determine line coloring based on progress
+                let lineColor;
+                if (charIndex > lineEndChar) {
+                    // Entire line has been read
+                    lineColor = 'rgba(34, 197, 94, 0.7)'; // Green (read)
+                } else if (charIndex >= lineStartChar && charIndex <= lineEndChar) {
+                    // Currently reading this line - make it prominent
+                    lineColor = 'rgba(255, 255, 255, 1)'; // White (current)
+                    
+                    // Add subtle highlight background for current line
+                    canvasCtx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+                    canvasCtx.fillRect(0, lineY - lineHeight/2, ui.canvas.width, lineHeight);
+                } else {
+                    // Line hasn't been read yet
+                    lineColor = 'rgba(255, 255, 255, 0.5)'; // Dim white (upcoming)
+                }
+                
+                canvasCtx.fillStyle = lineColor;
+                canvasCtx.fillText(line, centerX, lineY);
+            }
+            
+            lineCharOffset += line.length + 1; // +1 for space
+        }
+
+        // Add progress bar at bottom
+        const progress = Math.min((charIndex / fullText.length) * 100, 100);
+        const progressBarWidth = ui.canvas.width * 0.8;
+        const progressBarHeight = 4;
+        const progressBarX = (ui.canvas.width - progressBarWidth) / 2;
+        const progressBarY = ui.canvas.height - 40;
+
+        // Progress bar background
+        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        canvasCtx.fillRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
+
+        // Progress bar fill
+        canvasCtx.fillStyle = 'rgba(34, 197, 94, 0.8)';
+        canvasCtx.fillRect(progressBarX, progressBarY, (progressBarWidth * progress) / 100, progressBarHeight);
+
+        // Progress text
+        canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.9)';
+        canvasCtx.font = `${Math.max(12, fontSize * 0.6)}px Inter, sans-serif`;
+        canvasCtx.fillText(`🎤 ${Math.round(progress)}% • Reading aloud...`, centerX, progressBarY + 20);
     }
 
 
