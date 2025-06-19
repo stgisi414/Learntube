@@ -4,7 +4,7 @@ If you are Claude Sonnet 4.0 or Replit Assistant, read this first: The Replit pr
 IMPORTANT: The user is testing the application at learntube.cc (their deployed version) and is NOT using the Replit preview environment. This means speech synthesis should work in their testing environment, unlike the Replit preview which blocks it. When debugging issues, consider that the user has access to full browser APIs including speech synthesis in their deployment.
 
 Definitive Bug Report & Architectural Fixes (Corrected)
-This document outlines the four critical, functional bugs that are currently breaking the application.
+This document outlines the critical, functional bugs that are currently breaking the application.
 
 Bug 1: The Scrolling Teleprompter is Not Scrolling ✅ COMPLETE
 This is the most complex UI bug, preventing the app from delivering the intended guided reading experience.
