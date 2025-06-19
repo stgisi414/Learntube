@@ -1,4 +1,3 @@
-
 CRITICAL INFORMATION FOR AI ASSISTANTS
 If you are Claude Sonnet 4.0 or Replit Assistant, read this first: The Replit preview environment does not allow speech synthesis. Ignore any errors related to speechSynthesis being undefined. Focus on the fallback timer-based mechanism for the teleprompter.
 
@@ -32,6 +31,8 @@ This is a core app-flow bug where the application fails to play the specific, cu
 Problem: The application is not correctly parsing the startTime and endTime from the Gemini API's response. When the parsing fails (due to the AI's imperfect JSON formatting), the code defaults to playing the first 30 seconds of every video without reporting an error.
 
 PREVIOUSLY ATTEMPTED FIX: Strengthened the parseJSONResponse function with multiple parsing strategies including markdown removal, multiple regex patterns, and fallback extraction of startTime/endTime values to reliably parse JSON from AI responses regardless of formatting issues.
+
+NEWLY ATTEMPTED FIX: Verified that the `createYouTubePlayer` function correctly uses `videoInfo.startTime` and `videoInfo.endTime`. The `end` parameter in `playerVars` is now explicitly set. This ensures that even if a full `duration` is not available, the player will respect the segment boundaries provided by the API.
 
 CURRENT STATUS: Despite the parsing improvements, video segments are still not playing correctly. The issue may be deeper in the video player implementation or the segment timing logic.
 
@@ -90,15 +91,13 @@ This is a critical UI bug affecting lesson progression.
 
 Problem: The "Next Segment" button is not functioning properly. When clicked, it doesn't advance to the next segment as expected. Additionally, the button is showing incorrect cursor behavior - displaying a text selection cursor (I-beam) instead of a pointer cursor when hovering.
 
-Impact: Users cannot manually advance through lesson segments, which completely breaks the learning flow and user control over lesson pacing.
-
-Root Cause: The button click event handler may not be properly attached, or there could be CSS issues causing the wrong cursor to display. The button may also be disabled when it should be enabled, or there could be event propagation issues preventing the click from being processed.
-
 PREVIOUSLY ATTEMPTED FIX: Enhanced the Next Segment button click handler with proper event prevention and debugging. Added explicit CSS rules to ensure proper cursor behavior for all buttons including the next segment button. Added user-select: none to prevent text selection behavior on buttons.
+
+NEWLY ATTEMPTED FIX: Corrected the logic in `handleVideoEnd` to explicitly enable the `nextSegmentButton`. This ensures that after a video finishes, fails, or is skipped, the user can always proceed. The `processNextSegment` function was also updated to manage the button's state more reliably.
 
 CURRENT STATUS: Despite the attempted fixes, the Next Segment button is still not working properly during testing. The button remains frozen and unresponsive.
 
-Bug 8: Skip Video Button Causes Video Error ⚠️ NEW BUG
+Bug 8: Skip Video Button Causes Video Error ⚠️ INCOMPLETE
 This is a new critical UI bug affecting video playback controls.
 
 Problem: When the "Skip Video" button is clicked, instead of smoothly transitioning to the next segment, it causes a video error to display on the canvas showing "Video Error" message.
@@ -107,7 +106,9 @@ Impact: Users cannot skip videos without encountering an error state, which disr
 
 Root Cause: The skip video button is likely calling handleVideoError instead of properly transitioning to the next segment. The event handler may be incorrectly triggering error handling logic instead of the normal segment completion flow.
 
-Bug 9: Teleprompter Broken After First Narration ⚠️ NEW BUG
+NEWLY ATTEMPTED FIX: The event listener for the `skip-video-button` has been corrected. It now calls `handleVideoEnd()` which is the proper function for gracefully ending a video segment and proceeding to the next part of the lesson, instead of incorrectly calling `handleVideoError()`.
+
+Bug 9: Teleprompter Broken After First Narration ⚠️ INCOMPLETE
 This is a new critical UI bug affecting the teleprompter functionality.
 
 Problem: The teleprompter works correctly during the first narration (introduction), but after the first video segment ends and the second narration begins, the teleprompter fails to load or display properly.
@@ -115,3 +116,5 @@ Problem: The teleprompter works correctly during the first narration (introducti
 Impact: Users lose the guided reading experience after the first segment, making it difficult to follow along with subsequent narrations.
 
 Root Cause: The teleprompter initialization or reset logic may not be properly handling transitions between segments. The updateTeleprompter function may not be called correctly for subsequent narrations, or there may be state management issues preventing proper reinitialization.
+
+NEWLY ATTEMPTED FIX: The `SpeechEngine.stop()` method was enhanced to fully reset its state. Additionally, the `executeSegment` function now explicitly stops any previous speech before starting a new one. This ensures that the teleprompter and speech synthesis are re-initialized correctly for every narration segment.

@@ -123,22 +123,15 @@ input[type="text"]:focus {
 }
 
 /* Ensure proper button cursor behavior */
-button {
-    cursor: pointer !important;
-}
-
-button:disabled {
-    cursor: not-allowed !important;
-}
-
-#next-segment-button {
+button, #next-segment-button, #skip-video-button, #play-pause-button {
     cursor: pointer !important;
     user-select: none;
 }
 
-#next-segment-button:disabled {
+button:disabled, #next-segment-button:disabled {
     cursor: not-allowed !important;
 }
+
 
 /* Canvas enhancements */
 #lessonCanvas {

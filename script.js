@@ -172,7 +172,7 @@ Return ONLY valid JSON:
 
         // SEARCH QUERY GENERATION
         async generateSearchQueries(learningPoint, topic) {
-            const prompt = `Generate 5 optimized YouTube search queries for finding educational videos about: "${learningPoint}" within the topic of "${topic}".
+            const prompt = `Generate 5 optimized Youtube queries for finding educational videos about: "${learningPoint}" within the topic of "${topic}".
 
 Focus on:
 - Educational content with captions
@@ -855,7 +855,7 @@ Return ONLY valid JSON:
         pause() {
             this.isPaused = true;
             this.pausedTime = Date.now();
-            
+
             if (this.speechSynthAvailable) {
                 try {
                     if (window.speechSynthesis.speaking) {
@@ -873,7 +873,7 @@ Return ONLY valid JSON:
                 this.pausedTime = null;
             }
             this.isPaused = false;
-            
+
             if (this.speechSynthAvailable) {
                 try {
                     if (window.speechSynthesis.paused) {
@@ -890,15 +890,17 @@ Return ONLY valid JSON:
             this.isPaused = false;
             this.pausedTime = null;
             this.totalPausedDuration = 0;
-            
+
             if (this.timerInterval) {
                 clearInterval(this.timerInterval);
                 this.timerInterval = null;
             }
-            
+
             if (this.speechSynthAvailable) {
                 try {
-                    window.speechSynthesis.cancel();
+                    if(window.speechSynthesis.speaking || window.speechSynthesis.paused) {
+                        window.speechSynthesis.cancel();
+                    }
                 } catch (error) {
                     console.warn('Failed to stop speech:', error);
                 }
@@ -1016,7 +1018,8 @@ Return ONLY valid JSON:
                 this.videoMaps.set(level, videoMap);
                 console.log(`Pre-sourced ${videoMap.size} videos for ${level} level`);
                 return true;
-            } catch (error) {
+            } catch (error)
+            {
                 console.error(`Failed to prepare ${level} level:`, error);
                 return false;
             }
@@ -1058,32 +1061,35 @@ Return ONLY valid JSON:
         }
 
         async executeSegment(narrationText, videoInfo) {
-        // Phase 1: Narration
-        lessonState = 'narrating';
-        updatePlayPauseIcon(); // Update icon when narration starts
+            // Ensure any prior speech is stopped
+            this.speechEngine.stop();
 
-        // Hide skip video button during narration
-        if (ui.skipVideoButton) {
-            ui.skipVideoButton.style.display = 'none';
+            // Phase 1: Narration
+            lessonState = 'narrating';
+            updatePlayPauseIcon(); // Update icon when narration starts
+
+            // Hide skip video button during narration
+            if (ui.skipVideoButton) {
+                ui.skipVideoButton.style.display = 'none';
+            }
+
+            updateCanvasVisuals(narrationText, 'Listen to the introduction...');
+
+            try {
+                const volume = parseFloat(ui.narrationVolume.value);
+                // Pass the teleprompter update function as a callback
+                await this.speechEngine.speak(narrationText, volume, (event) => {
+                    updateTeleprompter(narrationText, event.charIndex);
+                });
+            } catch (error) {
+                console.warn('Speech synthesis failed:', error);
+            }
+
+            // Phase 2: Video/Visual Content
+            if (lessonState === 'narrating') {
+                await this.playVideoContent(videoInfo);
+            }
         }
-
-        updateCanvasVisuals(narrationText, 'Listen to the introduction...');
-
-        try {
-            const volume = parseFloat(ui.narrationVolume.value);
-            // Pass the teleprompter update function as a callback
-            await this.speechEngine.speak(narrationText, volume, (event) => {
-                updateTeleprompter(narrationText, event.charIndex);
-            });
-        } catch (error) {
-            console.warn('Speech synthesis failed:', error);
-        }
-
-        // Phase 2: Video/Visual Content
-        if (lessonState === 'narrating') {
-            await this.playVideoContent(videoInfo);
-        }
-    }
 
         async playVideoContent(videoInfo) {
             lessonState = 'playing_video';
@@ -1101,7 +1107,6 @@ Return ONLY valid JSON:
                     "Take a moment to reflect. Click 'Next Segment' when ready."
                 );
                 setTimeout(() => handleVideoEnd(), 15000);
-                ui.nextSegmentButton.disabled = false;
             } else {
                 this.createYouTubePlayer(videoInfo);
             }
@@ -1119,6 +1124,11 @@ Return ONLY valid JSON:
 
             ui.canvas.style.opacity = '0.3';
 
+            // Calculate segment duration with intelligent limits
+            const startTime = videoInfo.startTime || 0;
+            const endTime = videoInfo.endTime || Math.min(startTime + (videoInfo.duration || 60), startTime + 90);
+            const segmentDuration = Math.min((endTime - startTime), 180) * 1000; // Max 3 minutes total
+
             this.youtubePlayer = new YT.Player('youtube-player-container', {
                 height: '100%',
                 width: '100%',
@@ -1127,18 +1137,13 @@ Return ONLY valid JSON:
                     autoplay: 1,
                     controls: 1,
                     rel: 0,
-                    start: videoInfo.startTime || 0,
-                    end: videoInfo.endTime || videoInfo.duration || 30,
+                    start: startTime,
+                    end: endTime,
                     modestbranding: 1
                 },
                 events: {
                     'onReady': (event) => {
                         event.target.playVideo();
-                        // Calculate segment duration with intelligent limits
-                        const startTime = videoInfo.startTime || 0;
-                        const endTime = videoInfo.endTime || Math.min(videoInfo.duration || 60, startTime + 90); // Max 90 seconds
-                        const segmentDuration = Math.min((endTime - startTime), 180) * 1000; // Max 3 minutes total
-
                         console.log(`Playing video segment: ${startTime}s to ${endTime}s (${segmentDuration/1000}s duration)`);
 
                         setTimeout(() => {
@@ -1280,9 +1285,8 @@ Return ONLY valid JSON:
             playerContainer.innerHTML = '';
         }
 
-        updateCanvasVisuals("Segment Complete! 🎉", "Great job! Preparing the next learning segment...");
+        updateCanvasVisuals("Segment Complete! 🎉", "Great job! Click 'Next Segment' to continue.");
         ui.nextSegmentButton.disabled = false; // Ensure the button is enabled
-        setTimeout(() => processNextSegment(), 2000);
     }
 
     function updateProgressBar() {
@@ -1299,6 +1303,7 @@ Return ONLY valid JSON:
         });
         ui.topicInput.addEventListener('input', validateInput);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
+
         // Fix Next Segment button with proper event handling
         ui.nextSegmentButton.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1308,7 +1313,7 @@ Return ONLY valid JSON:
                 processNextSegment(true);
             }
         });
-        
+
         // Ensure proper cursor styling
         ui.nextSegmentButton.style.cursor = 'pointer';
 
@@ -1329,7 +1334,7 @@ Return ONLY valid JSON:
          if (savedVideoVolume !== null) ui.videoVolume.value = savedVideoVolume;
          if (savedNarrationVolume !== null) ui.narrationVolume.value = savedNarrationVolume;
 
-         // Initialize skip video button (avoid duplicate listeners)
+         // Initialize skip video button
          if (ui.skipVideoButton && !ui.skipVideoButton.hasAttribute('data-initialized')) {
              ui.skipVideoButton.setAttribute('data-initialized', 'true');
              ui.skipVideoButton.addEventListener('click', () => {
@@ -1351,9 +1356,7 @@ Return ONLY valid JSON:
         switch(e.code) {
             case 'Space':
                 e.preventDefault();
-                if (lessonState === 'playing_video' || lessonState === 'paused') {
-                    playPauseLesson();
-                }
+                playPauseLesson();
                 break;
             case 'ArrowRight':
                 e.preventDefault();
@@ -1488,15 +1491,10 @@ Return ONLY valid JSON:
 
         // Reset lesson state
         lessonState = 'idle';
+        ui.nextSegmentButton.disabled = true; // Disable until segment is ready
 
         learningPipeline.speechEngine.stop();
         if (!ui.video.paused) ui.video.pause();
-
-        // Remove any existing YouTube iframes
-        const existingIframe = ui.learningCanvasContainer.querySelector('.youtube-iframe');
-        if (existingIframe) {
-            existingIframe.remove();
-        }
 
         currentSegmentIndex++;
         const learningPoints = currentLessonPlan[currentLearningPath];
@@ -1511,7 +1509,6 @@ Return ONLY valid JSON:
 
         updateSegmentProgress();
         ui.currentTopicDisplay.textContent = learningPoint;
-        ui.nextSegmentButton.disabled = true;
 
         try {
             await learningPipeline.processSegment(learningPoint, previousPoint, currentLearningPath);
@@ -1777,7 +1774,10 @@ Return ONLY valid JSON:
             let subFontSize = Math.max(14, Math.min(ui.canvas.width / 40, 18));
             canvasCtx.font = `${subFontSize}px Inter, sans-serif`;
             canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-            wrapText(subText, ui.canvas.width / 2, ui.canvas.height / 2 + 50, maxWidth, subFontSize + 6);
+            const subLines = wrapText(subText, maxWidth);
+            subLines.forEach((line, index) => {
+                canvasCtx.fillText(line, ui.canvas.width / 2, startY + (lines.length * (fontSize + 8)) + (index * (subFontSize + 6)));
+            });
         }
     }
 
@@ -1972,9 +1972,6 @@ Return ONLY valid JSON:
             // In production, send to error tracking service
         }
     };
-
-    // --- UI EVENT HANDLERS --- //
-    // (initializeUI function already defined above - removing duplicate)
 
     // --- INITIALIZE APPLICATION --- //
     initializeUI();

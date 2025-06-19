@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -8,7 +7,7 @@
     <meta name="description" content="The Curator - AI-powered personalized learning platform that creates custom lessons on any topic with adaptive difficulty levels and multimedia content.">
     <meta name="keywords" content="AI learning, personalized education, adaptive learning, online courses, AI tutor">
     <meta name="author" content="The Curator Learning Platform">
-    <meta name="referrer" content="https://learntube.cc">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta property="og:title" content="The Curator | AI-Powered Learning">
     <meta property="og:description" content="Master any subject with AI-curated lessons tailored to your skill level">
     <meta property="og:type" content="website">
@@ -21,7 +20,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
     
-    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E">
 </head>
 
@@ -29,7 +27,6 @@
 
     <div id="app-container" class="w-full max-w-6xl mx-auto px-4 py-8">
 
-        <!-- Header -->
         <header class="text-center mb-12">
             <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-4">
                 <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -64,10 +61,8 @@
             </div>
         </header>
 
-        <!-- Main Content Area -->
         <main id="main-content" class="w-full">
 
-            <!-- Input Section -->
             <section id="input-section" class="bg-white/10 backdrop-blur-sm p-8 rounded-3xl shadow-2xl border border-white/20">
                 <h2 class="text-3xl font-semibold text-center mb-8 text-white">What would you like to learn today?</h2>
                 <div class="max-w-2xl mx-auto">
@@ -78,13 +73,13 @@
                                 placeholder="e.g., 'Machine Learning', 'Renaissance Art', 'Quantum Physics'"
                                 maxlength="100"
                                 autocomplete="off">
-                            <div class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                            <div id="char-count-container" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm hidden">
                                 <span id="char-count">0</span>/100
                             </div>
                         </div>
                         <button id="curate-button"
                             class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg disabled:cursor-not-allowed disabled:transform-none whitespace-nowrap">
-                            <span class="flex items-center">
+                            <span class="flex items-center justify-center">
                                 <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
@@ -94,14 +89,13 @@
                     </div>
                     <div class="mt-4 text-center">
                         <p class="text-gray-400 text-sm">
-                            🚀 <strong>Pro tip:</strong> Use keyboard shortcuts: <kbd class="bg-gray-700 px-2 py-1 rounded text-xs">Space</kbd> to play/pause, 
-                            <kbd class="bg-gray-700 px-2 py-1 rounded text-xs">→</kbd> for next segment, <kbd class="bg-gray-700 px-2 py-1 rounded text-xs">Esc</kbd> to restart
+                            🚀 <strong>Pro tip:</strong> Use keyboard shortcuts: <kbd>Space</kbd> to play/pause, 
+                            <kbd>→</kbd> for next segment, <kbd>Esc</kbd> to restart
                         </p>
                     </div>
                 </div>
             </section>
 
-            <!-- Loading/Processing Indicator -->
             <section id="loading-indicator" class="hidden text-center p-12 my-8">
                 <div class="relative inline-block">
                     <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-700 border-t-blue-500 h-16 w-16 mx-auto mb-6"></div>
@@ -111,21 +105,17 @@
                 <p class="text-sm text-gray-500">This may take a few moments as we personalize your content</p>
             </section>
 
-            <!-- Lesson Level Selection -->
             <section id="level-selection" class="hidden my-12">
                 <div class="text-center mb-10">
                     <h2 class="text-4xl font-bold mb-4 text-white">Choose Your Learning Path</h2>
                     <p class="text-lg text-gray-300">Select the difficulty level that matches your current knowledge</p>
                 </div>
                 <div id="level-buttons-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                    <!-- Level buttons will be dynamically inserted here -->
-                </div>
+                    </div>
             </section>
 
-            <!-- The Learning Canvas -->
             <section id="learning-canvas-container" class="hidden bg-black/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border border-white/10">
                 
-                <!-- Progress Indicator -->
                 <div class="bg-gray-800/50 px-6 py-3 border-b border-gray-700/50">
                     <div class="flex justify-between items-center text-sm text-gray-300">
                         <span>Learning Progress</span>
@@ -136,14 +126,12 @@
                     </div>
                 </div>
 
-                <!-- Main Canvas Area -->
                 <div class="relative w-full" style="padding-bottom: 56.25%;">
                     <canvas id="lessonCanvas" class="absolute top-0 left-0 w-full h-full cursor-pointer"></canvas>
                     <video id="lessonVideo" class="absolute top-0 left-0 w-full h-full opacity-0 pointer-events-none" 
                            preload="metadata" crossorigin="anonymous"></video>
                     <div id="youtube-player-container" class="absolute top-0 left-0 w-full h-full"></div>
                     
-                    <!-- Overlay Controls -->
                     <div class="absolute bottom-4 left-4 right-4 flex justify-center">
                         <div class="bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
                             <button id="play-pause-button"
@@ -156,7 +144,7 @@
                                 </svg>
                             </button>
                             <button id="skip-video-button"
-                                class="bg-orange-600/80 hover:bg-orange-700 text-white font-semibold py-2 px-3 rounded-full transition-all duration-200">
+                                class="bg-orange-600/80 hover:bg-orange-700 text-white font-semibold py-2 px-3 rounded-full transition-all duration-200" style="display: none;">
                                 Skip Video
                             </button>
                             <button id="next-segment-button"
@@ -167,17 +155,14 @@
                     </div>
                 </div>
 
-                <!-- Enhanced Control Bar -->
                 <div id="control-bar" class="bg-gray-800/50 backdrop-blur-sm p-6">
                     <div class="flex flex-col lg:flex-row items-center gap-6">
                         
-                        <!-- Current Topic Display -->
                         <div class="flex-grow text-center lg:text-left">
                             <p class="text-sm text-gray-400 mb-1">Current Learning Topic:</p>
                             <p id="current-topic-display" class="font-semibold text-lg text-white">Preparing your lesson...</p>
                         </div>
 
-                        <!-- Volume Controls -->
                         <div class="flex items-center gap-6">
                             <div class="flex items-center gap-3">
                                 <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
@@ -200,14 +185,12 @@
                         </div>
                     </div>
                     
-                    <!-- Video Progress Bar -->
                     <div class="w-full bg-gray-700/50 h-1 rounded-full mt-4">
                         <div id="progress-bar" class="bg-gradient-to-r from-blue-500 to-purple-500 h-1 rounded-full transition-all duration-100" style="width: 0%"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- Error/Message Display Area -->
             <div id="error-display"
                 class="hidden bg-red-500/20 border border-red-500/50 text-red-200 px-6 py-4 rounded-xl relative mt-8 backdrop-blur-sm"
                 role="alert">
@@ -224,9 +207,8 @@
 
         </main>
 
-        <!-- Footer -->
         <footer class="text-center mt-16 text-gray-500 text-sm">
-            <p>&copy; 2024 The Curator Learning Platform. Powered by AI for personalized education.</p>
+            <p>© 2024 The Curator Learning Platform. Powered by AI for personalized education.</p>
         </footer>
     </div>
 
