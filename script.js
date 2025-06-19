@@ -262,15 +262,26 @@ Return 2-3 sentences, 60-100 words total.`;
 
         // VIDEO SEGMENT FINDING
         async findVideoSegment(videoTitle, videoDescription, learningPoint) {
-            const prompt = `Analyze the title and description of a YouTube video to find the most relevant 30-second segment for the learning topic: "${learningPoint}".
+            const prompt = `Analyze this YouTube video to find the most relevant segment that specifically teaches about: "${learningPoint}".
 
 Video Title: "${videoTitle}"
-Video Description: "${videoDescription.substring(0, 500)}"
+Video Description: "${videoDescription.substring(0, 800)}"
 
-Return ONLY a valid JSON object with "startTime" and "endTime" in seconds. The segment should be between 20 and 40 seconds.
-Example: {"startTime": 125, "endTime": 155}`;
+Look for:
+1. Timestamps mentioned in the description
+2. Chapter markers or sections
+3. Keywords related to "${learningPoint}"
+4. Educational content indicators
 
-            const response = await this.makeRequest(prompt, { temperature: 0.4, maxOutputTokens: 128 });
+If the video is longer than 10 minutes, find a specific 60-90 second segment where "${learningPoint}" is actually explained.
+If shorter than 10 minutes, you can use up to 3 minutes but focus on the most relevant part.
+
+Avoid generic introductions - find where the actual learning content begins.
+
+Return ONLY valid JSON:
+{"startTime": 180, "endTime": 270, "reason": "This segment explains the core concept with examples"}`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 256 });
             return this.parseJSONResponse(response);
         }
 
@@ -648,10 +659,17 @@ Return ONLY valid JSON:
             this.preferredVoice = null;
             this.currentUtterance = null;
             this.onBoundary = null;
+            this.speechSynthAvailable = typeof speechSynthesis !== 'undefined';
             this.initializeVoices();
         }
 
         initializeVoices() {
+            if (!this.speechSynthAvailable) {
+                console.warn('Speech synthesis not available in this environment');
+                this.isReady = false;
+                return;
+            }
+
             const loadVoices = () => {
                 this.voices = speechSynthesis.getVoices();
                 this.preferredVoice = this.selectBestVoice();
@@ -674,6 +692,12 @@ Return ONLY valid JSON:
 
         speak(text, volume = 1.0, onBoundaryCallback) {
             return new Promise((resolve, reject) => {
+                if (!this.speechSynthAvailable) {
+                    console.warn('Speech synthesis not available, skipping narration');
+                    resolve(); // Continue without speech
+                    return;
+                }
+
                 if (speechSynthesis.speaking) {
                     speechSynthesis.cancel();
                 }
@@ -696,27 +720,32 @@ Return ONLY valid JSON:
                 };
 
                 utterance.onend = resolve;
-                utterance.onerror = reject;
+                utterance.onerror = (error) => {
+                    console.warn('Speech synthesis error:', error);
+                    resolve(); // Continue despite error
+                };
 
                 speechSynthesis.speak(utterance);
             });
         }
 
         pause() {
-            if (speechSynthesis.speaking) {
+            if (this.speechSynthAvailable && speechSynthesis.speaking) {
                 speechSynthesis.pause();
             }
         }
 
         resume() {
-            if (speechSynthesis.paused) {
+            if (this.speechSynthAvailable && speechSynthesis.paused) {
                 speechSynthesis.resume();
             }
         }
 
         stop() {
             this.currentUtterance = null;
-            speechSynthesis.cancel();
+            if (this.speechSynthAvailable) {
+                speechSynthesis.cancel();
+            }
         }
     }
 
@@ -936,9 +965,16 @@ Return ONLY valid JSON:
                 events: {
                     'onReady': (event) => {
                         event.target.playVideo();
-                        const segmentDuration = ((videoInfo.endTime || videoInfo.duration || 30) - (videoInfo.startTime || 0)) * 1000;
+                        // Calculate segment duration with intelligent limits
+                        const startTime = videoInfo.startTime || 0;
+                        const endTime = videoInfo.endTime || Math.min(videoInfo.duration || 60, startTime + 90); // Max 90 seconds
+                        const segmentDuration = Math.min((endTime - startTime), 180) * 1000; // Max 3 minutes total
+                        
+                        console.log(`Playing video segment: ${startTime}s to ${endTime}s (${segmentDuration/1000}s duration)`);
+                        
                         setTimeout(() => {
                             if (lessonState === 'playing_video') {
+                                console.log('Auto-advancing to next segment after timer');
                                 handleVideoEnd();
                             }
                         }, segmentDuration + 1000); // 1s buffer
@@ -1089,6 +1125,16 @@ Return ONLY valid JSON:
         ui.topicInput.addEventListener('input', validateInput);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
         ui.nextSegmentButton.addEventListener('click', () => processNextSegment(true));
+        
+        // Add skip video button handler
+        const skipVideoButton = document.getElementById('skip-video-button');
+        if (skipVideoButton) {
+            skipVideoButton.addEventListener('click', () => {
+                console.log('Skip video button clicked');
+                handleVideoEnd(); // Skip to next segment immediately
+            });
+        }
+        
         ui.videoVolume.addEventListener('input', (e) => ui.video.volume = parseFloat(e.target.value));
         ui.narrationVolume.addEventListener('input', (e) => { 
             Storage.save('narrationVolume', e.target.value);
@@ -1459,7 +1505,9 @@ Return ONLY valid JSON:
         currentSegmentIndex = -1;
         lessonState = 'idle';
         retryCount = 0;
-        speechSynthesis.cancel();
+        if (typeof speechSynthesis !== 'undefined') {
+            speechSynthesis.cancel();
+        }
     }
 
     function resetToInput() {
@@ -1590,16 +1638,40 @@ Return ONLY valid JSON:
         ui.pauseIcon.classList.toggle('hidden', !isPlaying);
     }
 
-    // NEW Teleprompter Function
+    // IMPROVED Teleprompter Function
     function updateTeleprompter(fullText, charIndex) {
-        // This is where the canvas is redrawn with highlighted text
-        // For simplicity, we'll keep the core updateCanvasVisuals and add highlighting
-        const mainText = fullText.substring(0, charIndex);
-        const remainingText = fullText.substring(charIndex);
+        ui.canvas.width = ui.canvas.clientWidth;
+        ui.canvas.height = ui.canvas.clientHeight;
 
-        // This is a simplified redraw, a better version would calculate lines and scroll
-        updateCanvasVisuals(fullText, 'Listen to the introduction...');
-        // In a full implementation, you'd draw the `mainText` in a different color
+        // Background gradient
+        const gradient = canvasCtx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
+        gradient.addColorStop(0, '#1a1a2e');
+        gradient.addColorStop(1, '#16213e');
+        canvasCtx.fillStyle = gradient;
+        canvasCtx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+
+        const maxWidth = ui.canvas.width * 0.85;
+        let fontSize = Math.max(20, Math.min(ui.canvas.width / 25, 32));
+        canvasCtx.font = `bold ${fontSize}px Inter, sans-serif`;
+        canvasCtx.textAlign = 'center';
+        canvasCtx.textBaseline = 'middle';
+
+        // Split text into spoken and unspoken parts
+        const spokenText = fullText.substring(0, charIndex);
+        const unspokenText = fullText.substring(charIndex);
+
+        // Draw spoken text in green
+        canvasCtx.fillStyle = 'rgba(34, 197, 94, 0.9)'; // Green for spoken
+        canvasCtx.fillText(spokenText, ui.canvas.width / 2, ui.canvas.height / 2 - 20);
+
+        // Draw unspoken text in white below
+        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.7)'; // Dimmed white for unspoken
+        canvasCtx.fillText(unspokenText, ui.canvas.width / 2, ui.canvas.height / 2 + 20);
+
+        // Add subtitle
+        canvasCtx.font = `16px Inter, sans-serif`;
+        canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+        canvasCtx.fillText('🎤 AI Narration Active', ui.canvas.width / 2, ui.canvas.height / 2 + 60);
     }
 
 

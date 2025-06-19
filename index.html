@@ -145,15 +145,19 @@
                     
                     <!-- Overlay Controls -->
                     <div class="absolute bottom-4 left-4 right-4 flex justify-center">
-                        <div class="bg-black/70 backdrop-blur-sm rounded-full px-4 py-2">
+                        <div class="bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
                             <button id="play-pause-button"
-                                class="bg-white/20 hover:bg-white/30 text-white font-bold p-3 rounded-full transition-all duration-200 mr-3">
+                                class="bg-white/20 hover:bg-white/30 text-white font-bold p-3 rounded-full transition-all duration-200">
                                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                                     <path id="play-icon"
                                         d="M8 5v10l8-5-8-5z"/>
                                     <path id="pause-icon" class="hidden"
                                         d="M6 4h2v12H6V4zm6 0h2v12h-2V4z"/>
                                 </svg>
+                            </button>
+                            <button id="skip-video-button"
+                                class="bg-orange-600/80 hover:bg-orange-700 text-white font-semibold py-2 px-3 rounded-full transition-all duration-200">
+                                Skip Video
                             </button>
                             <button id="next-segment-button"
                                 class="bg-blue-600/80 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold py-2 px-4 rounded-full transition-all duration-200 disabled:cursor-not-allowed">
