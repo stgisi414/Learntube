@@ -413,9 +413,11 @@ Return ONLY valid JSON:
                 credentials: 'omit',
                 headers: {
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Referer': window.location.origin + '/',
+                    'Origin': window.location.origin
                 },
-                referrerPolicy: "no-referrer-when-downgrade"
+                referrerPolicy: "strict-origin-when-cross-origin"
             };
 
             // Add domain-specific headers if deployed
@@ -612,6 +614,7 @@ Return ONLY valid JSON:
             this.voices = [];
             this.preferredVoice = null;
             this.initializeVoices();
+            this.currentUtterance = null;
         }
 
         initializeVoices() {
@@ -640,19 +643,23 @@ Return ONLY valid JSON:
                 speechSynthesis.cancel();
 
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.volume = volume;
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
-
-                if (this.preferredVoice) {
-                    utterance.voice = this.preferredVoice;
-                }
-
-                utterance.onend = resolve;
-                utterance.onerror = reject;
+                this.currentUtterance = utterance; // Keep track of the current utterance
+                // ... (rest of the speak method)
 
                 speechSynthesis.speak(utterance);
             });
+        }
+
+        pause() {
+            if (speechSynthesis.speaking) {
+                speechSynthesis.pause();
+            }
+        }
+
+        resume() {
+            if (speechSynthesis.paused) {
+                speechSynthesis.resume();
+            }
         }
 
         stop() {
@@ -813,7 +820,7 @@ Return ONLY valid JSON:
         async executeSegment(narrationText, videoInfo) {
             // Phase 1: Narration
             lessonState = 'narrating';
-            updateCanvasVisuals(narrationText, 'Listen to the introduction...');
+            updateCanvasVisuals(narrationText, 'Listen to the introduction...', true); // enable scrolling
 
             try {
                 const volume = parseFloat(ui.narrationVolume.value);
@@ -1002,6 +1009,7 @@ Return ONLY valid JSON:
         }
 
         updateCanvasVisuals("Segment Complete! 🎉", "Great job! Preparing the next learning segment...");
+        ui.nextSegmentButton.disabled = false; // Ensure the button is enabled
         setTimeout(() => processNextSegment(), 2000);
     }
 
@@ -1430,7 +1438,45 @@ Return ONLY valid JSON:
         let fontSize = Math.max(20, Math.min(ui.canvas.width / 25, 32));
         canvasCtx.font = `bold ${fontSize}px Inter, sans-serif`;
 
-        wrapText(mainText, ui.canvas.width / 2, ui.canvas.height / 2 - 30, maxWidth, fontSize + 8);
+        const lines = wrapText(mainText, maxWidth);
+
+        let startY = ui.canvas.height / 2 - ((lines.length - 1) * (fontSize + 8)) / 2;
+
+        if (isScrolling) {
+            // This is a simplified scrolling implementation.
+            // A more advanced version would tie this to the utterance's 'boundary' event.
+            const scrollDuration = lines.length * 1000; // 1 second per line
+            const startTime = Date.now();
+
+            function scroll() {
+                const elapsedTime = Date.now() - startTime;
+                const scrollPercent = Math.min(elapsedTime / scrollDuration, 1);
+
+                const scrollY = startY - (scrollPercent * (lines.length * (fontSize + 8) - ui.canvas.height / 2));
+
+                // Redraw canvas
+                canvasCtx.fillStyle = gradient;
+                canvasCtx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+                canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                canvasCtx.textAlign = 'center';
+                canvasCtx.textBaseline = 'middle';
+                canvasCtx.font = `bold ${fontSize}px Inter, sans-serif`;
+
+                lines.forEach((line, index) => {
+                    canvasCtx.fillText(line, ui.canvas.width / 2, scrollY + (index * (fontSize + 8)));
+                });
+
+                if (scrollPercent < 1) {
+                    requestAnimationFrame(scroll);
+                }
+            }
+            requestAnimationFrame(scroll);
+
+        } else {
+             lines.forEach((line, index) => {
+                canvasCtx.fillText(line, ui.canvas.width / 2, startY + (index * (fontSize + 8)));
+            });
+        }
 
         if (subText) {
             let subFontSize = Math.max(14, Math.min(ui.canvas.width / 40, 18));
@@ -1463,8 +1509,11 @@ Return ONLY valid JSON:
                 lessonState = 'playing_video';
             }
         } else if (lessonState === 'narrating') {
-            speechSynthesis.cancel();
-            lessonState = 'idle';
+            learningPipeline.speechEngine.pause();
+            lessonState = 'narration_paused';
+        } else if (lessonState === 'narration_paused') {
+            learningPipeline.speechEngine.resume();
+            lessonState = 'narrating';
         }
         updatePlayPauseIcon();
     }
@@ -1477,10 +1526,11 @@ Return ONLY valid JSON:
 
 
 
-    function wrapText(text, x, y, maxWidth, lineHeight) {
+    function wrapText(text, maxWidth) {
         const words = text.split(' ');
         let line = '';
         let lines = [];
+        const canvasCtx = ui.canvas.getContext('2d'); // get context
 
         for (let n = 0; n < words.length; n++) {
             let testLine = line + words[n] + ' ';
@@ -1495,12 +1545,7 @@ Return ONLY valid JSON:
             }
         }
         lines.push(line.trim());
-
-        const startY = y - ((lines.length - 1) * lineHeight) / 2;
-
-        lines.forEach((line, index) => {
-            canvasCtx.fillText(line, x, startY + (index * lineHeight));
-        });
+        return lines;
     }
 
     // --- STORAGE UTILITIES --- //
