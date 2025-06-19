@@ -273,37 +273,42 @@
         }
 
         function pauseSpeech() {
-            if (speechSynthesis.speaking) {
+            if (speechSynthesis.speaking && !speechSynthesis.paused) {
                 speechSynthesis.pause();
-                
-                // Also pause teleprompter if it's running
-                if (teleprompterInterval && !teleprompterPaused) {
-                    pauseTeleprompter();
-                }
-                
                 log('Speech paused');
                 document.getElementById('speechStatus').textContent = 'Speech paused';
+            } else {
+                log('Cannot pause - speech not currently speaking');
             }
         }
 
         function resumeSpeech() {
             if (speechSynthesis.paused) {
                 speechSynthesis.resume();
-                
-                // Also resume teleprompter if it was paused
-                if (teleprompterInterval && teleprompterPaused) {
-                    resumeTeleprompter();
-                }
-                
                 log('Speech resumed');
                 document.getElementById('speechStatus').textContent = 'Speaking...';
+            } else if (!speechSynthesis.speaking && currentUtterance) {
+                // If speech was stopped but we have an utterance, restart it
+                log('Restarting speech from beginning');
+                speechSynthesis.speak(currentUtterance);
+                document.getElementById('speechStatus').textContent = 'Speaking...';
+            } else {
+                log('Cannot resume - no paused speech or utterance available');
             }
         }
 
         function stopSpeech() {
-            speechSynthesis.cancel();
-            log('Speech stopped');
-            document.getElementById('speechStatus').textContent = 'Speech stopped';
+            try {
+                if (speechSynthesis.speaking || speechSynthesis.paused) {
+                    speechSynthesis.cancel();
+                }
+                currentUtterance = null;
+                log('Speech stopped and cleared');
+                document.getElementById('speechStatus').textContent = 'Speech stopped';
+            } catch (error) {
+                log(`Error stopping speech: ${error.message}`);
+                document.getElementById('speechStatus').textContent = `Stop error: ${error.message}`;
+            }
         }
 
         // Teleprompter Functions
