@@ -197,6 +197,7 @@
 
         // Global variables
         let currentUtterance = null;
+        let speechContext = null; // NEW: To manage pause/resume state
         let youtubePlayer = null;
         let teleprompterInterval = null;
         let teleprompterPaused = false;
@@ -241,14 +242,24 @@
         function testSpeechSynthesis() {
             const text = document.getElementById('introText').textContent;
             log('Testing speech synthesis...');
-            
-            if (currentUtterance) {
+
+            if (speechSynthesis.speaking || speechSynthesis.paused) {
                 speechSynthesis.cancel();
             }
 
             currentUtterance = new SpeechSynthesisUtterance(text);
-            currentUtterance.volume = parseFloat(document.getElementById('speechVolume').value);
-            currentUtterance.rate = parseFloat(document.getElementById('speechRate').value);
+            const volume = parseFloat(document.getElementById('speechVolume').value);
+            const rate = parseFloat(document.getElementById('speechRate').value);
+            currentUtterance.volume = volume;
+            currentUtterance.rate = rate;
+
+            // Set up the context for pausing/resuming
+            speechContext = {
+                text: text,
+                volume: volume,
+                rate: rate,
+                lastCharIndex: 0
+            };
 
             currentUtterance.onstart = () => {
                 log('Speech started');
@@ -258,24 +269,30 @@
             currentUtterance.onend = () => {
                 log('Speech ended');
                 document.getElementById('speechStatus').textContent = 'Speech complete';
+                speechContext = null; // Clear context on natural end
             };
 
             currentUtterance.onerror = (error) => {
                 log(`Speech error: ${error.error}`);
                 document.getElementById('speechStatus').textContent = `Error: ${error.error}`;
+                speechContext = null;
             };
 
             currentUtterance.onboundary = (event) => {
                 log(`Speech boundary: char ${event.charIndex}, name: ${event.name}`);
+                if(speechContext) {
+                    speechContext.lastCharIndex = event.charIndex;
+                }
             };
 
             speechSynthesis.speak(currentUtterance);
         }
 
         function pauseSpeech() {
-            if (speechSynthesis.speaking && !speechSynthesis.paused) {
-                speechSynthesis.pause();
-                log('Speech paused');
+            if (speechSynthesis.speaking) {
+                // The onboundary event has already saved our position in speechContext.
+                speechSynthesis.cancel(); // Use cancel instead of the unreliable pause()
+                log('Speech paused (by cancellation)');
                 document.getElementById('speechStatus').textContent = 'Speech paused';
             } else {
                 log('Cannot pause - speech not currently speaking');
@@ -283,17 +300,50 @@
         }
 
         function resumeSpeech() {
-            if (speechSynthesis.paused) {
-                speechSynthesis.resume();
-                log('Speech resumed');
-                document.getElementById('speechStatus').textContent = 'Speaking...';
-            } else if (!speechSynthesis.speaking && currentUtterance) {
-                // If speech was stopped but we have an utterance, restart it
-                log('Restarting speech from beginning');
+            if (speechContext) {
+                const textToResume = speechContext.text.substring(speechContext.lastCharIndex);
+                if (textToResume.trim() === '') {
+                    log('Nothing to resume.');
+                    document.getElementById('speechStatus').textContent = 'Speech complete';
+                    return;
+                }
+
+                log(`Resuming from char ${speechContext.lastCharIndex}`);
+
+                currentUtterance = new SpeechSynthesisUtterance(textToResume);
+                currentUtterance.volume = speechContext.volume;
+                currentUtterance.rate = speechContext.rate;
+
+                const baseIndex = speechContext.lastCharIndex;
+
+                currentUtterance.onstart = () => {
+                    log('Speech resumed');
+                    document.getElementById('speechStatus').textContent = 'Speaking...';
+                };
+
+                currentUtterance.onend = () => {
+                    log('Resumed speech ended');
+                    document.getElementById('speechStatus').textContent = 'Speech complete';
+                    speechContext = null;
+                };
+
+                currentUtterance.onerror = (error) => {
+                    log(`Speech error on resume: ${error.error}`);
+                    document.getElementById('speechStatus').textContent = `Error on resume: ${error.error}`;
+                    speechContext = null;
+                };
+
+                currentUtterance.onboundary = (event) => {
+                    // Update the index relative to the original text
+                    if(speechContext) {
+                        speechContext.lastCharIndex = baseIndex + event.charIndex;
+                        log(`Speech boundary on resume: char ${speechContext.lastCharIndex}`);
+                    }
+                };
+
                 speechSynthesis.speak(currentUtterance);
-                document.getElementById('speechStatus').textContent = 'Speaking...';
             } else {
-                log('Cannot resume - no paused speech or utterance available');
+                log('Cannot resume - no speech context available');
             }
         }
 
@@ -303,6 +353,7 @@
                     speechSynthesis.cancel();
                 }
                 currentUtterance = null;
+                speechContext = null; // Clear the context on stop
                 log('Speech stopped and cleared');
                 document.getElementById('speechStatus').textContent = 'Speech stopped';
             } catch (error) {
