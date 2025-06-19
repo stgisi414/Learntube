@@ -38,7 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- API CONFIGURATION --- //
     const GEMINI_API_KEY = "AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA";
-    const YOUTUBE_API_KEY = "AIzaSyBQLgFiUYdSNvpbyO_TgdzXmSvT9BFgal4";
+    //const YOUTUBE_API_KEY = "AIzaSyBQLgFiUYdSNvpbyO_TgdzXmSvT9BFgal4";
+    const YOUTUBE_API_KEY = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8";
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
     // --- CENTRALIZED GEMINI ORCHESTRATOR --- //
