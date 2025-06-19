@@ -4,7 +4,7 @@ If you are Claude Sonnet 4.0 or Replit Assistant, read this first: The Replit pr
 Definitive Bug Report & Architectural Fixes (Corrected)
 This document outlines the four critical, functional bugs that are currently breaking the application.
 
-Bug 1: The Scrolling Teleprompter is Not Scrolling
+Bug 1: The Scrolling Teleprompter is Not Scrolling ✅ COMPLETE
 This is the most complex UI bug, preventing the app from delivering the intended guided reading experience.
 
 Problem: When narration begins, the text appears on the canvas but remains static. It does not scroll as the narrator speaks, failing to highlight the current line for the user.
@@ -20,6 +20,8 @@ Architectural Guidance: The updateTeleprompter function needs to be simplified a
 Simplify Scrolling: Refactor the function to calculate a simple Y offset based on the currentLineIndex. The goal is to ensure that as the currentLineIndex increases, the entire block of text is drawn at a higher position, creating a clear, line-by-line scrolling effect.
 
 Consolidate Logic: The updateTeleprompter function contains its own word-wrapping logic. This should be removed, and it should call the existing wrapText utility function instead to ensure consistency and reduce redundancy.
+
+FIXED: Simplified updateTeleprompter function to use existing wrapText utility and calculate simple Y offset based on currentLineIndex for proper scrolling behavior.
 
 Bug 2: Video Segmenter Not Working
 This is a core app-flow bug where the application fails to play the specific, curated segments of the videos.

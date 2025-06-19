@@ -1755,7 +1755,7 @@ Return ONLY valid JSON:
         // Responsive font sizing
         const maxWidth = ui.canvas.width * 0.9;
         let fontSize = Math.max(16, Math.min(ui.canvas.width / 20, 28));
-        if (ui.canvas.width < 600) { // Mobile devices
+        if (ui.canvas.width < 600) {
             fontSize = Math.max(18, Math.min(ui.canvas.width / 18, 24));
         }
 
@@ -1765,96 +1765,52 @@ Return ONLY valid JSON:
 
         const lineHeight = fontSize + 12;
         const centerX = ui.canvas.width / 2;
-        const centerY = ui.canvas.height / 2;
 
-        // Split text into words and create lines that fit within maxWidth
-        const words = fullText.split(' ');
-        const lines = [];
-        let currentLine = '';
-        let currentCharCount = 0;
-        const lineCharCounts = [];
+        // Use existing wrapText utility function
+        const lines = wrapText(fullText, maxWidth);
 
-        for (let word of words) {
-            const testLine = currentLine + (currentLine ? ' ' : '') + word;
-            const testWidth = canvasCtx.measureText(testLine).width;
-
-            if (testWidth > maxWidth && currentLine.length > 0) {
-                lines.push(currentLine);
-                lineCharCounts.push(currentCharCount);
-                currentLine = word;
-                currentCharCount += word.length + 1; // +1 for space
-            } else {
-                currentLine = testLine;
-                if (currentLine !== word) currentCharCount += 1; // space
-                currentCharCount += word.length;
-            }
-        }
-
-        if (currentLine) {
-            lines.push(currentLine);
-            lineCharCounts.push(currentCharCount);
-        }
-
-        // Find which line contains the current character
+        // Calculate current line index based on character position
         let currentLineIndex = 0;
         let charsSoFar = 0;
 
-        for (let i = 0; i < lineCharCounts.length; i++) {
-            if (charIndex <= charsSoFar + lines[i].length + (i > 0 ? 1 : 0)) {
-                currentLineIndex = i                break;
-            }
-            charsSoFar += lines[i].length + 1; // +1 for space between lines
-        }
-
-        // Calculate scroll offset to keep current line in view
-        const totalLines = lines.length;
-        const visibleLines = Math.floor(ui.canvas.height / lineHeight) - 1; // Leave space for progress
-        const maxScroll = Math.max(0, totalLines - visibleLines);
-
-        // Smooth scrolling: keep current line in the middle third of screen
-        let scrollOffset = 0;
-        if (totalLines > visibleLines) {
-            const targetScroll = Math.max(0, currentLineIndex - Math.floor(visibleLines / 3));
-            scrollOffset = Math.min(targetScroll, maxScroll);
-        }
-
-        // Calculate starting Y position
-        const startY = centerY - (visibleLines * lineHeight / 2) + (scrollOffset * lineHeight);
-
-        // Draw visible lines with proper coloring
-        let lineCharOffset = 0;
-
         for (let i = 0; i < lines.length; i++) {
-            const lineY = startY + (i - scrollOffset) * lineHeight;
+            const lineLength = lines[i].length;
+            if (charIndex <= charsSoFar + lineLength) {
+                currentLineIndex = i;
+                break;
+            }
+            charsSoFar += lineLength + 1; // +1 for space between lines
+        }
 
-            // Only draw lines that are visible on screen
-            if (lineY > -lineHeight && lineY < ui.canvas.height + lineHeight) {
-                const line = lines[i];
-                const lineStartChar = lineCharOffset;
-                const lineEndChar = lineCharOffset + line.length;
+        // Simple Y offset calculation based on currentLineIndex
+        const yOffset = currentLineIndex * lineHeight;
+        const startY = ui.canvas.height / 2 - yOffset;
 
-                // Determine line coloring based on progress
-                let lineColor;
-                if (charIndex > lineEndChar) {
-                    // Entire line has been read
-                    lineColor = 'rgba(34, 197, 94, 0.7)'; // Green (read)
-                } else if (charIndex >= lineStartChar && charIndex <= lineEndChar) {
-                    // Currently reading this line - make it prominent
-                    lineColor = 'rgba(255, 255, 255, 1)'; // White (current)
+        // Draw all lines with simple scrolling
+        charsSoFar = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const lineY = startY + (i * lineHeight);
+            const line = lines[i];
+            const lineStartChar = charsSoFar;
+            const lineEndChar = charsSoFar + line.length;
 
-                    // Add subtle highlight background for current line
-                    canvasCtx.fillStyle = 'rgba(59, 130, 246, 0.1)';
-                    canvasCtx.fillRect(0, lineY - lineHeight/2, ui.canvas.width, lineHeight);
-                } else {
-                    // Line hasn't been read yet
-                    lineColor = 'rgba(255, 255, 255, 0.5)'; // Dim white (upcoming)
-                }
-
-                canvasCtx.fillStyle = lineColor;
-                canvasCtx.fillText(line, centerX, lineY);
+            // Determine line coloring based on progress
+            let lineColor;
+            if (charIndex > lineEndChar) {
+                lineColor = 'rgba(34, 197, 94, 0.7)'; // Green (read)
+            } else if (charIndex >= lineStartChar && charIndex <= lineEndChar) {
+                lineColor = 'rgba(255, 255, 255, 1)'; // White (current)
+                // Add highlight background for current line
+                canvasCtx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+                canvasCtx.fillRect(0, lineY - lineHeight/2, ui.canvas.width, lineHeight);
+            } else {
+                lineColor = 'rgba(255, 255, 255, 0.5)'; // Dim white (upcoming)
             }
 
-            lineCharOffset += line.length + 1; // +1 for space
+            canvasCtx.fillStyle = lineColor;
+            canvasCtx.fillText(line, centerX, lineY);
+
+            charsSoFar += line.length + 1; // +1 for space
         }
 
         // Add progress bar at bottom
