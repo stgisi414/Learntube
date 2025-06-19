@@ -476,17 +476,15 @@ Return ONLY valid JSON:
                     mode: 'cors',
                     credentials: 'omit',
                     headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
+                        'Accept': 'application/json'
                     },
-                    referrerPolicy: "no-referrer-when-downgrade"
+                    referrerPolicy: "strict-origin-when-cross-origin"
                 };
 
                 const currentDomain = window.location.hostname;
                 if (currentDomain.includes('replit.app') || currentDomain.includes('learntube.cc')) {
-                    requestOptions.headers['Referer'] = window.location.origin + '/';
+                    requestOptions.headers['Referer'] = window.location.href;
                     requestOptions.headers['Origin'] = window.location.origin;
-                    requestOptions.referrerPolicy = "strict-origin-when-cross-origin";
                 }
 
                 const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`, requestOptions);
@@ -935,6 +933,7 @@ Return ONLY valid JSON:
                     `Advanced Theoretical Frameworks in ${topic}`,
                     `Complex Case Studies and Edge Cases`,
                     `Current Research and Recent Developments`,
+                    ```text
                     `Critical Analysis of Different Approaches to ${topic}`,
                     `Technical Implementation and Advanced Applications`
                 ],
