@@ -903,6 +903,13 @@ Return ONLY valid JSON:
         async executeSegment(narrationText, videoInfo) {
             // Phase 1: Narration
             lessonState = 'narrating';
+            
+            // Hide skip video button during narration
+            const skipButton = document.getElementById('skip-video-button');
+            if (skipButton) {
+                skipButton.style.display = 'none';
+            }
+            
             updateCanvasVisuals(narrationText, 'Listen to the introduction...');
 
             try {
@@ -925,6 +932,12 @@ Return ONLY valid JSON:
             lessonState = 'playing_video';
             ui.nextSegmentButton.disabled = true; // Disable until segment ends
             updatePlayPauseIcon();
+            
+            // Show skip video button during video playback
+            const skipButton = document.getElementById('skip-video-button');
+            if (skipButton) {
+                skipButton.style.display = 'block';
+            }
 
             if (videoInfo.isFallback || !videoInfo.youtubeId) {
                 updateCanvasVisuals(
@@ -1086,6 +1099,12 @@ Return ONLY valid JSON:
 
         // Clear any existing timeouts
         clearTimeout(window.videoErrorTimeout);
+        
+        // Hide skip video button
+        const skipButton = document.getElementById('skip-video-button');
+        if (skipButton) {
+            skipButton.style.display = 'none';
+        }
 
         // Clean up YouTube player
         if (learningPipeline.youtubePlayer) {
@@ -1126,15 +1145,6 @@ Return ONLY valid JSON:
         ui.playPauseButton.addEventListener('click', playPauseLesson);
         ui.nextSegmentButton.addEventListener('click', () => processNextSegment(true));
         
-        // Add skip video button handler
-        const skipVideoButton = document.getElementById('skip-video-button');
-        if (skipVideoButton) {
-            skipVideoButton.addEventListener('click', () => {
-                console.log('Skip video button clicked');
-                handleVideoEnd(); // Skip to next segment immediately
-            });
-        }
-        
         ui.videoVolume.addEventListener('input', (e) => ui.video.volume = parseFloat(e.target.value));
         ui.narrationVolume.addEventListener('input', (e) => { 
             Storage.save('narrationVolume', e.target.value);
@@ -1152,11 +1162,12 @@ Return ONLY valid JSON:
          if (savedVideoVolume !== null) ui.videoVolume.value = savedVideoVolume;
          if (savedNarrationVolume !== null) ui.narrationVolume.value = savedNarrationVolume;
 
-         // Adding skip video button listener
+         // Initialize skip video button
          const skipVideoButton = document.getElementById('skip-video-button');
          if (skipVideoButton) {
              skipVideoButton.addEventListener('click', () => {
-                 handleVideoEnd(); // Skip to the next segment
+                 console.log('Skip video button clicked');
+                 handleVideoEnd(); // Skip to next segment immediately
              });
          }
     }
@@ -1651,8 +1662,8 @@ Return ONLY valid JSON:
         canvasCtx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
 
         const maxWidth = ui.canvas.width * 0.85;
-        let fontSize = Math.max(20, Math.min(ui.canvas.width / 25, 32));
-        canvasCtx.font = `bold ${fontSize}px Inter, sans-serif`;
+        let fontSize = Math.max(18, Math.min(ui.canvas.width / 30, 24));
+        canvasCtx.font = `${fontSize}px Inter, sans-serif`;
         canvasCtx.textAlign = 'center';
         canvasCtx.textBaseline = 'middle';
 
@@ -1660,18 +1671,49 @@ Return ONLY valid JSON:
         const spokenText = fullText.substring(0, charIndex);
         const unspokenText = fullText.substring(charIndex);
 
-        // Draw spoken text in green
-        canvasCtx.fillStyle = 'rgba(34, 197, 94, 0.9)'; // Green for spoken
-        canvasCtx.fillText(spokenText, ui.canvas.width / 2, ui.canvas.height / 2 - 20);
+        // Wrap the full text and find which lines are spoken/unspoken
+        const words = fullText.split(' ');
+        let currentCharCount = 0;
+        let spokenWords = [];
+        let unspokenWords = [];
+        
+        for (let word of words) {
+            if (currentCharCount + word.length + 1 <= charIndex) {
+                spokenWords.push(word);
+                currentCharCount += word.length + 1; // +1 for space
+            } else {
+                unspokenWords.push(word);
+                currentCharCount += word.length + 1;
+            }
+        }
 
-        // Draw unspoken text in white below
-        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.7)'; // Dimmed white for unspoken
-        canvasCtx.fillText(unspokenText, ui.canvas.width / 2, ui.canvas.height / 2 + 20);
+        const spokenLine = spokenWords.join(' ');
+        const unspokenLine = unspokenWords.join(' ');
+
+        // Draw spoken text in green
+        if (spokenLine) {
+            canvasCtx.fillStyle = 'rgba(34, 197, 94, 0.9)';
+            const spokenLines = wrapText(spokenLine, maxWidth);
+            let startY = ui.canvas.height / 2 - 40;
+            spokenLines.forEach((line, index) => {
+                canvasCtx.fillText(line, ui.canvas.width / 2, startY + (index * (fontSize + 4)));
+            });
+        }
+
+        // Draw unspoken text in white
+        if (unspokenLine) {
+            canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            const unspokenLines = wrapText(unspokenLine, maxWidth);
+            let startY = ui.canvas.height / 2 + 10;
+            unspokenLines.forEach((line, index) => {
+                canvasCtx.fillText(line, ui.canvas.width / 2, startY + (index * (fontSize + 4)));
+            });
+        }
 
         // Add subtitle
-        canvasCtx.font = `16px Inter, sans-serif`;
+        canvasCtx.font = `14px Inter, sans-serif`;
         canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-        canvasCtx.fillText('🎤 AI Narration Active', ui.canvas.width / 2, ui.canvas.height / 2 + 60);
+        canvasCtx.fillText('🎤 AI Narration Active', ui.canvas.width / 2, ui.canvas.height - 30);
     }
 
 
