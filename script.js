@@ -324,7 +324,7 @@ Return ONLY valid JSON:
                 let braceCount = 0;
                 let startIndex = -1;
                 let endIndex = -1;
-                
+
                 for (let i = 0; i < response.length; i++) {
                     if (response[i] === '{') {
                         if (braceCount === 0) startIndex = i;
@@ -351,7 +351,7 @@ Return ONLY valid JSON:
                 let bracketCount = 0;
                 startIndex = -1;
                 endIndex = -1;
-                
+
                 for (let i = 0; i < response.length; i++) {
                     if (response[i] === '[') {
                         if (bracketCount === 0) startIndex = i;
@@ -1075,30 +1075,32 @@ Return ONLY valid JSON:
         }
 
         async executeSegment(narrationText, videoInfo) {
-            // Phase 1: Narration
-            lessonState = 'narrating';
+        // Phase 1: Narration
+        lessonState = 'narrating';
+        updatePlayPauseIcon(); // Update icon when narration starts
 
-            // Hide skip video button during narration
-            if (ui.skipVideoButton) {
-                ui.skipVideoButton.style.display = 'none';
-            }
-
-            updateCanvasVisuals(narrationText, 'Listen to the introduction...');
-
-            try {
-                const volume = parseFloat(ui.narrationVolume.value);
-                // Pass the teleprompter update function as a callback
-                await this.speechEngine.speak(narrationText, volume, (event) => {
-                    updateTeleprompter(narrationText, event.charIndex);
-                });
-            } catch (error) {
-                console.warn('Speech synthesis failed:', error);
-            }
-
-            // Phase 2: Video/Visual Content
-            if (lessonState === 'narrating') {
-                await this.playVideoContent(videoInfo);            }
+        // Hide skip video button during narration
+        if (ui.skipVideoButton) {
+            ui.skipVideoButton.style.display = 'none';
         }
+
+        updateCanvasVisuals(narrationText, 'Listen to the introduction...');
+
+        try {
+            const volume = parseFloat(ui.narrationVolume.value);
+            // Pass the teleprompter update function as a callback
+            await this.speechEngine.speak(narrationText, volume, (event) => {
+                updateTeleprompter(narrationText, event.charIndex);
+            });
+        } catch (error) {
+            console.warn('Speech synthesis failed:', error);
+        }
+
+        // Phase 2: Video/Visual Content
+        if (lessonState === 'narrating') {
+            await this.playVideoContent(videoInfo);
+        }
+    }
 
         async playVideoContent(videoInfo) {
             lessonState = 'playing_video';

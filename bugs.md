@@ -32,7 +32,7 @@ Logical Step to Fix: The parseJSONResponse function in script.js must be strengt
 
 FIXED: Enhanced parseJSONResponse function with better bracket matching, text cleaning, and multiple fallback parsing strategies to handle imperfect AI JSON responses.
 
-Bug 3: Inverted Play/Pause Button Logic
+Bug 3: Inverted Play/Pause Button Logic ✅ COMPLETE
 This is a UI bug that creates a confusing user experience during narration.
 
 Problem: The play/pause icon does not update its state when narration begins, and its logic is effectively inverted.
@@ -42,6 +42,8 @@ Logical Step to Fix: This requires a two-part fix in script.js:
 Update on Start: Call the updatePlayPauseIcon() function from within the executeSegment function, immediately after setting lessonState = 'narrating'.
 
 Correct Logic: Flip the boolean conditions within the updatePlayPauseIcon function to ensure the pause icon is shown when content is playing and the play icon is shown when it's paused.
+
+FIXED: Added updatePlayPauseIcon() calls in executeSegment and playVideoContent functions. The icon logic now correctly shows pause icon when playing and play icon when paused.
 
 Bug 4: App Crash on Video Error ✅ COMPLETE
 This bug was identified from the error logs you provided and points to a critical stability issue.
