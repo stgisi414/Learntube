@@ -210,7 +210,6 @@
         let teleprompterLastPauseTime = null;
         let lessonState = 'idle'; 
         let lessonPhase = 0;
-        let isYouTubeApiReady = false;
 
         // --- INITIALIZATION --- //
         window.onload = function() {
@@ -223,7 +222,6 @@
         // This is called by the YouTube script tag when it's ready.
         window.onYouTubeIframeAPIReady = function() {
             log('YouTube API ready');
-            isYouTubeApiReady = true;
         };
 
         function setupCanvas() {
@@ -326,7 +324,6 @@
 
             currentUtterance.onerror = (e) => {
                 log(`Speech error: ${e.error}`);
-                currentUtterance = null; // Clear utterance on error
                 // If a real error occurs, we still want to proceed with the lesson flow.
                 if (e.error !== 'interrupted' && onCompleteCallback) {
                      log('Proceeding to next phase despite speech error.');
@@ -511,11 +508,6 @@
 
         // YouTube Video Functions
         function loadVideoSegment() {
-            if (!isYouTubeApiReady) {
-                log('Error: YouTube API is not ready yet. Please wait a moment and try again.');
-                document.getElementById('videoStatus').textContent = 'Error: YouTube API not ready';
-                return;
-            }
             const videoId = document.getElementById('videoId').textContent;
             const startTime = parseInt(document.getElementById('startTime').textContent);
             const endTime = parseInt(document.getElementById('endTime').textContent);
@@ -567,11 +559,6 @@
                     onError: (error) => {
                         log(`YouTube error: ${error.data}`);
                         document.getElementById('videoStatus').textContent = `Video error: ${error.data}`;
-                        // If in full lesson mode and video errors, try to advance to outro
-                        if (lessonState === 'video') {
-                            log('Video error occurred during lesson, attempting to advance to outro.');
-                            setTimeout(() => startOutro(), 1000); // Match delay used in onStateChange ENDED
-                        }
                     }
                 }
             });
