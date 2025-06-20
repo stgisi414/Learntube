@@ -249,36 +249,15 @@
 
         function testSpeechSynthesis() {
             const text = document.getElementById('introText').textContent;
-            log('Testing speech synthesis...');
+            const volume = parseFloat(document.getElementById('speechVolume').value);
+            const rate = parseFloat(document.getElementById('speechRate').value);
 
-            // Cancel any previous speech to ensure a clean start
-            if (speechSynthesis.speaking || speechSynthesis.paused) {
-                speechSynthesis.cancel();
-            }
+            document.getElementById('speechStatus').textContent = 'Speaking...';
 
-            // Create the single utterance we will work with for pause/resume
-            currentUtterance = new SpeechSynthesisUtterance(text);
-            currentUtterance.volume = parseFloat(document.getElementById('speechVolume').value);
-            currentUtterance.rate = parseFloat(document.getElementById('speechRate').value);
-
-            currentUtterance.onstart = () => {
-                log('Speech started');
-                document.getElementById('speechStatus').textContent = 'Speaking...';
-            };
-            currentUtterance.onend = () => {
-                log('Speech ended');
+            // The test now uses the new reusable function
+            speakText(text, () => {
                 document.getElementById('speechStatus').textContent = 'Speech complete';
-                currentUtterance = null; // Important: Clear the utterance when it's naturally finished
-            };
-            currentUtterance.onerror = (e) => {
-                log(`Speech error: ${e.error}`);
-                // Prevent "interrupted" error from showing on a normal stop action
-                if (e.error !== 'interrupted') {
-                    document.getElementById('speechStatus').textContent = `Error: ${e.error}`;
-                }
-            };
-
-            speechSynthesis.speak(currentUtterance);
+            }, volume, rate);
         }
 
         function pauseSpeech() {
@@ -317,6 +296,44 @@
             document.getElementById('speechStatus').textContent = 'Speech stopped';
             currentUtterance = null; // Ensure utterance is cleared on stop
         }
+
+        function speakText(text, onCompleteCallback, volume = 1.0, rate = 1.0) {
+            log(`speakText called for: "${text.substring(0, 20)}..."`);
+
+            // Cancel any previous speech to ensure a clean start
+            if (speechSynthesis.speaking || speechSynthesis.paused) {
+                speechSynthesis.cancel();
+            }
+
+            currentUtterance = new SpeechSynthesisUtterance(text);
+            currentUtterance.volume = volume;
+            currentUtterance.rate = rate;
+
+            currentUtterance.onstart = () => {
+                log('Speech started');
+            };
+
+            currentUtterance.onend = () => {
+                log('Speech ended naturally.');
+                currentUtterance = null;
+                if (onCompleteCallback) {
+                    log('Executing onComplete callback.');
+                    onCompleteCallback();
+                }
+            };
+
+            currentUtterance.onerror = (e) => {
+                log(`Speech error: ${e.error}`);
+                // If a real error occurs, we still want to proceed with the lesson flow.
+                if (e.error !== 'interrupted' && onCompleteCallback) {
+                     log('Proceeding to next phase despite speech error.');
+                     onCompleteCallback();
+                }
+            };
+
+            speechSynthesis.speak(currentUtterance);
+        }
+
 
         // Teleprompter Functions
         function startTeleprompter(type) {
@@ -593,32 +610,19 @@
             log('Starting intro phase');
             lessonState = 'intro';
             document.getElementById('currentPhase').textContent = 'Phase: Intro narration';
-            
-            // Start teleprompter
+
             startTeleprompter('intro');
-            
-            // Start speech synthesis with teleprompter sync
+
             const text = document.getElementById('introText').textContent;
-            
-            if (currentUtterance) {
-                speechSynthesis.cancel();
-            }
 
-            currentUtterance = new SpeechSynthesisUtterance(text);
-            currentUtterance.volume = 1.0;
-            currentUtterance.rate = 1.0;
-
-            currentUtterance.onend = () => {
-                log('Intro narration complete, starting video');
+            // Define the callback function to run after the intro narration
+            const onIntroComplete = () => {
+                log('Intro narration complete, starting video phase');
                 setTimeout(() => startVideoPhase(), 1000);
             };
 
-            currentUtterance.onerror = (error) => {
-                log(`Intro speech error: ${error.error}`);
-                setTimeout(() => startVideoPhase(), 2000);
-            };
-
-            speechSynthesis.speak(currentUtterance);
+            // The lesson simulation now uses the new reusable function
+            speakText(text, onIntroComplete);
         }
 
         function startVideoPhase() {
@@ -639,32 +643,13 @@
             log('Starting outro phase');
             lessonState = 'outro';
             document.getElementById('currentPhase').textContent = 'Phase: Outro narration';
-            
-            // Start teleprompter
+
             startTeleprompter('outro');
-            
-            // Start speech synthesis
+
             const text = document.getElementById('outroText').textContent;
-            
-            if (currentUtterance) {
-                speechSynthesis.cancel();
-            }
 
-            currentUtterance = new SpeechSynthesisUtterance(text);
-            currentUtterance.volume = 1.0;
-            currentUtterance.rate = 1.0;
-
-            currentUtterance.onend = () => {
-                log('Outro narration complete - lesson finished');
-                completeLesson();
-            };
-
-            currentUtterance.onerror = (error) => {
-                log(`Outro speech error: ${error.error}`);
-                completeLesson();
-            };
-
-            speechSynthesis.speak(currentUtterance);
+            // The outro also uses the new reusable function, with completeLesson as its callback
+            speakText(text, completeLesson);
         }
 
         function completeLesson() {
