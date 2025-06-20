@@ -185,6 +185,7 @@
         // Debug logging
         function log(message) {
             const logDiv = document.getElementById('debugLog');
+            if (!logDiv) return;
             const timestamp = new Date().toLocaleTimeString();
             logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
@@ -192,38 +193,44 @@
         }
 
         function clearLog() {
-            document.getElementById('debugLog').innerHTML = '';
+            const logDiv = document.getElementById('debugLog');
+            if (logDiv) {
+                logDiv.innerHTML = '';
+            }
         }
 
-        // Global variables
+        // --- COMPLETE LIST OF GLOBAL VARIABLES --- //
+        // This section is now complete to avoid any confusion.
         let currentUtterance = null;
-        let speechContext = null; // NEW: To manage pause/resume state
         let youtubePlayer = null;
         let teleprompterInterval = null;
         let teleprompterPaused = false;
         let teleprompterStartTime = null;
         let teleprompterPausedDuration = 0;
         let teleprompterLastPauseTime = null;
-        let lessonState = 'idle'; // 'idle', 'intro', 'video', 'outro', 'complete'
-        let lessonPhase = 0; // 0=intro, 1=video, 2=outro
+        let lessonState = 'idle'; 
+        let lessonPhase = 0;
 
-        // Initialize
+        // --- INITIALIZATION --- //
         window.onload = function() {
             log('Debug suite initialized');
             setupCanvas();
             checkSpeechSynthesis();
+            updateLessonButtons(false);
         };
 
-        // YouTube API ready
+        // This is called by the YouTube script tag when it's ready.
         window.onYouTubeIframeAPIReady = function() {
             log('YouTube API ready');
         };
 
         function setupCanvas() {
             const canvas = document.getElementById('teleprompterCanvas');
-            canvas.width = canvas.offsetWidth;
-            canvas.height = 400;
-            log('Canvas setup complete');
+            if (canvas) {
+                canvas.width = canvas.offsetWidth;
+                canvas.height = 400;
+                log('Canvas setup complete');
+            }
         }
 
         function checkSpeechSynthesis() {
@@ -238,50 +245,36 @@
             }
         }
 
-        // Speech Synthesis Functions
+        // --- MODIFIED SPEECH SYNTHESIS FUNCTIONS (Implementing the Android Hack) --- //
+
         function testSpeechSynthesis() {
             const text = document.getElementById('introText').textContent;
             log('Testing speech synthesis...');
 
+            // Cancel any previous speech to ensure a clean start
             if (speechSynthesis.speaking || speechSynthesis.paused) {
                 speechSynthesis.cancel();
             }
 
+            // Create the single utterance we will work with for pause/resume
             currentUtterance = new SpeechSynthesisUtterance(text);
-            const volume = parseFloat(document.getElementById('speechVolume').value);
-            const rate = parseFloat(document.getElementById('speechRate').value);
-            currentUtterance.volume = volume;
-            currentUtterance.rate = rate;
-
-            // Set up the context for pausing/resuming
-            speechContext = {
-                text: text,
-                volume: volume,
-                rate: rate,
-                lastCharIndex: 0
-            };
+            currentUtterance.volume = parseFloat(document.getElementById('speechVolume').value);
+            currentUtterance.rate = parseFloat(document.getElementById('speechRate').value);
 
             currentUtterance.onstart = () => {
                 log('Speech started');
                 document.getElementById('speechStatus').textContent = 'Speaking...';
             };
-
             currentUtterance.onend = () => {
                 log('Speech ended');
                 document.getElementById('speechStatus').textContent = 'Speech complete';
-                speechContext = null; // Clear context on natural end
+                currentUtterance = null; // Important: Clear the utterance when it's naturally finished
             };
-
-            currentUtterance.onerror = (error) => {
-                log(`Speech error: ${error.error}`);
-                document.getElementById('speechStatus').textContent = `Error: ${error.error}`;
-                speechContext = null;
-            };
-
-            currentUtterance.onboundary = (event) => {
-                log(`Speech boundary: char ${event.charIndex}, name: ${event.name}`);
-                if(speechContext) {
-                    speechContext.lastCharIndex = event.charIndex;
+            currentUtterance.onerror = (e) => {
+                log(`Speech error: ${e.error}`);
+                // Prevent "interrupted" error from showing on a normal stop action
+                if (e.error !== 'interrupted') {
+                    document.getElementById('speechStatus').textContent = `Error: ${e.error}`;
                 }
             };
 
@@ -289,86 +282,40 @@
         }
 
         function pauseSpeech() {
-            if (speechSynthesis.speaking && currentUtterance) {
-                // **THE FIX**: Temporarily disable the error handler before we cancel.
-                // This prevents the 'interrupted' error from being displayed to the user.
-                currentUtterance.onerror = null;
-
-                speechSynthesis.cancel(); // Use cancel instead of the unreliable pause()
-                log('Speech paused (by cancellation)');
+            if (speechSynthesis.speaking) {
+                speechSynthesis.pause();
+                log('Speech paused');
                 document.getElementById('speechStatus').textContent = 'Speech paused';
             } else {
-                log('Cannot pause - speech not currently speaking');
+                log('Cannot pause - not speaking');
             }
         }
 
-        // This function doesn't need changes, but is here for context.
         function resumeSpeech() {
-            if (speechContext) {
-                const textToResume = speechContext.text.substring(speechContext.lastCharIndex);
-                if (textToResume.trim() === '') {
-                    log('Nothing to resume.');
-                    document.getElementById('speechStatus').textContent = 'Speech complete';
-                    return;
-                }
+            if (currentUtterance && speechSynthesis.paused) {
+                log('Attempting to resume speech...');
+                speechSynthesis.resume();
 
-                log(`Resuming from char ${speechContext.lastCharIndex}`);
-
-                // A new utterance is created here, which gets its own new error handler.
-                currentUtterance = new SpeechSynthesisUtterance(textToResume);
-                currentUtterance.volume = speechContext.volume;
-                currentUtterance.rate = speechContext.rate;
-
-                const baseIndex = speechContext.lastCharIndex;
-
-                currentUtterance.onstart = () => {
-                    log('Speech resumed');
-                    document.getElementById('speechStatus').textContent = 'Speaking...';
-                };
-
-                currentUtterance.onend = () => {
-                    log('Resumed speech ended');
-                    document.getElementById('speechStatus').textContent = 'Speech complete';
-                    speechContext = null;
-                };
-
-                // The new error handler for the resumed speech.
-                currentUtterance.onerror = (error) => {
-                    log(`Speech error on resume: ${error.error}`);
-                    document.getElementById('speechStatus').textContent = `Error on resume: ${error.error}`;
-                    speechContext = null;
-                };
-
-                currentUtterance.onboundary = (event) => {
-                    if(speechContext) {
-                        speechContext.lastCharIndex = baseIndex + event.charIndex;
-                        log(`Speech boundary on resume: char ${speechContext.lastCharIndex}`);
+                // This is the specific hack for Chrome on Android from the Stack Overflow link.
+                // A timeout gives the browser a moment to process the resume() call
+                // before we apply the speak() hack to force it to play from the paused position.
+                setTimeout(() => {
+                    if (speechSynthesis.paused) {
+                        log('Applying Android resume-fix by re-speaking...');
+                        speechSynthesis.speak(currentUtterance);
                     }
-                };
+                }, 50);
 
-                speechSynthesis.speak(currentUtterance);
             } else {
-                log('Cannot resume - no speech context available');
+                log('Cannot resume - no paused speech available');
             }
         }
 
         function stopSpeech() {
-            try {
-                if (speechSynthesis.speaking || speechSynthesis.paused) {
-                    // **THE FIX**: Also apply the same logic here for the stop button.
-                    if (currentUtterance) {
-                        currentUtterance.onerror = null;
-                    }
-                    speechSynthesis.cancel();
-                }
-                currentUtterance = null;
-                speechContext = null; // Clear the context on stop
-                log('Speech stopped and cleared');
-                document.getElementById('speechStatus').textContent = 'Speech stopped';
-            } catch (error) {
-                log(`Error stopping speech: ${error.message}`);
-                document.getElementById('speechStatus').textContent = `Stop error: ${error.message}`;
-            }
+            speechSynthesis.cancel();
+            log('Speech stopped');
+            document.getElementById('speechStatus').textContent = 'Speech stopped';
+            currentUtterance = null; // Ensure utterance is cleared on stop
         }
 
         // Teleprompter Functions

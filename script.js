@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let retryCount = 0;
     const MAX_RETRIES = 3;
     let isScrolling = false;
-
     // --- HTML ELEMENT REFERENCES --- //
     const ui = {
         topicInput: document.getElementById('topic-input'),
