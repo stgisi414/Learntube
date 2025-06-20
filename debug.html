@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teleprompter & Video Debug Suite (Full Version)</title>
+    <title>Full Debug Suite (Corrected & Complete)</title>
     <script src="https://www.youtube.com/iframe_api"></script>
     <style>
         body {
@@ -28,6 +28,7 @@
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         button {
@@ -71,7 +72,6 @@
             max-width: 800px;
             height: 450px;
             background: #000;
-            border: 2px solid #666;
         }
 
         .log {
@@ -87,23 +87,12 @@
 </head>
 
 <body>
-    <h1>🔧 Teleprompter & Video Debug Suite (Full Version)</h1>
-    <p>The complete test suite with the robust SpeechService architecture integrated.</p>
+    <h1>🔧 Full Debug Suite (Final Version)</h1>
 
     <div class="debug-section">
         <h2>📋 Sample Test Data</h2>
-        <div class="sample-data">
-            <h3>Intro Narration:</h3>
-            <p id="introText">"Welcome to our lesson on Machine Learning fundamentals. In this first segment, we'll
-                explore the basic concepts that form the foundation of artificial intelligence and data science."</p>
-            <h3>Outro Narration:</h3>
-            <p id="outroText">"Excellent work! You've now learned the core principles of Machine Learning. These
-                concepts will serve as building blocks for more advanced topics in our next lesson."</p>
-            <h3>Video Segment:</h3>
-            <p><strong>YouTube ID:</strong> <span id="videoId">dQw4w9WgXcQ</span></p>
-            <p><strong>Start Time:</strong> <span id="startTime">10</span> seconds</p>
-            <p><strong>End Time:</strong> <span id="endTime">40</span> seconds</p>
-        </div>
+        <p id="introText">"Welcome to our lesson on Machine Learning fundamentals. In this first segment, we'll explore
+            the basic concepts that form the foundation of artificial intelligence and data science."</p>
     </div>
 
     <div class="debug-section">
@@ -114,35 +103,41 @@
             <button onclick="SpeechService.resume()">Resume</button>
             <button onclick="SpeechService.stop()">Stop</button>
         </div>
-        <div class="status" id="speechStatus">Speech synthesis ready</div>
+        <div class="status" id="speechStatus">Ready</div>
     </div>
 
     <div class="debug-section">
         <h2>📜 Teleprompter Scrolling Test</h2>
         <canvas id="teleprompterCanvas"></canvas>
         <div class="controls">
-            <button onclick="log('Teleprompter test not implemented yet.')">Test Intro Teleprompter</button>
+            <button onclick="startTeleprompter()">Test Teleprompter</button>
+            <button onclick="pauseTeleprompter()">Pause Teleprompter</button>
+            <button onclick="resumeTeleprompter()">Resume Teleprompter</button>
+            <button onclick="stopTeleprompter()">Stop Teleprompter</button>
         </div>
-        <div class="status" id="teleprompterStatus">Teleprompter ready</div>
+        <div class="status" id="teleprompterStatus">Ready</div>
+    </div>
+
+    <div class="debug-section">
+        <h2>🔍 YouTube Keyword Search Test</h2>
+        <div class="controls">
+            <input type="text" id="youtubeSearchQuery" placeholder="Enter search keywords..."
+                style="flex-grow:1; padding: 8px;">
+            <button onclick="searchYouTube()">Search</button>
+        </div>
+        <div id="youtubeSearchResults" style="margin-top: 10px; max-height: 300px; overflow-y: auto;"></div>
     </div>
 
     <div class="debug-section">
         <h2>📹 YouTube Video Segment Test</h2>
-        <div id="videoContainer"></div>
+        <p><strong>Selected Video ID:</strong> <span id="videoId">dQw4w9WgXcQ</span></p>
+        <p><strong>Start Time:</strong> <input type="number" id="startTime" value="10" style="width: 50px;">s |
+            <strong>End Time:</strong> <input type="number" id="endTime" value="40" style="width: 50px;">s</p>
+        <div id="videoContainer" style="margin-top:10px;"></div>
         <div class="controls">
             <button onclick="loadVideoSegment()">Load Video Segment</button>
         </div>
         <div class="status" id="videoStatus">Video player ready</div>
-    </div>
-
-    <div class="debug-section">
-        <h2>🎓 Full Lesson Simulation</h2>
-        <div class="controls">
-            <button onclick="startFullLesson()" id="startLessonBtn">Start Full Lesson</button>
-            <button onclick="skipToNext()" id="skipBtn" disabled>Skip Current</button>
-        </div>
-        <div class="status" id="lessonStatus">Ready to start lesson</div>
-        <div class="status" id="currentPhase">Phase: Idle</div>
     </div>
 
     <div class="debug-section">
@@ -152,149 +147,184 @@
     </div>
 
     <script>
-        // --- UTILITY AND GLOBAL SETUP ---
+        // --- UTILITIES & GLOBAL STATE ---
         function log(message) {
             const logDiv = document.getElementById('debugLog');
-            if (logDiv) {
-                const timestamp = new Date().toLocaleTimeString();
-                logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
-                logDiv.scrollTop = logDiv.scrollHeight;
-            }
-            console.log(`[DEBUG] ${message}`);
+            if (logDiv) logDiv.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}<br>`;
         }
-        function clearLog() {
-            if (document.getElementById('debugLog')) {
-                document.getElementById('debugLog').innerHTML = '';
-            }
-        }
-        window.onload = () => {log('Debug suite initialized');};
-        window.onYouTubeIframeAPIReady = () => {log('YouTube API ready');};
+        function clearLog() {document.getElementById('debugLog').innerHTML = '';}
 
-        // --- GLOBAL STATE ---
-        const SpeechService = {state: {}, timer: null, utterance: null};
         let youtubePlayer = null;
-        let lessonState = 'idle';
+        const GOOGLE_API_KEY = 'AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4';
+        const CSE_ID = 'b53121b78d1c64563';
 
-        // --- ROBUST SPEECHSERVICE OBJECT ---
-        Object.assign(SpeechService, {
-            play(text, config = {}) {
-                if (!config.isResume) {
-                    this.stop();
-                    this.state = {originalText: text, lastSpokenCharIndex: 0, isPlaying: false, onComplete: config.onComplete};
+        window.onload = () => log('Debug suite initialized.');
+        window.onYouTubeIframeAPIReady = () => {log('YouTube API ready.');};
+
+        // --- SPEECH SERVICE with Pause/Resume for Audio ---
+        const SpeechService = {
+            apiUrl: 'https://texttospeech.googleapis.com/v1/text:synthesize',
+            audioElement: new Audio(),
+
+            async play(text, {onProgress = null, onComplete = null} = {}) {
+                this.stop();
+                try {
+                    const response = await fetch(`${this.apiUrl}?key=${GOOGLE_API_KEY}`, {
+                        method: 'POST', body: JSON.stringify({
+                            input: {text},
+                            voice: {languageCode: 'en-US', name: 'en-US-Standard-C'},
+                            audioConfig: {audioEncoding: 'MP3'}
+                        })
+                    });
+                    if (!response.ok) throw new Error(`API Error: ${(await response.json()).error.message}`);
+                    const data = await response.json();
+                    const audioBlob = this.base64ToBlob(data.audioContent, 'audio/mpeg');
+                    this.audioElement.src = URL.createObjectURL(audioBlob);
+                    this.audioElement.play();
+
+                    this.audioElement.ontimeupdate = () => {
+                        if (onProgress && this.audioElement.duration) {
+                            onProgress(this.audioElement.currentTime / this.audioElement.duration);
+                        }
+                    };
+                    this.audioElement.onended = () => {
+                        if (onProgress) onProgress(1);
+                        if (onComplete) onComplete();
+                    };
+                } catch (error) {
+                    log(`SpeechService Error: ${error.message}`);
+                    if (onComplete) onComplete();
                 }
-                this.utterance = new SpeechSynthesisUtterance(text);
-                this.utterance.onstart = () => {
-                    log('Speech playback started.');
-                    document.getElementById('speechStatus').textContent = 'Speaking...';
-                    this.state.isPlaying = true;
-                    const startTime = Date.now();
-                    const charsPerSecond = 14;
-                    const baseIndex = this.state.originalText.length - text.length;
-                    this.timer = setInterval(() => {
-                        const elapsedSeconds = (Date.now() - startTime) / 1000;
-                        this.state.lastSpokenCharIndex = baseIndex + Math.floor(elapsedSeconds * charsPerSecond);
-                    }, 100);
-                };
-                this.utterance.onend = () => {
-                    clearInterval(this.timer);
-                    this.state.isPlaying = false;
-                    const isFinished = (this.state.lastSpokenCharIndex + 5) >= this.state.originalText.length;
-                    if (isFinished) {
-                        log('Full text finished.');
-                        document.getElementById('speechStatus').textContent = 'Speech complete';
-                        if (this.state.onComplete) this.state.onComplete();
-                        this.state = {};
-                    }
-                };
-                this.utterance.onerror = (e) => {
-                    log(`Speech error: ${e.error}`);
-                    clearInterval(this.timer);
-                    this.state = {};
-                };
-                speechSynthesis.speak(this.utterance);
             },
-            pause() {
-                if (!this.state.isPlaying) return;
-                log(`Pausing at char index: ${this.state.lastSpokenCharIndex}`);
-                clearInterval(this.timer);
-                this.state.isPlaying = false;
-                if (this.utterance) this.utterance.onend = null;
-                speechSynthesis.cancel();
-                document.getElementById('speechStatus').textContent = 'Speech paused';
-            },
-            resume() {
-                if (this.state.isPlaying || !this.state.originalText) return;
-                const remainingText = this.state.originalText.substring(this.state.lastSpokenCharIndex);
-                if (remainingText.trim() === '') {log('Nothing left to resume.'); return;}
-                this.play(remainingText, {isResume: true});
-            },
+            pause() {if (this.audioElement) this.audioElement.pause();},
+            resume() {if (this.audioElement) this.audioElement.play();},
             stop() {
-                clearInterval(this.timer);
-                if (this.utterance) this.utterance.onend = null;
-                speechSynthesis.cancel();
-                if (document.getElementById('speechStatus')) document.getElementById('speechStatus').textContent = 'Speech stopped';
-                this.state = {};
+                if (this.audioElement) {
+                    this.audioElement.onended = null;
+                    this.audioElement.ontimeupdate = null;
+                    this.audioElement.pause();
+                    this.audioElement.currentTime = 0;
+                }
+            },
+            base64ToBlob(base64, contentType) {
+                const byteCharacters = atob(base64);
+                const byteArrays = [];
+                for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                    const slice = byteCharacters.slice(offset, offset + 512);
+                    const byteNumbers = new Array(slice.length);
+                    for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
+                    byteArrays.push(new Uint8Array(byteNumbers));
+                }
+                return new Blob(byteArrays, {type: contentType});
             }
-        });
+        };
 
-        // --- FULL LESSON SIMULATION LOGIC ---
-        function startFullLesson() {
-            log('Starting full lesson simulation');
-            lessonState = 'intro';
-            updateLessonButtons(true);
-            document.getElementById('lessonStatus').textContent = 'Lesson in progress';
-            startIntro();
-        }
-        function startIntro() {
-            document.getElementById('currentPhase').textContent = 'Phase: Intro narration';
+        // --- TELEPROMPTER & YOUTUBE FUNCTIONS ---
+        function startTeleprompter() {
             const text = document.getElementById('introText').textContent;
-            SpeechService.play(text, {onComplete: startVideoPhase});
+            const onProgress = (progress) => updateTeleprompterDisplay(text, progress);
+            SpeechService.play(text, {onProgress});
         }
-        function startVideoPhase() {
-            log('Intro complete. Starting video phase.');
-            lessonState = 'video';
-            document.getElementById('currentPhase').textContent = 'Phase: Video segment';
-            loadVideoSegment(startOutro); // Pass startOutro as the callback
-        }
-        function startOutro() {
-            log('Video complete. Starting outro narration.');
-            lessonState = 'outro';
-            if (youtubePlayer) try {youtubePlayer.destroy();} catch (e) { }
-            document.getElementById('currentPhase').textContent = 'Phase: Outro narration';
-            const text = document.getElementById('outroText').textContent;
-            SpeechService.play(text, {onComplete: completeLesson});
-        }
-        function completeLesson() {
-            log('Lesson complete!');
-            lessonState = 'complete';
-            document.getElementById('currentPhase').textContent = 'Phase: Complete';
-            document.getElementById('lessonStatus').textContent = 'Lesson completed successfully!';
-            updateLessonButtons(false);
-        }
-        function skipToNext() {
-            log('Skipping to next phase');
-            SpeechService.stop();
-            if (lessonState === 'intro') startVideoPhase();
-            else if (lessonState === 'video') startOutro();
-            else if (lessonState === 'outro') completeLesson();
-        }
-        function updateLessonButtons(lessonActive) {
-            document.getElementById('startLessonBtn').disabled = lessonActive;
-            document.getElementById('skipBtn').disabled = !lessonActive;
+        function pauseTeleprompter() {SpeechService.pause();}
+        function resumeTeleprompter() {SpeechService.resume();}
+        function stopTeleprompter() {SpeechService.stop();}
+
+        function updateTeleprompterDisplay(fullText, progress) {
+            const canvas = document.getElementById('teleprompterCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = '28px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'white';
+            const lines = wrapText(ctx, fullText, canvas.width * 0.9);
+            const lineHeight = 36;
+            const totalContentHeight = (lines.length - 1) * lineHeight;
+            const yOffset = (canvas.height / 2) - (totalContentHeight * progress);
+            ctx.save();
+            ctx.translate(canvas.width / 2, yOffset);
+            lines.forEach((line, index) => ctx.fillText(line, 0, index * lineHeight));
+            ctx.restore();
         }
 
-        // --- OTHER STANDALONE FUNCTIONS ---
-        function loadVideoSegment(onComplete) {
-            const videoId = document.getElementById('videoId').textContent;
-            const startTime = parseInt(document.getElementById('startTime').textContent);
-            const endTime = parseInt(document.getElementById('endTime').textContent);
-            if (youtubePlayer) try {youtubePlayer.destroy();} catch (e) { }
+        function wrapText(ctx, text, maxWidth) {
+            const words = text.split(' ');
+            let lines = [];
+            let currentLine = words[0];
+            for (let i = 1; i < words.length; i++) {
+                let testLine = currentLine + " " + words[i];
+                if (ctx.measureText(testLine).width > maxWidth && currentLine.length > 0) {
+                    lines.push(currentLine);
+                    currentLine = words[i];
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+
+        async function searchYouTube() {
+            const query = document.getElementById('youtubeSearchQuery').value;
+            if (!query) {log('Please enter a search query.'); return;}
+            log(`Searching YouTube via CSE for: "${query}"`);
+
+            const searchParams = new URLSearchParams({
+                key: GOOGLE_API_KEY,
+                cx: CSE_ID,
+                q: query
+            });
+            const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
+            const data = await response.json();
+            displayYouTubeResults(data.items);
+        }
+
+        function displayYouTubeResults(items) {
+            const resultsContainer = document.getElementById('youtubeSearchResults');
+            resultsContainer.innerHTML = '';
+            if (!items || items.length === 0) {
+                resultsContainer.innerHTML = '<p>No results found.</p>';
+                return;
+            }
+            items.forEach(item => {
+                const url = new URL(item.link);
+                const videoId = url.searchParams.get('v');
+                if (!videoId) return;
+
+                const title = item.title;
+                const thumbnail = item.pagemap?.cse_thumbnail?.[0]?.src || '';
+
+                const resultEl = document.createElement('div');
+                resultEl.style.cssText = 'display:flex; align-items:center; margin-bottom:10px; cursor:pointer;';
+                resultEl.innerHTML = `
+                    <img src="${thumbnail}" style="width:120px; height:90px; margin-right:10px; object-fit:cover;">
+                    <div style="flex-grow:1;">
+                        <p style="margin:0; font-weight:bold;">${title}</p>
+                    </div>
+                `;
+                resultEl.onclick = () => selectYouTubeVideo(videoId);
+                resultsContainer.appendChild(resultEl);
+            });
+        }
+
+        function selectYouTubeVideo(videoId) {
+            log(`Selected video: ${videoId}`);
+            document.getElementById('videoId').textContent = videoId;
+        }
+
+        function loadVideoSegment() {
+            if (youtubePlayer) youtubePlayer.destroy();
             youtubePlayer = new YT.Player('videoContainer', {
-                height: '100%', width: '100%', videoId,
-                playerVars: {autoplay: 1, controls: 1, start: startTime, end: endTime},
-                events: {
-                    onStateChange: (event) => {if (event.data === YT.PlayerState.ENDED && onComplete) onComplete();},
-                    onError: (e) => {log(`YouTube error (${e.data}).`); if (onComplete) onComplete();}
+                height: '100%', width: '100%',
+                videoId: document.getElementById('videoId').textContent,
+                playerVars: {
+                    autoplay: 1,
+                    start: parseInt(document.getElementById('startTime').value),
+                    end: parseInt(document.getElementById('endTime').value),
+                    origin: window.location.origin
                 }
             });
         }

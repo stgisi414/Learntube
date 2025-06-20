@@ -38,7 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- API CONFIGURATION --- //
     const GEMINI_API_KEY = "AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA";
     //const YOUTUBE_API_KEY = "AIzaSyBQLgFiUYdSNvpbyO_TgdzXmSvT9BFgal4";
-    const YOUTUBE_API_KEY = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8";
+    //const YOUTUBE_API_KEY = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8";
+    const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
+    const CSE_ID = 'b53121b78d1c64563'; 
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
     // --- CENTRALIZED GEMINI ORCHESTRATOR --- //
@@ -109,6 +111,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // LESSON PLAN GENERATION
         async generateLessonPlan(topic) {
+            const cacheKey = `lessonPlan:${topic}`;
+            const cachedPlan = Storage.getCache(cacheKey);
+            if (cachedPlan) {
+                console.log("Returning CACHED lesson plan.");
+                return cachedPlan;
+            }
+
+            this.currentTopic = topic;
+            showLoading("Generating comprehensive lesson plan...");
             const prompt = `Create a comprehensive learning curriculum for: "${topic}".
 
 Generate exactly 4 difficulty levels with exactly 5 learning points each:
@@ -130,8 +141,21 @@ Return ONLY valid JSON in this exact format:
   "Senior": ["point1", "point2", "point3", "point4", "point5"]
 }`;
 
-            const response = await this.makeRequest(prompt);
-            return this.parseJSONResponse(response);
+            try {
+                const response = await this.makeRequest(prompt);
+                const lessonPlan = this.parseJSONResponse(response);
+                if (lessonPlan) {
+                    Storage.setCache(cacheKey, lessonPlan); // Save the new plan to the cache
+                    console.log("Lesson plan generated and stored.");
+                    return lessonPlan;
+                } else {
+                    throw new Error("Failed to parse lesson plan from response.");
+                }
+            } catch (error) {
+                console.error("Error generating lesson plan:", error);
+                // Fallback to creating a simple plan structure if error occurs
+                return this.createFallbackLessonPlan(topic);
+            }
         }
 
         // LESSON PLAN VALIDATION
@@ -263,27 +287,28 @@ Return 2-3 sentences, 60-100 words total.`;
 
         // VIDEO SEGMENT FINDING
         async findVideoSegment(videoTitle, videoDescription, learningPoint) {
-            const prompt = `Analyze this YouTube video to find the most relevant segment that specifically teaches about: "${learningPoint}".
+            const prompt = `Analyze this YouTube video to find all relevant segments that teach about: "${learningPoint}".
 
-Video Title: "${videoTitle}"
-Video Description: "${videoDescription.substring(0, 800)}"
+        Video Title: "${videoTitle}"
+        Video Description: "${videoDescription.substring(0, 800)}"
 
-Look for:
-1. Timestamps mentioned in the description
-2. Chapter markers or sections
-3. Keywords related to "${learningPoint}"
-4. Educational content indicators
+        Rules for segments:
+        1. Find all distinct, relevant parts of the video.
+        2. Each individual segment must be between 5 and 15 seconds long.
+        3. The TOTAL duration of all segments combined must be between 15 and 45 seconds.
+        4. Avoid generic intros/outros. Find where the actual teaching happens.
+        5. If no segments fit the rules, return an empty array.
 
-If the video is longer than 10 minutes, find a specific 60-90 second segment where "${learningPoint}" is actually explained.
-If shorter than 10 minutes, you can use up to 3 minutes but focus on the most relevant part.
+        Return ONLY a valid JSON array of objects, like this:
+        [
+          {"startTime": 120, "endTime": 135, "reason": "Explains the core definition."},
+          {"startTime": 310, "endTime": 320, "reason": "Provides a practical example."}
+        ]`;
 
-Avoid generic introductions - find where the actual learning content begins.
-
-Return ONLY valid JSON:
-{"startTime": 180, "endTime": 270, "reason": "This segment explains the core concept with examples"}`;
-
-            const response = await this.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 256 });
-            return this.parseJSONResponse(response);
+            const response = await this.makeRequest(prompt, { temperature: 0.2, maxOutputTokens: 512 });
+            // Ensure the response is an array, or fallback to an empty array.
+            const segments = this.parseJSONResponse(response);
+            return Array.isArray(segments) ? segments : [];
         }
 
         parseJSONResponse(response) {
@@ -376,9 +401,11 @@ Return ONLY valid JSON:
         }
 
         async findAndValidateVideo(learningPoint, topic, level) {
-            const cacheKey = `${topic}:${learningPoint}:${level}`;
-            if (this.cache.has(cacheKey)) {
-                return this.cache.get(cacheKey);
+            const cacheKey = `video:${topic}:${learningPoint}:${level}`;
+            const cachedVideo = Storage.getCache(cacheKey);
+            if (cachedVideo) {
+                console.log("Returning CACHED video info.");
+                return cachedVideo;
             }
 
             try {
@@ -389,29 +416,11 @@ Return ONLY valid JSON:
                     try {
                         const video = await this.searchYouTube(query);
                         if (video) {
-                            // Validate video relevance
                             const isRelevant = await this.validateVideoRelevance(video, learningPoint, topic);
                             if (isRelevant) {
-                                // Find the specific segment
-                                try {
-                                    const segment = await this.gemini.findVideoSegment(video.title, video.description, learningPoint);
-                                    if (segment && segment.startTime !== undefined && segment.endTime !== undefined) {
-                                        video.startTime = segment.startTime;
-                                        video.endTime = segment.endTime;
-                                        video.duration = segment.endTime - segment.startTime;
-                                    } else {
-                                        // Use default segment if AI segment finding fails
-                                        video.startTime = 0;
-                                        video.endTime = Math.min(video.duration || 60, 30);
-                                        video.duration = video.endTime - video.startTime;
-                                    }
-                                } catch (segmentError) {
-                                    console.warn(`Segment finding failed for: ${video.title}`, segmentError);
-                                    video.startTime = 0;
-                                    video.endTime = Math.min(video.duration || 60, 30);
-                                    video.duration = video.endTime - video.startTime;
-                                }
-                                this.cache.set(cacheKey, video);
+                                const segments = await this.gemini.findVideoSegment(video.title, video.description, learningPoint);
+                                video.segments = segments;
+                                Storage.setCache(cacheKey, video); // Save the found video to the cache
                                 return video;
                             }
                         }
@@ -466,79 +475,55 @@ Return ONLY valid JSON:
         }
 
         async searchYouTube(query) {
+            console.log(`Searching via Custom Search API for: "${query}"`);
+
             const searchParams = new URLSearchParams({
-                part: 'snippet',
+                key: YOUTUBE_API_KEY,
+                cx: CSE_ID,
                 q: query,
-                type: 'video',
-                maxResults: '10',
-                order: 'relevance',
-                videoCategoryId: '27', // Education category
-                videoCaption: 'closedCaption',
-                key: YOUTUBE_API_KEY
+                num: 10 // Request 10 results
             });
 
-            // Try multiple approaches for referrer handling
-            const requestOptions = {
-                method: 'GET',
-                mode: 'cors',
-                credentials: 'omit',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'Referer': window.location.origin + '/',
-                    'Origin': window.location.origin
-                },
-                referrerPolicy: "strict-origin-when-cross-origin"
-            };
-
-            // Add domain-specific headers if deployed
-            const currentDomain = window.location.hostname;
-            if (currentDomain.includes('replit.app') || currentDomain.includes('learntube.cc')) {
-                requestOptions.headers['Referer'] = window.location.origin + '/';
-                requestOptions.headers['Origin'] = window.location.origin;
-                requestOptions.referrerPolicy = "strict-origin-when-cross-origin";
-            }
-
-            const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams}`, requestOptions);
+            const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
 
             if (!response.ok) {
-                throw new Error(`YouTube API failed: ${response.status}`);
+                throw new Error(`Custom Search API failed: ${response.status}`);
             }
 
             const data = await response.json();
             const items = data.items || [];
 
-            if (items.length === 0) return null;
-
-            // Score and select best video with captions
-            const scoredVideos = items.map(item => ({
-                ...item,
-                score: this.scoreVideo(item)
-            })).sort((a, b) => b.score - a.score);
-
-            // Try to get video details and captions for the best candidates
-            for (const video of scoredVideos.slice(0, 3)) {
+            // Transform the CSE items to look like the old YouTube Data API items.
+            // This allows the rest of the system to work without changes.
+            const transformedItems = items.map(item => {
                 try {
-                    const videoDetails = await this.getVideoWithCaptions(video.id.videoId);
-                    if (videoDetails) {
-                        return videoDetails;
+                    // Ensure the link is a valid YouTube video URL and extract the video ID.
+                    if (!item.link || !item.link.includes('youtube.com/watch?v=')) {
+                        return null;
                     }
-                } catch (error) {
-                    console.warn(`Failed to get captions for video ${video.id.videoId}:`, error);
-                    continue;
-                }
-            }
+                    const url = new URL(item.link);
+                    const videoId = url.searchParams.get('v');
+                    if (!videoId) return null;
 
-            // Fallback to best scored video without caption verification
-            const bestVideo = scoredVideos[0];
-            return {
-                youtubeId: bestVideo.id.videoId,
-                title: bestVideo.snippet.title,
-                description: bestVideo.snippet.description,
-                url: null, // We'll use iframe instead
-                duration: 60,
-                captionSnippet: null
-            };
+                    return {
+                        id: { videoId: videoId },
+                        snippet: {
+                            title: item.title,
+                            description: item.snippet,
+                            thumbnails: {
+                                default: {
+                                    url: item.pagemap?.cse_thumbnail?.[0]?.src || ''
+                                }
+                            }
+                        }
+                    };
+                } catch (e) {
+                    console.warn("Could not parse CSE item:", item, e);
+                    return null;
+                }
+            }).filter(Boolean); // Filter out any null items that couldn't be parsed.
+
+            return transformedItems;
         }
 
         async getVideoWithCaptions(videoId) {
@@ -605,8 +590,8 @@ Return ONLY valid JSON:
                 const captions = captionsData.items || [];
 
                 // Find English captions
-                const englishCaption = captions.find(cap => 
-                    cap.snippet.language === 'en' || 
+                const englishCaption = captions.find(cap =>
+                    cap.snippet.language === 'en' ||
                     cap.snippet.language === 'en-US'
                 );
 
@@ -679,231 +664,103 @@ Return ONLY valid JSON:
     }
 
     // --- TEXT-TO-SPEECH ENGINE --- //
+    // This new SpeechEngine uses the reliable Google Cloud TTS API.
     class SpeechEngine {
         constructor() {
-            this.isReady = false;
-            this.voices = [];
-            this.preferredVoice = null;
-            this.currentUtterance = null;
-            this.onBoundary = null;
-            this.speechSynthAvailable = this.checkSpeechSynthesis();
-            this.isPaused = false;
-            this.timerInterval = null;
-            this.speechStartTime = null;
-            this.pausedTime = null;
-            this.totalPausedDuration = 0;
-            this.initializeVoices();
+            // NOTE: This API key is visible in the client-side code.
+            // Ensure you have quotas and restrictions set up in your Google Cloud Console.
+            this.apiKey = 'AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8';
+            this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize';
+            this.audioElement = new Audio();
+            this.onCompleteCallback = null;
+            this.onProgressCallback = null;
         }
 
-        checkSpeechSynthesis() {
-            try {
-                return typeof window.speechSynthesis !== 'undefined' && window.speechSynthesis !== null;
-            } catch (error) {
-                console.warn('Speech synthesis not available:', error);
-                return false;
-            }
-        }
-
-        initializeVoices() {
-            if (!this.speechSynthAvailable) {
-                console.warn('Speech synthesis not available in this environment');
-                this.isReady = false;
+        async play(text, { onProgress = null, onComplete = null } = {}) {
+            this.stop();
+            if (!text) {
+                if (onComplete) onComplete();
                 return;
             }
 
+            this.onProgressCallback = onProgress;
+            this.onCompleteCallback = onComplete;
+
+            console.log('Requesting speech synthesis from Google Cloud API...');
+
             try {
-                const loadVoices = () => {
-                    this.voices = window.speechSynthesis.getVoices();
-                    this.preferredVoice = this.selectBestVoice();
-                    this.isReady = true;
-                };
+                const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        input: { text },
+                        voice: { languageCode: 'en-US', name: 'en-US-Standard-C' },
+                        audioConfig: { audioEncoding: 'MP3' }
+                    })
+                });
 
-                loadVoices();
-                if (window.speechSynthesis.onvoiceschanged !== undefined) {
-                    window.speechSynthesis.onvoiceschanged = loadVoices;
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API Error: ${errorData.error.message}`);
                 }
-            } catch (error) {
-                console.warn('Failed to initialize voices:', error);
-                this.isReady = false;
-            }
-        }
 
-        selectBestVoice() {
-            const voices = this.voices.filter(v => v.lang.startsWith('en'));
-            return voices.find(v => v.name.toLowerCase().includes('google')) ||
-                   voices.find(v => v.name.toLowerCase().includes('natural')) ||
-                   voices.find(v => v.lang === 'en-US') ||
-                   voices[0];
-        }
+                const data = await response.json();
+                const audioBlob = this.base64ToBlob(data.audioContent, 'audio/mpeg');
 
-        speak(text, volume = 1.0, onBoundaryCallback) {
-            return new Promise((resolve, reject) => {
-                this.speechStartTime = Date.now();
-                this.totalPausedDuration = 0;
-                this.isPaused = false;
-                let lastCharIndex = 0;
+                this.audioElement.src = URL.createObjectURL(audioBlob);
+                this.audioElement.play();
 
-                // Calculate estimated speech duration (average 180 words per minute)
-                const words = text.split(' ').length;
-                const estimatedDuration = (words / 180) * 60 * 1000; // in milliseconds
-
-                // Timer-based fallback that simulates speech progression
-                const startTimerFallback = () => {
-                    console.log('Starting timer-based teleprompter fallback');
-                    const updateInterval = 100; // Update every 100ms
-                    const totalChars = text.length;
-
-                    this.timerInterval = setInterval(() => {
-                        if (this.isPaused) return; // Skip updates when paused
-
-                        const elapsed = Date.now() - this.speechStartTime - this.totalPausedDuration;
-                        const progress = Math.min(elapsed / estimatedDuration, 1);
-                        const currentCharIndex = Math.floor(progress * totalChars);
-
-                        if (onBoundaryCallback && currentCharIndex > lastCharIndex) {
-                            onBoundaryCallback({ charIndex: currentCharIndex });
-                            lastCharIndex = currentCharIndex;
-                        }
-
-                        if (progress >= 1) {
-                            clearInterval(this.timerInterval);
-                            this.timerInterval = null;
-                            resolve();
-                        }
-                    }, updateInterval);
-                };
-
-                // Try speech synthesis first
-                if (this.speechSynthAvailable) {
-                    try {
-                        if (window.speechSynthesis.speaking) {
-                            window.speechSynthesis.cancel();
-                        }
-
-                        const utterance = new SpeechSynthesisUtterance(text);
-                        this.currentUtterance = utterance;
-                        this.onBoundary = onBoundaryCallback;
-                        let speechSuccessful = false;
-
-                        utterance.volume = volume;
-                        utterance.rate = 1.0;
-                        utterance.pitch = 1.0;
-                        if (this.preferredVoice) {
-                            utterance.voice = this.preferredVoice;
-                        }
-
-                        utterance.onstart = () => {
-                            speechSuccessful = true;
-                            console.log('Speech synthesis started successfully');
-                        };
-
-                        utterance.onboundary = (event) => {
-                            try {
-                                if (onBoundaryCallback && event.charIndex !== undefined) {
-                                    onBoundaryCallback(event);
-                                }
-                            } catch (error) {
-                                console.warn('Boundary callback error:', error);
-                            }
-                        };
-
-                        utterance.onend = () => {
-                            if (this.timerInterval) {
-                                clearInterval(this.timerInterval);
-                                this.timerInterval = null;
-                            }
-                            resolve();
-                        };
-
-                        utterance.onerror = (error) => {
-                            console.warn('Speech synthesis error:', error);
-                            if (this.timerInterval) {
-                                clearInterval(this.timerInterval);
-                                this.timerInterval = null;
-                            }
-                            if (!speechSuccessful) {
-                                // Speech failed to start, use timer fallback
-                                startTimerFallback();
-                            } else {
-                                resolve();
-                            }
-                        };
-
-                        window.speechSynthesis.speak(utterance);
-
-                        // Start timer fallback as backup in case boundary events don't fire
-                        setTimeout(() => {
-                            if (!speechSuccessful || !this.speechSynthAvailable) {
-                                console.log('Speech synthesis may have failed, starting timer fallback');
-                                startTimerFallback();
-                            }
-                        }, 500);
-
-                    } catch (error) {
-                        console.warn('Speech synthesis failed:', error);
-                        startTimerFallback();
+                this.audioElement.ontimeupdate = () => {
+                    if (this.onProgressCallback && this.audioElement.duration) {
+                        const progress = this.audioElement.currentTime / this.audioElement.duration;
+                        this.onProgressCallback(progress);
                     }
-                } else {
-                    // No speech synthesis available, use timer fallback
-                    console.warn('Speech synthesis not available, using timer-based teleprompter');
-                    startTimerFallback();
-                }
-            });
+                };
+
+                this.audioElement.onended = () => {
+                    console.log("Narration finished.");
+                    if (this.onProgressCallback) this.onProgressCallback(1); // Ensure it ends at 100%
+                    if (this.onCompleteCallback) this.onCompleteCallback();
+                };
+
+            } catch (error) {
+                console.error('SpeechService Error:', error);
+                // If speech fails, ensure the lesson can continue by calling the onComplete callback.
+                if (this.onCompleteCallback) this.onCompleteCallback();
+            }
         }
 
         pause() {
-            this.isPaused = true;
-            this.pausedTime = Date.now();
-
-            if (this.speechSynthAvailable) {
-                try {
-                    if (window.speechSynthesis.speaking) {
-                        window.speechSynthesis.pause();
-                    }
-                } catch (error) {
-                    console.warn('Failed to pause speech synthesis:', error);
-                }
-            }
+            if (this.audioElement) this.audioElement.pause();
         }
 
         resume() {
-            if (this.isPaused && this.pausedTime) {
-                this.totalPausedDuration += Date.now() - this.pausedTime;
-                this.pausedTime = null;
-            }
-            this.isPaused = false;
+            if (this.audioElement) this.audioElement.play();
+        }
 
-            if (this.speechSynthAvailable) {
-                try {
-                    if (window.speechSynthesis.paused) {
-                        window.speechSynthesis.resume();
-                    }
-                } catch (error) {
-                    console.warn('Failed to resume speech synthesis:', error);
+        stop() {
+            if (this.audioElement) {
+                this.audioElement.onended = null;
+                this.audioElement.ontimeupdate = null;
+                this.audioElement.pause();
+                if (this.audioElement.src) {
+                    this.audioElement.currentTime = 0;
                 }
             }
         }
 
-        stop() {
-            this.currentUtterance = null;
-            this.isPaused = false;
-            this.pausedTime = null;
-            this.totalPausedDuration = 0;
-
-            if (this.timerInterval) {
-                clearInterval(this.timerInterval);
-                this.timerInterval = null;
-            }
-
-            if (this.speechSynthAvailable) {
-                try {
-                    if(window.speechSynthesis.speaking || window.speechSynthesis.paused) {
-                        window.speechSynthesis.cancel();
-                    }
-                } catch (error) {
-                    console.warn('Failed to stop speech:', error);
+        base64ToBlob(base64, contentType = '', sliceSize = 512) {
+            const byteCharacters = atob(base64);
+            const byteArrays = [];
+            for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+                const slice = byteCharacters.slice(offset, offset + 512);
+                const byteNumbers = new Array(slice.length);
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
                 }
+                const byteArray = new Uint8Array(byteNumbers);
+                byteArrays.push(byteArray);
             }
+            return new Blob(byteArrays, { type: contentType });
         }
     }
 
@@ -1017,8 +874,7 @@ Return ONLY valid JSON:
                 this.videoMaps.set(level, videoMap);
                 console.log(`Pre-sourced ${videoMap.size} videos for ${level} level`);
                 return true;
-            } catch (error)
-            {
+            } catch (error) {
                 console.error(`Failed to prepare ${level} level:`, error);
                 return false;
             }
@@ -1038,8 +894,8 @@ Return ONLY valid JSON:
 
                 // Generate narration with video context
                 const narrationText = await this.gemini.generateNarration(
-                    learningPoint, 
-                    previousPoint, 
+                    learningPoint,
+                    previousPoint,
                     videoInfo.title
                 );
 
@@ -1060,34 +916,24 @@ Return ONLY valid JSON:
         }
 
         async executeSegment(narrationText, videoInfo) {
-            // Ensure any prior speech is stopped
-            this.speechEngine.stop();
-
-            // Phase 1: Narration
+            this.speechEngine.stop(); // Ensure any prior speech is stopped
             lessonState = 'narrating';
-            updatePlayPauseIcon(); // Update icon when narration starts
+            updatePlayPauseIcon();
+            if (ui.skipVideoButton) ui.skipVideoButton.style.display = 'none';
 
-            // Hide skip video button during narration
-            if (ui.skipVideoButton) {
-                ui.skipVideoButton.style.display = 'none';
-            }
+            // Define the callbacks that the SpeechEngine will use
+            const onProgress = (progress) => {
+                updateTeleprompter(narrationText, progress);
+            };
 
-            updateCanvasVisuals(narrationText, 'Listen to the introduction...');
+            const onComplete = () => {
+                if (lessonState === 'narrating') {
+                    this.playVideoContent(videoInfo);
+                }
+            };
 
-            try {
-                const volume = parseFloat(ui.narrationVolume.value);
-                // Pass the teleprompter update function as a callback
-                await this.speechEngine.speak(narrationText, volume, (event) => {
-                    updateTeleprompter(narrationText, event.charIndex);
-                });
-            } catch (error) {
-                console.warn('Speech synthesis failed:', error);
-            }
-
-            // Phase 2: Video/Visual Content
-            if (lessonState === 'narrating') {
-                await this.playVideoContent(videoInfo);
-            }
+            // This single call starts the entire narration process.
+            await this.speechEngine.play(narrationText, { onProgress, onComplete });
         }
 
         async playVideoContent(videoInfo) {
@@ -1112,57 +958,62 @@ Return ONLY valid JSON:
         }
 
         createYouTubePlayer(videoInfo) {
-            // Remove old player if it exists
             if (this.youtubePlayer) {
                 this.youtubePlayer.destroy();
             }
             const playerContainer = document.getElementById('youtube-player-container');
-            if (playerContainer) {
-                playerContainer.innerHTML = '';
+            if (playerContainer) playerContainer.innerHTML = '';
+
+            let segmentQueue = videoInfo.segments || [];
+            if (segmentQueue.length === 0) {
+                segmentQueue.push({ startTime: 0, endTime: 30, reason: "Fallback segment" });
             }
 
-            ui.canvas.style.opacity = '0.3';
+            let currentSegmentIdx = 0;
 
-            // Calculate segment duration with intelligent limits
-            const startTime = videoInfo.startTime || 0;
-            const endTime = videoInfo.endTime || Math.min(startTime + (videoInfo.duration || 60), startTime + 90);
-            const segmentDuration = Math.min((endTime - startTime), 180) * 1000; // Max 3 minutes total
+            const playSegment = (segment) => {
+                console.log(`Playing segment ${currentSegmentIdx + 1}/${segmentQueue.length}: ${segment.startTime}s to ${segment.endTime}s`);
 
-            this.youtubePlayer = new YT.Player('youtube-player-container', {
-                height: '100%',
-                width: '100%',
-                videoId: videoInfo.youtubeId,
-                playerVars: {
-                    autoplay: 1,
-                    controls: 1,
-                    rel: 0,
-                    start: startTime,
-                    end: endTime,
-                    modestbranding: 1
-                },
-                events: {
-                    'onReady': (event) => {
-                        event.target.playVideo();
-                        console.log(`Playing video segment: ${startTime}s to ${endTime}s (${segmentDuration/1000}s duration)`);
-
-                        setTimeout(() => {
-                            if (lessonState === 'playing_video') {
-                                console.log('Auto-advancing to next segment after timer');
-                                handleVideoEnd();
-                            }
-                        }, segmentDuration + 1000); // 1s buffer
-                    },
-                    'onStateChange': (event) => {
-                        if (event.data === YT.PlayerState.ENDED) {
-                            handleVideoEnd();
-                        }
-                    },
-                    'onError': (error) => {
-                        console.error('YouTube Player Error:', error);
-                        handleVideoError(new Error('YouTube Player failed'));
-                    }
+                if (this.youtubePlayer) {
+                    this.youtubePlayer.destroy();
                 }
-            });
+
+                this.youtubePlayer = new YT.Player('youtube-player-container', {
+                    height: '100%',
+                    width: '100%',
+                    videoId: videoInfo.youtubeId,
+                    playerVars: {
+                        autoplay: 1,
+                        controls: 1,
+                        rel: 0,
+                        start: segment.startTime,
+                        end: segment.endTime,
+                        modestbranding: 1,
+                        // --- ADD THIS LINE ---
+                        origin: window.location.origin
+                    },
+                    events: {
+                        'onStateChange': (event) => {
+                            if (event.data === YT.PlayerState.ENDED) {
+                                currentSegmentIdx++;
+                                if (currentSegmentIdx < segmentQueue.length) {
+                                    playSegment(segmentQueue[currentSegmentIdx]);
+                                } else {
+                                    console.log('Finished all video segments.');
+                                    handleVideoEnd();
+                                }
+                            }
+                        },
+                        'onError': (error) => {
+                            console.error('YouTube Player Error:', error);
+                            handleVideoError(new Error('YouTube Player failed'));
+                        }
+                    }
+                });
+            };
+
+            ui.canvas.style.opacity = '0.3';
+            playSegment(segmentQueue[currentSegmentIdx]);
         }
 
         async generateFinalQuiz(level) {
@@ -1303,7 +1154,6 @@ Return ONLY valid JSON:
         ui.topicInput.addEventListener('input', validateInput);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
 
-        // Fix Next Segment button with proper event handling
         ui.nextSegmentButton.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -1313,34 +1163,41 @@ Return ONLY valid JSON:
             }
         });
 
-        // Ensure proper cursor styling
         ui.nextSegmentButton.style.cursor = 'pointer';
 
-        ui.videoVolume.addEventListener('input', (e) => ui.video.volume = parseFloat(e.target.value));
-        ui.narrationVolume.addEventListener('input', (e) => { 
-            Storage.save('narrationVolume', e.target.value);
+        // The 'input' event for these volume sliders is fine.
+        ui.videoVolume.addEventListener('input', (e) => {
+            if (learningPipeline.youtubePlayer && typeof learningPipeline.youtubePlayer.setVolume === 'function') {
+                learningPipeline.youtubePlayer.setVolume(parseFloat(e.target.value) * 100);
+            }
         });
-        ui.video.addEventListener('timeupdate', updateProgressBar);
-        ui.video.addEventListener('ended', handleVideoEnd);
-        ui.video.addEventListener('error', (e) => handleVideoError(e));
+        ui.narrationVolume.addEventListener('input', (e) => {
+            learningPipeline.speechEngine.audioElement.volume = parseFloat(e.target.value);
+        });
+
+        // --- REMOVE THESE THREE LINES ---
+        // ui.video.addEventListener('timeupdate', updateProgressBar);
+        // ui.video.addEventListener('ended', handleVideoEnd);
+        // ui.video.addEventListener('error', (e) => handleVideoError(e));
+        // ---------------------------------
 
         document.addEventListener('keydown', handleKeyboardShortcuts);
         loadPreviousSession();
 
-         // Load saved settings
-         const savedVideoVolume = Storage.load('videoVolume');
-         const savedNarrationVolume = Storage.load('narrationVolume');
-         if (savedVideoVolume !== null) ui.videoVolume.value = savedVideoVolume;
-         if (savedNarrationVolume !== null) ui.narrationVolume.value = savedNarrationVolume;
+        // Load saved settings
+        const savedVideoVolume = Storage.load('videoVolume');
+        const savedNarrationVolume = Storage.load('narrationVolume');
+        if (savedVideoVolume !== null) ui.videoVolume.value = savedVideoVolume;
+        if (savedNarrationVolume !== null) ui.narrationVolume.value = savedNarrationVolume;
 
-         // Initialize skip video button
-         if (ui.skipVideoButton && !ui.skipVideoButton.hasAttribute('data-initialized')) {
-             ui.skipVideoButton.setAttribute('data-initialized', 'true');
-             ui.skipVideoButton.addEventListener('click', () => {
-                 console.log('Skip video button clicked');
-                 handleVideoEnd(); // Skip to next segment immediately
-             });
-         }
+        // Initialize skip video button
+        if (ui.skipVideoButton && !ui.skipVideoButton.hasAttribute('data-initialized')) {
+            ui.skipVideoButton.setAttribute('data-initialized', 'true');
+            ui.skipVideoButton.addEventListener('click', () => {
+                console.log('Skip video button clicked');
+                handleVideoEnd(); // Skip to next segment immediately
+            });
+        }
     }
 
     function validateInput() {
@@ -1352,7 +1209,7 @@ Return ONLY valid JSON:
     function handleKeyboardShortcuts(e) {
         if (e.target.tagName === 'INPUT') return;
 
-        switch(e.code) {
+        switch (e.code) {
             case 'Space':
                 e.preventDefault();
                 playPauseLesson();
@@ -1764,7 +1621,7 @@ Return ONLY valid JSON:
             requestAnimationFrame(scroll);
 
         } else {
-             lines.forEach((line, index) => {
+            lines.forEach((line, index) => {
                 canvasCtx.fillText(line, ui.canvas.width / 2, startY + (index * (fontSize + 8)));
             });
         }
@@ -1796,14 +1653,10 @@ Return ONLY valid JSON:
             learningPipeline.speechEngine.resume();
             lessonState = 'narrating';
         } else if (lessonState === 'playing_video') {
-            if (learningPipeline.youtubePlayer && typeof learningPipeline.youtubePlayer.pauseVideo === 'function') {
-                learningPipeline.youtubePlayer.pauseVideo();
-            }
+            if (learningPipeline.youtubePlayer) learningPipeline.youtubePlayer.pauseVideo();
             lessonState = 'paused';
         } else if (lessonState === 'paused') {
-            if (learningPipeline.youtubePlayer && typeof learningPipeline.youtubePlayer.playVideo === 'function') {
-                learningPipeline.youtubePlayer.playVideo();
-            }
+            if (learningPipeline.youtubePlayer) learningPipeline.youtubePlayer.playVideo();
             lessonState = 'playing_video';
         }
         updatePlayPauseIcon();
@@ -1816,97 +1669,41 @@ Return ONLY valid JSON:
     }
 
     // SCROLLING TELEPROMPTER Function
-    function updateTeleprompter(fullText, charIndex) {
+    function updateTeleprompter(fullText, progress) {
+        if (!ui.canvas) return;
         ui.canvas.width = ui.canvas.clientWidth;
         ui.canvas.height = ui.canvas.clientHeight;
+        const canvasCtx = ui.canvas.getContext('2d');
 
-        // Background gradient
+        // Background
         const gradient = canvasCtx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
         gradient.addColorStop(0, '#1a1a2e');
         gradient.addColorStop(1, '#16213e');
         canvasCtx.fillStyle = gradient;
         canvasCtx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
 
-        // Responsive font sizing
+        // Text properties
         const maxWidth = ui.canvas.width * 0.9;
-        let fontSize = Math.max(16, Math.min(ui.canvas.width / 20, 28));
-        if (ui.canvas.width < 600) {
-            fontSize = Math.max(18, Math.min(ui.canvas.width / 18, 24));
-        }
-
+        const fontSize = Math.max(20, Math.min(ui.canvas.width / 25, 28));
+        const lineHeight = fontSize + 12;
         canvasCtx.font = `${fontSize}px Inter, sans-serif`;
         canvasCtx.textAlign = 'center';
-        canvasCtx.textBaseline = 'middle';
+        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
 
-        const lineHeight = fontSize + 12;
-        const centerX = ui.canvas.width / 2;
-
-        // Use existing wrapText utility function
+        // Calculate scrolling based on audio progress
         const lines = wrapText(fullText, maxWidth);
+        const totalContentHeight = (lines.length - 1) * lineHeight;
+        const totalScrollDistance = totalContentHeight > (ui.canvas.height / 2) ? totalContentHeight - (ui.canvas.height / 2) : 0;
 
-        // Calculate current line index based on characterposition
-        let currentLineIndex = 0;
-        let charsSoFar = 0;
+        const yOffset = (ui.canvas.height / 2) - (totalScrollDistance * progress);
 
-        for (let i = 0; i < lines.length; i++) {
-            const lineLength = lines[i].length;
-            if (charIndex <= charsSoFar + lineLength) {
-                currentLineIndex = i;
-                break;
-            }
-            charsSoFar += lineLength + 1; // +1 for space between lines
-        }
-
-        // Simple Y offset calculation based on currentLineIndex
-        const yOffset = currentLineIndex * lineHeight;
-        const startY = ui.canvas.height / 2 - yOffset;
-
-        // Draw all lines with simple scrolling
-        charsSoFar = 0;
-        for (let i = 0; i < lines.length; i++) {
-            const lineY = startY + (i * lineHeight);
-            const line = lines[i];
-            const lineStartChar = charsSoFar;
-            const lineEndChar = charsSoFar + line.length;
-
-            // Determine line coloring based on progress
-            let lineColor;
-            if (charIndex > lineEndChar) {
-                lineColor = 'rgba(34, 197, 94, 0.7)'; // Green (read)
-            } else if (charIndex >= lineStartChar && charIndex <= lineEndChar) {
-                lineColor = 'rgba(255, 255, 255, 1)'; // White (current)
-                // Add highlight background for current line
-                canvasCtx.fillStyle = 'rgba(59, 130, 246, 0.1)';
-                canvasCtx.fillRect(0, lineY - lineHeight/2, ui.canvas.width, lineHeight);
-            } else {
-                lineColor = 'rgba(255, 255, 255, 0.5)'; // Dim white (upcoming)
-            }
-
-            canvasCtx.fillStyle = lineColor;
-            canvasCtx.fillText(line, centerX, lineY);
-
-            charsSoFar += line.length + 1; // +1 for space
-        }
-
-        // Add progress bar at bottom
-        const progress = Math.min((charIndex / fullText.length) * 100, 100);
-        const progressBarWidth = ui.canvas.width * 0.8;
-        const progressBarHeight = 4;
-        const progressBarX = (ui.canvas.width - progressBarWidth) / 2;
-        const progressBarY = ui.canvas.height - 40;
-
-        // Progress bar background
-        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        canvasCtx.fillRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
-
-        // Progress bar fill
-        canvasCtx.fillStyle = 'rgba(34, 197, 94, 0.8)';
-        canvasCtx.fillRect(progressBarX, progressBarY, (progressBarWidth * progress) / 100, progressBarHeight);
-
-        // Progress text
-        canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.9)';
-        canvasCtx.font = `${Math.max(12, fontSize * 0.6)}px Inter, sans-serif`;
-        canvasCtx.fillText(`🎤 ${Math.round(progress)}% • Reading aloud...`, centerX, progressBarY + 20);
+        // Draw the text
+        canvasCtx.save();
+        canvasCtx.translate(ui.canvas.width / 2, yOffset);
+        lines.forEach((line, index) => {
+            canvasCtx.fillText(line, 0, index * lineHeight);
+        });
+        canvasCtx.restore();
     }
 
 
@@ -1936,11 +1733,8 @@ Return ONLY valid JSON:
     // --- STORAGE UTILITIES --- //
     const Storage = {
         save: (key, data) => {
-            try {
-                localStorage.setItem(key, JSON.stringify(data));
-            } catch (e) {
-                console.warn('Failed to save to localStorage:', e);
-            }
+            try { localStorage.setItem(key, JSON.stringify(data)); }
+            catch (e) { console.warn('Failed to save to localStorage:', e); }
         },
         load: (key) => {
             try {
@@ -1951,11 +1745,33 @@ Return ONLY valid JSON:
                 return null;
             }
         },
-        remove: (key) => {
+        getCache: (key) => {
             try {
-                localStorage.removeItem(key);
+                const itemStr = localStorage.getItem(key);
+                if (!itemStr) return null;
+                const item = JSON.parse(itemStr);
+                const now = new Date();
+                // Invalidate cache after 24 hours
+                if (now.getTime() > item.expiry) {
+                    localStorage.removeItem(key);
+                    return null;
+                }
+                return item.value;
             } catch (e) {
-                console.warn('Failed to remove from localStorage:', e);
+                console.warn('Failed to get from cache:', e);
+                return null;
+            }
+        },
+        setCache: (key, value, ttl = 86400000) => { // ttl = 24 hours in ms
+            try {
+                const now = new Date();
+                const item = {
+                    value: value,
+                    expiry: now.getTime() + ttl,
+                };
+                localStorage.setItem(key, JSON.stringify(item));
+            } catch (e) {
+                console.warn('Failed to save to cache:', e);
             }
         }
     };
