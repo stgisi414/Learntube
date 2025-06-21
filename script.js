@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     // =================================================================================
     // --- CORE STATE & UI REFERENCES ---
@@ -5,7 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLessonPlan = null;
     let currentLearningPath = null;
     let currentSegmentIndex = -1;
-    let lessonState = 'idle'; // 'idle', 'narrating', 'choosing_video', 'fetching_transcript', 'finding_segments', 'playing_video', 'paused', 'ending'
+    let lessonState = 'idle'; // 'idle', 'narrating', 'choosing_video', 'checking_transcript', 'loading_transcript', 'generating_segments', 'playing_video', 'paused', 'quiz', 'complete'
+    let currentVideoChoices = [];
+    let currentTranscript = null;
+    let currentSegments = [];
+    let currentSegmentPlayIndex = 0;
 
     const ui = {
         topicInput: document.getElementById('topic-input'),
@@ -52,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
         async executeSingleRequest(prompt, options = {}) { const defaultConfig = { temperature: 0.7, maxOutputTokens: 2048, ...options }; const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: defaultConfig }) }); if (!response.ok) { throw new Error(`Gemini API failed: ${response.status} ${response.statusText}`); } const data = await response.json(); const content = data.candidates?.[0]?.content?.parts?.[0]?.text; if (!content) { throw new Error('No content in Gemini response'); } return content.trim(); }
         parseJSONResponse(response) { if(!response) return null; try { let cleanedResponse = response.trim().replace(/```json\s*/g, '').replace(/```\s*/g, ''); const jsonMatch = cleanedResponse.match(/(\{[\s\S]*\}|\[[\s\S]*\])/); if (jsonMatch) { return JSON.parse(jsonMatch[0]); } logError(`No valid JSON found in response:`, response); return null; } catch (error) { logError(`Failed to parse JSON:`, error, `Raw response: "${response}"`); return null; } }
         
-        // --- FIX: The following methods are now correctly part of the GeminiOrchestrator class ---
         async generateLessonPlan(topic) {
             log("GEMINI: Generating lesson plan...");
             const prompt = `Create a comprehensive, 4-level learning curriculum for "${topic}". Each level (Apprentice, Journeyman, Senior, Master) must have exactly 5 specific, searchable learning points. Return ONLY valid JSON.`;
@@ -95,77 +99,139 @@ document.addEventListener('DOMContentLoaded', () => {
                 return [{ startTime: 0, endTime: 180, reason: "Full video fallback." }];
             }
         }
+
+        async generateQuiz(learningPoint, transcript) {
+            log(`GEMINI: Generating quiz for "${learningPoint}"`);
+            const prompt = `Based on the learning point "${learningPoint}" and this transcript content, create a single multiple-choice quiz question. Return ONLY valid JSON with format: {"question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}`;
+            const response = await this.makeRequest(prompt, { temperature: 0.7 });
+            return this.parseJSONResponse(response);
+        }
     }
 
     class VideoSourcer {
         constructor() {}
-        async getTranscript(videoId) {
-            log(`TRANSCRIPT API: Fetching for videoId: ${videoId}`);
-            const transcriptUrl = `https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`;
-            try {
-                const response = await fetch(transcriptUrl, { headers: { 'x-api-key': SUPADATA_API_KEY } });
-                if (!response.ok) { logError(`SupaData API failed: ${response.status}`); return null; }
-                const data = await response.json();
-                if (data && Array.isArray(data) && data.length > 0) {
-                    const transcript = data.map(line => line.text).join(' ');
-                    log(`TRANSCRIPT API: Success, transcript length: ${transcript.length}`);
-                    return transcript;
-                }
-                log("TRANSCRIPT API WARN: No transcript data returned.");
-                return null;
-            } catch (error) { logError('Error fetching transcript:', error); return null; }
-        }
-        async searchYouTube(query) {
-            log(`SEARCH API: Searching YouTube Data API for: "${query}"`);
-            const Youtube_API_URL = 'https://www.googleapis.com/youtube/v3/search';
 
-            // Note: The YOUTUBE_API_KEY from the top of the file is used here.
+        async searchYouTube(query) {
+            log(`SEARCH: Searching for: "${query}"`);
             const searchParams = new URLSearchParams({
-                part: 'snippet',
-                q: query,
                 key: YOUTUBE_API_KEY,
-                type: 'video',
-                videoCaption: 'closedCaption', // CRITICAL FIX: Only find videos with captions.
-                maxResults: 5,
-                order: 'relevance'
+                cx: CSE_ID,
+                q: query + ' site:youtube.com'
             });
 
             try {
-                const response = await fetch(`${Youtube_API_URL}?${searchParams}`);
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    // Provide a more detailed error message from the API itself.
-                    throw new Error(`YouTube Data API failed: ${response.status} - ${errorData.error.message}`);
-                }
+                const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
+                if (!response.ok) throw new Error(`Search API failed: ${response.status}`);
+                
                 const data = await response.json();
-
                 if (!data.items) return [];
 
-                // Transform the v3 search results into the format the app expects.
                 return data.items.map(item => {
-                    if (item.id && item.id.videoId) {
+                    const url = new URL(item.link);
+                    const videoId = url.searchParams.get('v');
+                    if (videoId) {
                         return {
-                            youtubeId: item.id.videoId,
-                            title: item.snippet.title,
-                            description: item.snippet.description,
-                            thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || ''
+                            youtubeId: videoId,
+                            title: item.title,
+                            description: item.snippet || '',
+                            thumbnail: item.pagemap?.cse_thumbnail?.[0]?.src || ''
                         };
                     }
                     return null;
                 }).filter(Boolean);
-
             } catch (error) {
-                logError("Youtube Failed:", error);
-                // Propagate the error to the UI so the user isn't left wondering.
-                handleVideoError(error); 
+                logError("Search failed:", error);
                 return [];
+            }
+        }
+
+        async checkTranscriptAvailable(videoId) {
+            log(`TRANSCRIPT CHECK: Checking availability for ${videoId}`);
+            try {
+                const response = await fetch(`https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`, {
+                    headers: { 'x-api-key': SUPADATA_API_KEY }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return Array.isArray(data) && data.length > 0;
+                }
+                return false;
+            } catch (error) {
+                logError('Transcript check failed:', error);
+                return false;
+            }
+        }
+
+        async getTranscript(videoId) {
+            log(`TRANSCRIPT: Fetching for ${videoId}`);
+            try {
+                const response = await fetch(`https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`, {
+                    headers: { 'x-api-key': SUPADATA_API_KEY }
+                });
+                
+                if (!response.ok) throw new Error(`Transcript API failed: ${response.status}`);
+                
+                const data = await response.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    return data.map(line => line.text).join(' ');
+                }
+                return null;
+            } catch (error) {
+                logError('Transcript fetch failed:', error);
+                return null;
             }
         }
     }
 
     class SpeechEngine {
-        constructor() { this.apiKey = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8"; this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize'; this.audioElement = new Audio(); this.onCompleteCallback = null; this.onProgressCallback = null; }
-        async play(text, { onProgress = null, onComplete = null } = {}) { this.stop(); if (!text) { if (onComplete) onComplete(); return; } this.onProgressCallback = onProgress; this.onCompleteCallback = onComplete; try { const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, { method: 'POST', body: JSON.stringify({ input: { text }, voice: { languageCode: 'en-US', name: 'en-US-Standard-C' }, audioConfig: { audioEncoding: 'MP3' } }) }); if (!response.ok) { const d = await response.json(); throw new Error(d.error.message); } const data = await response.json(); const audioBlob = this.base64ToBlob(data.audioContent, 'audio/mpeg'); this.audioElement.src = URL.createObjectURL(audioBlob); this.audioElement.play(); this.audioElement.ontimeupdate = () => { if (this.onProgressCallback && this.audioElement.duration) { this.onProgressCallback(this.audioElement.currentTime / this.audioElement.duration); } }; this.audioElement.onended = () => { if (this.onProgressCallback) this.onProgressCallback(1); if (this.onCompleteCallback) this.onCompleteCallback(); }; } catch (error) { log(`SpeechService Error: ${error}`); if (this.onCompleteCallback) this.onCompleteCallback(); } }
+        constructor() { 
+            this.apiKey = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8"; 
+            this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize'; 
+            this.audioElement = new Audio(); 
+            this.onCompleteCallback = null; 
+            this.onProgressCallback = null; 
+        }
+        
+        async play(text, { onProgress = null, onComplete = null } = {}) { 
+            this.stop(); 
+            if (!text) { 
+                if (onComplete) onComplete(); 
+                return; 
+            } 
+            this.onProgressCallback = onProgress; 
+            this.onCompleteCallback = onComplete; 
+            try { 
+                const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ 
+                        input: { text }, 
+                        voice: { languageCode: 'en-US', name: 'en-US-Standard-C' }, 
+                        audioConfig: { audioEncoding: 'MP3' } 
+                    }) 
+                }); 
+                if (!response.ok) { 
+                    const d = await response.json(); 
+                    throw new Error(d.error.message); 
+                } 
+                const data = await response.json(); 
+                const audioBlob = this.base64ToBlob(data.audioContent, 'audio/mpeg'); 
+                this.audioElement.src = URL.createObjectURL(audioBlob); 
+                this.audioElement.play(); 
+                this.audioElement.ontimeupdate = () => { 
+                    if (this.onProgressCallback && this.audioElement.duration) { 
+                        this.onProgressCallback(this.audioElement.currentTime / this.audioElement.duration); 
+                    } 
+                }; 
+                this.audioElement.onended = () => { 
+                    if (this.onProgressCallback) this.onProgressCallback(1); 
+                    if (this.onCompleteCallback) this.onCompleteCallback(); 
+                }; 
+            } catch (error) { 
+                log(`Speech Error: ${error}`); 
+                if (this.onCompleteCallback) this.onCompleteCallback(); 
+            } 
+        }
         pause() { this.audioElement.pause(); }
         resume() { this.audioElement.play(); }
         stop() { this.audioElement.pause(); if (this.audioElement.src) this.audioElement.currentTime = 0; }
@@ -178,204 +244,209 @@ document.addEventListener('DOMContentLoaded', () => {
             this.videoSourcer = new VideoSourcer();
             this.speechEngine = new SpeechEngine();
             this.youtubePlayer = null;
-            this.currentVideoChoices = []; // <-- ADD THIS LINE
         }
 
+        // STEP 1: Generate lesson plan
         async start(topic) {
-            log("PIPELINE: Starting lesson plan generation...");
+            log("FLOW: Step 1 - Generate lesson plan");
             showLoading("Generating comprehensive lesson plan...");
             const rawPlan = await this.gemini.generateLessonPlan(topic);
             hideLoading();
 
-            // --- ADAPTER / TRANSFORMER FUNCTIONS ---
+            currentLessonPlan = this.parseLessonPlan(rawPlan);
+            if (currentLessonPlan) {
+                currentLessonPlan.topic = topic;
+                displayLevelSelection();
+            } else {
+                displayError("Failed to generate lesson plan");
+                ui.curateButton.disabled = false;
+            }
+        }
 
-            /**
-             * Adapter for the original, simple format, e.g., { "Apprentice": [...] }.
-             * Recursively searches for the lesson plan object.
-             * @param {object} obj The object to search.
-             * @returns {object|null} The parsed lesson plan or null.
-             */
-            const findSimpleLessonPlan = (obj) => {
+        parseLessonPlan(rawPlan) {
+            if (!rawPlan) return null;
+            
+            // Handle simple format
+            const findSimplePlan = (obj) => {
                 if (!obj || typeof obj !== 'object') return null;
                 const apprenticeKey = Object.keys(obj).find(k => k.toLowerCase() === 'apprentice');
                 if (apprenticeKey && Array.isArray(obj[apprenticeKey])) {
-                    if (obj.Journeyman || obj.Senior || obj.Master) return obj;
+                    return obj;
                 }
                 for (const key of Object.keys(obj)) {
-                    const potentialPlan = findSimpleLessonPlan(obj[key]);
-                    if (potentialPlan) return potentialPlan;
+                    const result = findSimplePlan(obj[key]);
+                    if (result) return result;
                 }
                 return null;
             };
 
-            /**
-             * Adapter for the new, complex format, e.g., { curriculum: { levels: [...] } }.
-             * Transforms the complex structure into the simple format our app needs.
-             * @param {object} plan The raw plan from the AI.
-             * @returns {object|null} The transformed lesson plan or null.
-             */
-            const transformComplexLessonPlan = (plan) => {
+            // Handle complex format
+            const transformComplexPlan = (plan) => {
                 try {
-                    if (plan && plan.curriculum && Array.isArray(plan.curriculum.levels)) {
+                    if (plan?.curriculum?.levels) {
                         const transformed = {};
                         plan.curriculum.levels.forEach(levelData => {
                             if (levelData.level && Array.isArray(levelData.learningPoints)) {
                                 transformed[levelData.level] = levelData.learningPoints.map(lp => lp.point).filter(Boolean);
                             }
                         });
-                        // A valid transformation must have produced an "Apprentice" level.
                         return transformed.Apprentice ? transformed : null;
                     }
                     return null;
                 } catch (e) {
-                    logError("Error during complex plan transformation", e);
                     return null;
                 }
             };
 
-            // --- PARSING STRATEGY ---
-            // First, try the adapter for the new complex format. If it fails, fall back to the simple one.
-            currentLessonPlan = transformComplexLessonPlan(rawPlan) || findSimpleLessonPlan(rawPlan);
-
-            if (currentLessonPlan) {
-                log("Successfully parsed lesson plan using one of the available adapters.", currentLessonPlan);
-                currentLessonPlan.topic = topic;
-                displayLevelSelection();
-            } else {
-                displayError("The AI returned a lesson plan in an unexpected format that could not be parsed.");
-                const rawResponseForDebugging = JSON.stringify(rawPlan, null, 2);
-                logError("Could not parse the lesson plan with any known adapter. Full raw AI response below:", rawResponseForDebugging);
-                ui.curateButton.disabled = false;
-            }
+            return transformComplexPlan(rawPlan) || findSimplePlan(rawPlan);
         }
 
         startLevel(level) {
-            log(`PIPELINE: Starting level "${level}"`);
+            log("FLOW: Starting level", level);
             currentLearningPath = level;
             currentSegmentIndex = -1;
             ui.levelSelection.classList.add('hidden');
             ui.learningCanvasContainer.classList.remove('hidden');
-            processNextSegment();
+            this.processNextLearningPoint();
         }
 
-        async executeSegment(learningPoint, previousPoint) {
-            updateStatus(`narrating`);
+        async processNextLearningPoint() {
+            currentSegmentIndex++;
+            const learningPoints = currentLessonPlan[currentLearningPath];
+            
+            if (currentSegmentIndex >= learningPoints.length) {
+                this.showFinalQuiz();
+                return;
+            }
+
+            const learningPoint = learningPoints[currentSegmentIndex];
+            const previousPoint = currentSegmentIndex > 0 ? learningPoints[currentSegmentIndex - 1] : null;
+            
+            updateSegmentProgress();
+            ui.currentTopicDisplay.textContent = learningPoint;
+            
+            // FLOW: play narration -> search videos -> choose video -> check transcript -> load transcript -> generate segments -> play segments -> repeat
+            await this.playNarration(learningPoint, previousPoint);
+        }
+
+        // STEP 3: Play narration
+        async playNarration(learningPoint, previousPoint) {
+            log("FLOW: Step 3 - Play narration");
+            updateStatus('narrating');
             ui.nextSegmentButton.disabled = true;
 
             const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint, `a video about ${learningPoint}`);
+            
             await this.speechEngine.play(narrationText, {
                 onProgress: (progress) => updateTeleprompter(narrationText, progress),
                 onComplete: () => {
                     if (lessonState === 'narrating') {
-                        this.showVideoChoices(learningPoint);
+                        this.searchVideos(learningPoint);
                     }
                 }
             });
         }
 
-        async showVideoChoices(learningPoint) {
-            updateStatus(`choosing_video`);
-            updateCanvasVisuals(`🔎 Searching for a video about:`, `"${learningPoint}"`);
+        // STEP 2: Search videos
+        async searchVideos(learningPoint) {
+            log("FLOW: Step 2 - Search videos");
+            updateStatus('searching_videos');
+            updateCanvasVisuals('🔎 Searching for videos...', `Finding content for: "${learningPoint}"`);
 
             const searchQueries = await this.gemini.generateSearchQueries(learningPoint, currentLessonPlan.topic);
-            const potentialVideos = [];
+            currentVideoChoices = [];
+            
             if (searchQueries) {
                 for (const query of searchQueries) {
                     const results = await this.videoSourcer.searchYouTube(query);
-                    potentialVideos.push(...results);
-                    if (potentialVideos.length >= 5) break;
+                    currentVideoChoices.push(...results);
+                    if (currentVideoChoices.length >= 10) break;
                 }
             }
 
-            this.currentVideoChoices = potentialVideos; // <-- ADD THIS LINE
-
-            if (this.currentVideoChoices.length === 0) {
-                handleVideoError(new Error("No videos found after searching all queries."));
+            if (currentVideoChoices.length === 0) {
+                displayError("No videos found. Skipping to next segment.");
+                setTimeout(() => this.processNextLearningPoint(), 3000);
                 return;
             }
-            displayVideoChoices(this.currentVideoChoices.slice(0, 5), learningPoint);
+
+            this.chooseVideo(learningPoint);
         }
-        
+
+        // STEP 4: Choose video
+        chooseVideo(learningPoint) {
+            log("FLOW: Step 4 - Choose video");
+            updateStatus('choosing_video');
+            displayVideoChoices(currentVideoChoices.slice(0, 5), learningPoint);
+        }
+
+        // STEP 5: Check video for transcript (without YouTube Data API)
         async handleVideoSelection(video) {
-            updateStatus("validating_video");
-            updateCanvasVisuals(`Verifying video has captions...`, `"${video.title}"`);
+            log("FLOW: Step 5 - Check transcript availability");
+            updateStatus('checking_transcript');
+            updateCanvasVisuals('🔍 Checking transcript availability...', `"${video.title}"`);
 
-            // Validate the video for captions using a temporary player
-            const hasCaptions = await new Promise((resolve) => {
-                const tempPlayerId = 'temp-validation-player';
-                let tempContainer = document.getElementById(tempPlayerId);
-                if (!tempContainer) {
-                    tempContainer = document.createElement('div');
-                    tempContainer.id = tempPlayerId;
-                    tempContainer.style.position = 'absolute';
-                    tempContainer.style.left = '-9999px'; // Hide it off-screen
-                    document.body.appendChild(tempContainer);
-                }
-
-                const validationPlayer = new YT.Player(tempPlayerId, {
-                    videoId: video.youtubeId,
-                    events: {
-                        'onReady': () => {
-                            let captionsAvailable = false;
-                            try {
-                                // Check the internal config as you specified.
-                                if (window.ytplayer && window.ytplayer.config && window.ytplayer.config.args && window.ytplayer.config.args.caption_tracks) {
-                                    captionsAvailable = true;
-                                }
-                            } catch (e) { /* ignore error */ }
-                            log(`VALIDATOR: Caption check for "${video.title}": ${captionsAvailable}`);
-                            validationPlayer.destroy();
-                            resolve(captionsAvailable);
-                        },
-                        'onError': () => {
-                            logError(`VALIDATOR: Player error during caption check for ${video.youtubeId}.`);
-                            validationPlayer.destroy();
-                            resolve(false);
-                        }
-                    }
-                });
-                 // Add a timeout to prevent the app from getting stuck
-                setTimeout(() => {
-                    try { validationPlayer.destroy(); } catch(e){}
-                    resolve(false);
-                }, 8000);
-            });
-
-            // If the video does NOT have captions, remove it from the list and show the choices again.
-            if (!hasCaptions) {
-                logError(`Video rejected: "${video.title}" does not have captions.`);
-                displayError(`Video "${video.title}" has no captions. Please select another.`);
-
-                this.currentVideoChoices = this.currentVideoChoices.filter(v => v.youtubeId !== video.youtubeId);
-
-                if (this.currentVideoChoices.length > 0) {
+            const hasTranscript = await this.videoSourcer.checkTranscriptAvailable(video.youtubeId);
+            
+            if (!hasTranscript) {
+                log("FLOW: No transcript available, removing video and trying again");
+                currentVideoChoices = currentVideoChoices.filter(v => v.youtubeId !== video.youtubeId);
+                
+                if (currentVideoChoices.length > 0) {
                     const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-                    displayVideoChoices(this.currentVideoChoices, learningPoint);
+                    displayVideoChoices(currentVideoChoices.slice(0, 5), learningPoint);
                 } else {
-                    handleVideoError(new Error("No other videos with captions were found."));
+                    displayError("No videos with transcripts found. Skipping to next segment.");
+                    setTimeout(() => this.processNextLearningPoint(), 3000);
                 }
-                return; 
+                return;
             }
 
-            // If the video DOES have captions, proceed with the original logic.
-            updateStatus("fetching_transcript");
-            document.getElementById('youtube-player-container').innerHTML = '';
-            updateCanvasVisuals('Fetching transcript...', `Please wait while we analyze "${video.title}"`);
+            this.loadTranscript(video);
+        }
 
-            const transcript = await this.videoSourcer.getTranscript(video.youtubeId);
+        // STEP 6: Load transcript with Supabase
+        async loadTranscript(video) {
+            log("FLOW: Step 6 - Load transcript");
+            updateStatus('loading_transcript');
+            updateCanvasVisuals('📄 Loading transcript...', `"${video.title}"`);
 
-            if (!transcript) {
-                 handleVideoError(new Error("Transcript fetch failed, though captions were detected."));
-                 return;
+            currentTranscript = await this.videoSourcer.getTranscript(video.youtubeId);
+            
+            if (!currentTranscript) {
+                displayError("Failed to load transcript. Trying another video.");
+                currentVideoChoices = currentVideoChoices.filter(v => v.youtubeId !== video.youtubeId);
+                
+                if (currentVideoChoices.length > 0) {
+                    const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
+                    displayVideoChoices(currentVideoChoices.slice(0, 5), learningPoint);
+                } else {
+                    setTimeout(() => this.processNextLearningPoint(), 3000);
+                }
+                return;
             }
 
-            updateStatus("finding_segments");
-            updateCanvasVisuals('Finding best segments...', `Using the transcript to find key moments.`);
+            this.generateSegments(video);
+        }
+
+        // STEP 7: Generate segments from transcript
+        async generateSegments(video) {
+            log("FLOW: Step 7 - Generate segments");
+            updateStatus('generating_segments');
+            updateCanvasVisuals('✂️ Finding best segments...', 'Analyzing transcript content...');
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-            const segments = await this.gemini.findVideoSegments(video.title, transcript, learningPoint);
+            currentSegments = await this.gemini.findVideoSegments(video.title, currentTranscript, learningPoint);
+            currentSegmentPlayIndex = 0;
 
-            this.createYouTubePlayer({ ...video, segments });
+            this.playSegments(video);
+        }
+
+        // STEP 8: Play segments
+        playSegments(video) {
+            log("FLOW: Step 8 - Play segments");
+            updateStatus('playing_video');
+            this.createYouTubePlayer(video);
         }
 
         createYouTubePlayer(videoInfo) {
@@ -383,29 +454,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             ui.skipVideoButton.style.display = 'block';
 
-            let segmentQueue = videoInfo.segments || [];
-            if (!Array.isArray(segmentQueue) || segmentQueue.length === 0) {
-                log("PLAYER WARN: Segment queue is empty or invalid. Creating a fallback.");
-                segmentQueue = [{ startTime: 0, endTime: 180, reason: "Fallback: Full 3-minute segment" }];
-            }
-            let currentSegmentIdx = 0;
-
-            const playNextSegmentInQueue = () => {
-                if (currentSegmentIdx >= segmentQueue.length) {
-                    log('PLAYER: Finished all video segments.');
-                    handleVideoEnd();
+            const playNextSegment = () => {
+                if (currentSegmentPlayIndex >= currentSegments.length) {
+                    log('FLOW: All segments complete, showing quiz');
+                    this.showQuiz();
                     return;
                 }
 
-                const segment = segmentQueue[currentSegmentIdx];
-                if (typeof segment.startTime !== 'number' || typeof segment.endTime !== 'number') {
-                    logError("Invalid segment found, skipping.", segment);
-                    currentSegmentIdx++;
-                    playNextSegmentInQueue();
-                    return;
-                }
-                
-                log(`PLAYER: Playing segment ${currentSegmentIdx + 1}/${segmentQueue.length}: ${segment.startTime}s to ${segment.endTime}s`);
+                const segment = currentSegments[currentSegmentPlayIndex];
+                log(`Playing segment ${currentSegmentPlayIndex + 1}/${currentSegments.length}`);
                 
                 if (this.youtubePlayer) { this.youtubePlayer.destroy(); }
                 
@@ -414,79 +471,144 @@ document.addEventListener('DOMContentLoaded', () => {
                     playerVars: { autoplay: 1, controls: 1, rel: 0, start: segment.startTime, end: segment.endTime, modestbranding: 1, origin: window.location.origin },
                     events: {
                         'onReady': (event) => {
-                            log(`PLAYER: Ready for segment ${currentSegmentIdx + 1}.`);
                             event.target.playVideo();
+                            ui.canvas.style.opacity = '0';
                         },
                         'onStateChange': (event) => {
-                            if (event.data === YT.PlayerState.PLAYING) {
-                                updateStatus('playing_video');
-                                updatePlayPauseIcon();
-                                ui.canvas.style.opacity = '0';
-                            }
                             if (event.data === YT.PlayerState.ENDED) {
-                                currentSegmentIdx++;
-                                playNextSegmentInQueue();
+                                currentSegmentPlayIndex++;
+                                playNextSegment();
                             }
                         },
-                        'onError': (e) => { handleVideoError(new Error(`YouTube Player Error: ${e.data}`)); }
+                        'onError': () => { 
+                            displayError("Video playback error. Moving to next segment.");
+                            currentSegmentPlayIndex++;
+                            playNextSegment();
+                        }
                     }
                 });
             };
-            playNextSegmentInQueue();
+            
+            playNextSegment();
+        }
+
+        // STEP 9: Quiz
+        async showQuiz() {
+            log("FLOW: Step 9 - Show quiz");
+            updateStatus('quiz');
+            ui.skipVideoButton.style.display = 'none';
+            ui.canvas.style.opacity = '1';
+            
+            if (this.youtubePlayer) { 
+                this.youtubePlayer.destroy(); 
+                this.youtubePlayer = null;
+            }
+            
+            const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
+            const quiz = await this.gemini.generateQuiz(learningPoint, currentTranscript);
+            
+            if (quiz) {
+                this.displayQuiz(quiz);
+            } else {
+                updateCanvasVisuals("Quiz generation failed", "Moving to next segment...");
+                setTimeout(() => this.processNextLearningPoint(), 2000);
+            }
+        }
+
+        displayQuiz(quiz) {
+            const playerContainer = document.getElementById('youtube-player-container');
+            playerContainer.innerHTML = `
+                <div class="p-8 text-white h-full flex flex-col justify-center">
+                    <h2 class="text-2xl font-bold mb-6">Quick Quiz!</h2>
+                    <p class="text-lg mb-6">${quiz.question}</p>
+                    <div class="space-y-3 mb-6">
+                        ${quiz.options.map((option, index) => `
+                            <button class="quiz-option w-full text-left p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors" data-index="${index}">
+                                ${String.fromCharCode(65 + index)}) ${option}
+                            </button>
+                        `).join('')}
+                    </div>
+                    <div id="quiz-result" class="hidden">
+                        <p id="quiz-explanation" class="text-sm text-gray-300"></p>
+                        <button id="continue-button" class="mt-4 bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg">
+                            Continue to Next Segment
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Add quiz event listeners
+            const options = playerContainer.querySelectorAll('.quiz-option');
+            options.forEach(option => {
+                option.addEventListener('click', () => {
+                    const selectedIndex = parseInt(option.dataset.index);
+                    const isCorrect = selectedIndex === quiz.correct;
+                    
+                    options.forEach(opt => opt.disabled = true);
+                    option.classList.add(isCorrect ? 'bg-green-600' : 'bg-red-600');
+                    options[quiz.correct].classList.add('bg-green-600');
+                    
+                    const resultDiv = document.getElementById('quiz-result');
+                    const explanationP = document.getElementById('quiz-explanation');
+                    explanationP.textContent = quiz.explanation;
+                    resultDiv.classList.remove('hidden');
+                    
+                    document.getElementById('continue-button').addEventListener('click', () => {
+                        this.processNextLearningPoint();
+                    });
+                });
+            });
+        }
+
+        // STEP 10: Finish (final quiz for whole level)
+        async showFinalQuiz() {
+            log("FLOW: Step 10 - Show final quiz");
+            updateStatus('complete');
+            updateCanvasVisuals("🎉 Level Complete!", "Congratulations! You've finished this learning path.");
+            ui.nextSegmentButton.disabled = true;
         }
     }
 
     // =================================================================================
-    // --- GLOBAL SCOPE FUNCTIONS & EVENT HANDLERS ---
+    // --- UTILITY FUNCTIONS ---
     // =================================================================================
 
     const learningPipeline = new LearningPipeline();
 
-    function updateStatus(text) {
-        lessonState = text;
-        log(`STATE CHANGE: ${lessonState}`);
+    function updateStatus(state) {
+        lessonState = state;
+        log(`STATE: ${lessonState}`);
     }
 
-    function handleVideoError(error) {
-        if (lessonState === 'error') return;
-        logError("Video Error Triggered:", error.message);
-        updateStatus('error');
-        if (learningPipeline.youtubePlayer) { learningPipeline.youtubePlayer.destroy(); learningPipeline.youtubePlayer = null; }
-        const playerContainer = document.getElementById('youtube-player-container');
-        if (playerContainer) { playerContainer.innerHTML = ''; }
-        ui.canvas.style.opacity = '1';
-        ui.skipVideoButton.style.display = 'none';
-        displayErrorOnCanvas("Video Error", "There was a problem. Advancing...");
-        setTimeout(() => processNextSegment(true), 3000);
-    }
-
-    function handleVideoEnd() {
-        if (lessonState === 'ending' || lessonState === 'error') return;
-        log("Video playback ended successfully.");
-        updateStatus('ending');
-        if (learningPipeline.youtubePlayer) { learningPipeline.youtubePlayer.destroy(); learningPipeline.youtubePlayer = null; }
-        const playerContainer = document.getElementById('youtube-player-container');
-        if (playerContainer) { playerContainer.innerHTML = ''; }
-        ui.canvas.style.opacity = '1';
-        ui.skipVideoButton.style.display = 'none';
-        updateCanvasVisuals("Segment Complete!", "Click 'Next Segment' to continue.");
-        ui.nextSegmentButton.disabled = false;
-    }
-    
     function initializeUI() {
         ui.curateButton.addEventListener('click', handleCurateClick);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
-        ui.nextSegmentButton.addEventListener('click', () => { if (!ui.nextSegmentButton.disabled) processNextSegment(true); });
-        ui.skipVideoButton.addEventListener('click', () => { if (lessonState === 'playing_video' || lessonState === 'paused') handleVideoEnd(); });
+        ui.nextSegmentButton.addEventListener('click', () => { 
+            if (!ui.nextSegmentButton.disabled) learningPipeline.processNextLearningPoint(); 
+        });
+        ui.skipVideoButton.addEventListener('click', () => { 
+            if (lessonState === 'playing_video') learningPipeline.showQuiz(); 
+        });
     }
 
     function playPauseLesson() {
-        log(`UI: playPauseLesson called in state: ${lessonState}`);
         switch (lessonState) {
-            case 'narrating': learningPipeline.speechEngine.pause(); updateStatus("narration_paused"); break;
-            case 'narration_paused': learningPipeline.speechEngine.resume(); updateStatus("narrating"); break;
-            case 'playing_video': if (learningPipeline.youtubePlayer) learningPipeline.youtubePlayer.pauseVideo(); updateStatus("paused"); break;
-            case 'paused': if (learningPipeline.youtubePlayer) learningPipeline.youtubePlayer.playVideo(); updateStatus("playing_video"); break;
+            case 'narrating': 
+                learningPipeline.speechEngine.pause(); 
+                updateStatus("narration_paused"); 
+                break;
+            case 'narration_paused': 
+                learningPipeline.speechEngine.resume(); 
+                updateStatus("narrating"); 
+                break;
+            case 'playing_video': 
+                if (learningPipeline.youtubePlayer) learningPipeline.youtubePlayer.pauseVideo(); 
+                updateStatus("paused"); 
+                break;
+            case 'paused': 
+                if (learningPipeline.youtubePlayer) learningPipeline.youtubePlayer.playVideo(); 
+                updateStatus("playing_video"); 
+                break;
         }
         updatePlayPauseIcon();
     }
@@ -511,61 +633,34 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.levelButtonsContainer.innerHTML = '';
         const levels = Object.keys(currentLessonPlan).filter(k => k !== 'topic');
         
-        if (levels.length === 0) {
-            logError("No levels found in the processed lesson plan!", currentLessonPlan);
-            displayError("The generated lesson plan had no valid levels.");
-            resetUIState();
-            return;
-        }
-
         levels.forEach(level => {
             const button = document.createElement('button');
             button.className = 'w-full p-6 rounded-xl transition-all transform hover:scale-105 shadow-lg bg-blue-600 hover:bg-blue-700 text-white';
             
             const segmentCount = Array.isArray(currentLessonPlan[level]) ? currentLessonPlan[level].length : 'N/A';
-            if (segmentCount === 'N/A') {
-                logError(`Lesson plan for level "${level}" is not an array!`, currentLessonPlan[level]);
-            }
-            
             button.innerHTML = `<div class="text-2xl font-bold">${level}</div><div class="text-sm opacity-75">${segmentCount} segments</div>`;
             button.onclick = () => learningPipeline.startLevel(level);
             ui.levelButtonsContainer.appendChild(button);
         });
         ui.levelSelection.classList.remove('hidden');
     }
-
-    async function processNextSegment(forceNext = false) {
-        if (lessonState === 'narrating' && !forceNext) return;
-        
-        updateStatus("processing_next_segment");
-        ui.nextSegmentButton.disabled = true;
-        learningPipeline.speechEngine.stop();
-
-        currentSegmentIndex++;
-        const learningPoints = currentLessonPlan[currentLearningPath];
-        if (currentSegmentIndex >= learningPoints.length) {
-            updateStatus("lesson_complete");
-            updateCanvasVisuals("🎉 Lesson Complete!", "Congratulations! You've finished this learning path.");
-            return;
-        }
-        
-        const learningPoint = learningPoints[currentSegmentIndex];
-        const previousPoint = currentSegmentIndex > 0 ? learningPoints[currentSegmentIndex - 1] : null;
-        updateSegmentProgress();
-        ui.currentTopicDisplay.textContent = learningPoint;
-        
-        await learningPipeline.executeSegment(learningPoint, previousPoint);
-    }
     
     function displayVideoChoices(videos, learningPoint) {
-        updateStatus("choosing_video");
         const playerContainer = document.getElementById('youtube-player-container');
-        playerContainer.innerHTML = `<div class="p-8 text-white overflow-y-auto h-full"><h2 class="text-2xl font-bold mb-4">Choose a video for: "${learningPoint}"</h2><div id="video-choices-list"></div></div>`;
+        playerContainer.innerHTML = `
+            <div class="p-8 text-white overflow-y-auto h-full">
+                <h2 class="text-2xl font-bold mb-4">Choose a video for: "${learningPoint}"</h2>
+                <div id="video-choices-list"></div>
+            </div>
+        `;
         const list = document.getElementById('video-choices-list');
         videos.forEach(video => {
             const div = document.createElement('div');
             div.className = 'flex items-center p-3 mb-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10';
-            div.innerHTML = `<img src="${video.thumbnail}" class="w-32 h-20 object-cover rounded mr-4" alt="${video.title}"><span class="font-medium">${video.title}</span>`;
+            div.innerHTML = `
+                <img src="${video.thumbnail}" class="w-32 h-20 object-cover rounded mr-4" alt="${video.title}">
+                <span class="font-medium">${video.title}</span>
+            `;
             div.onclick = () => learningPipeline.handleVideoSelection(video);
             list.appendChild(div);
         });
@@ -598,7 +693,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const lines = wrapText(mainText, maxWidth, canvasCtx);
         let startY = ui.canvas.height / 2 - ((lines.length - 1) * (fontSize + 8)) / 2;
         lines.forEach((line, index) => { canvasCtx.fillText(line, ui.canvas.width / 2, startY + (index * (fontSize + 8))); });
-        if (subText) { let subFontSize = Math.max(14, Math.min(ui.canvas.width / 40, 18)); canvasCtx.font = `${subFontSize}px Inter, sans-serif`; canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)'; const subLines = wrapText(subText, maxWidth, canvasCtx); subLines.forEach((line, index) => { canvasCtx.fillText(line, ui.canvas.width / 2, startY + (lines.length * (fontSize + 8)) + (index * (subFontSize + 6))); }); }
+        if (subText) { 
+            let subFontSize = Math.max(14, Math.min(ui.canvas.width / 40, 18)); 
+            canvasCtx.font = `${subFontSize}px Inter, sans-serif`; 
+            canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)'; 
+            const subLines = wrapText(subText, maxWidth, canvasCtx); 
+            subLines.forEach((line, index) => { 
+                canvasCtx.fillText(line, ui.canvas.width / 2, startY + (lines.length * (fontSize + 8)) + (index * (subFontSize + 6))); 
+            }); 
+        }
     }
 
     function updateTeleprompter(fullText, progress) {
@@ -643,13 +746,37 @@ document.addEventListener('DOMContentLoaded', () => {
         return lines;
     }
 
-    function showLoading(message) { ui.inputSection.classList.add('hidden'); ui.levelSelection.classList.add('hidden'); ui.loadingMessage.textContent = message; ui.loadingIndicator.classList.remove('hidden'); }
+    function showLoading(message) { 
+        ui.inputSection.classList.add('hidden'); 
+        ui.levelSelection.classList.add('hidden'); 
+        ui.loadingMessage.textContent = message; 
+        ui.loadingIndicator.classList.remove('hidden'); 
+    }
+    
     function hideLoading() { ui.loadingIndicator.classList.add('hidden'); }
-    function resetUIState() { ui.levelSelection.classList.add('hidden'); ui.learningCanvasContainer.classList.add('hidden'); ui.inputSection.classList.remove('hidden'); ui.curateButton.disabled = false; currentLessonPlan = null; currentLearningPath = null; currentSegmentIndex = -1; lessonState = 'idle'; if(learningPipeline && learningPipeline.speechEngine) { learningPipeline.speechEngine.stop();} }
-    function displayError(message) { logError(message); ui.errorMessage.textContent = message; ui.errorDisplay.classList.remove('hidden'); setTimeout(() => ui.errorDisplay.classList.add('hidden'), 5000); }
-    function displayErrorOnCanvas(title, message) { updateCanvasVisuals(`⚠️ ${title}`, message); }
+    
+    function resetUIState() { 
+        ui.levelSelection.classList.add('hidden'); 
+        ui.learningCanvasContainer.classList.add('hidden'); 
+        ui.inputSection.classList.remove('hidden'); 
+        ui.curateButton.disabled = false; 
+        currentLessonPlan = null; 
+        currentLearningPath = null; 
+        currentSegmentIndex = -1; 
+        lessonState = 'idle'; 
+        if (learningPipeline?.speechEngine) { 
+            learningPipeline.speechEngine.stop();
+        } 
+    }
+    
+    function displayError(message) { 
+        logError(message); 
+        ui.errorMessage.textContent = message; 
+        ui.errorDisplay.classList.remove('hidden'); 
+        setTimeout(() => ui.errorDisplay.classList.add('hidden'), 5000); 
+    }
 
-    // --- INITIALIZE --- //
+    // Initialize
     initializeUI();
-    window.onYouTubeIframeAPIReady = () => log("YouTube Iframe API is ready and waiting.");
+    window.onYouTubeIframeAPIReady = () => log("YouTube API ready");
 });
