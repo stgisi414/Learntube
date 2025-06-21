@@ -1,0 +1,55 @@
+[10:02:28 PM] YouTube API ready
+script.js:46 [10:02:36 PM] FLOW: Step 1 - Generate lesson plan
+script.js:46 [10:02:36 PM] GEMINI: Generating lesson plan...
+script.js:46 [10:02:46 PM] FLOW: Starting level Journeyman
+script.js:46 [10:02:46 PM] FLOW: Step 3 - Play narration
+script.js:46 [10:02:46 PM] STATE: narrating
+script.js:46 [10:02:46 PM] GEMINI: Generating narration for "The Obama-Biden policy agenda:  Affordable Care Act (ACA)"
+script.js:46 [10:03:08 PM] FLOW: Step 2 - Search educational videos with transcripts
+script.js:46 [10:03:08 PM] STATE: searching_videos
+script.js:46 [10:03:08 PM] GEMINI: Generating search queries for "The Obama-Biden policy agenda:  Affordable Care Act (ACA)"
+script.js:46 [10:03:10 PM] SEARCH: Searching for educational content: "how to enroll in ACA after Obama-Biden administration"
+script.js:46 [10:03:12 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:03:12 PM] SEARCH: Searching for educational content: "tutorial: ACA subsidies explained post-Obama Biden era"
+script.js:46 [10:03:13 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:03:13 PM] SEARCH: Searching for educational content: "explained: impact of Obama-Biden ACA on pre-existing conditions"
+script.js:46 [10:03:15 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:03:15 PM] SEARCH: Searching for educational content: "documentary: evolution of ACA policy under Obama & Biden"
+script.js:46 [10:03:16 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:03:16 PM] SEARCH: Searching for educational content: "academic lecture: comparing Obama and Biden's ACA implementation strategies"
+script.js:46 [10:03:18 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:03:21 PM] FLOW: Step 3 - Play narration
+script.js:46 [10:03:21 PM] STATE: narrating
+script.js:46 [10:03:21 PM] GEMINI: Generating narration for "Their response to the 2008 financial crisis"
+script.js:46 [10:03:48 PM] FLOW: Step 2 - Search educational videos with transcripts
+script.js:46 [10:03:48 PM] STATE: searching_videos
+script.js:46 [10:03:48 PM] GEMINI: Generating search queries for "Their response to the 2008 financial crisis"
+script.js:46 [10:03:50 PM] SEARCH: Searching for educational content: "Obama administration's 2008 financial crisis response: a how-to analysis compared to Biden's approach"
+script.js:46 [10:03:52 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:03:52 PM] SEARCH: Searching for educational content: "Tutorial: Comparing Obama and Biden's TARP strategies during the 2008 financial crisis"
+script.js:46 [10:03:53 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:03:53 PM] SEARCH: Searching for educational content: "Explained: The differences in Obama and Biden's economic recovery plans post-2008 financial crisis"
+script.js:46 [10:03:55 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:03:55 PM] SEARCH: Searching for educational content: "Documentary analysis: contrasting Obama and Biden's communication strategies during the 2008 financial crisis"
+script.js:46 [10:03:56 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:03:56 PM] SEARCH: Searching for educational content: "Academic lecture: a comparative study of the effectiveness of Obama and Biden's responses to the 2008 global financial crisis"
+script.js:46 [10:03:58 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:04:01 PM] FLOW: Step 3 - Play narration
+script.js:46 [10:04:01 PM] STATE: narrating
+script.js:46 [10:04:01 PM] GEMINI: Generating narration for "Foreign policy achievements and challenges during their presidency"
+script.js:46 [10:04:22 PM] FLOW: Step 2 - Search educational videos with transcripts
+script.js:46 [10:04:22 PM] STATE: searching_videos
+script.js:46 [10:04:22 PM] GEMINI: Generating search queries for "Foreign policy achievements and challenges during their presidency"
+script.js:46 [10:04:25 PM] SEARCH: Searching for educational content: "Obama vs Biden foreign policy: A how-to guide on analyzing Iran nuclear deal success & challenges"
+script.js:46 [10:04:26 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:04:26 PM] SEARCH: Searching for educational content: "Tutorial: Comparing Obama and Biden's approaches to counterterrorism in the Middle East"
+script.js:46 [10:04:28 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:04:28 PM] SEARCH: Searching for educational content: "Explained:  Obama's pivot to Asia vs. Biden's Indo-Pacific strategy - a comparative documentary analysis"
+script.js:46 [10:04:30 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:04:30 PM] SEARCH: Searching for educational content: "Documentary:  Academic lecture on the evolution of US-Russia relations under Obama and Biden"
+script.js:46 [10:04:32 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:04:32 PM] SEARCH: Searching for educational content: "Academic lecture comparing Obama and Biden's handling of the rise of China: achievements and failures explained"
+script.js:46 [10:04:34 PM] SEARCH: Found 0 educational videos
+script.js:46 [10:04:37 PM] FLOW: Step 3 - Play narration
+script.js:46 [10:04:37 PM] STATE: narrating
+script.js:46 [10:04:37 PM] GEMINI: Generating narration for "Biden's role in key legislative negotiations"
