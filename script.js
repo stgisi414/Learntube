@@ -100,6 +100,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        async generateDetailedExplanation(learningPoint) {
+            log(`GEMINI: Generating detailed explanation for "${learningPoint}"`);
+            const prompt = `Create a comprehensive, educational explanation about "${learningPoint}" that would typically take 2-3 minutes to read aloud. Structure it as an engaging lesson that covers: 1) What it is, 2) Why it's important, 3) Key concepts, 4) Real-world examples. Write in a clear, teaching style suitable for someone learning this topic. Return ONLY the explanation text (150-250 words).`;
+            const response = await this.makeRequest(prompt, { temperature: 0.8, maxOutputTokens: 1024 });
+            return response;
+        }
+
         async generateQuiz(learningPoint, transcript) {
             log(`GEMINI: Generating quiz for "${learningPoint}"`);
             const prompt = `Based on the learning point "${learningPoint}" and this transcript content, create a single multiple-choice quiz question. Return ONLY valid JSON with format: {"question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}`;
@@ -112,37 +119,82 @@ document.addEventListener('DOMContentLoaded', () => {
         constructor() {}
 
         async searchYouTube(query) {
-            log(`SEARCH: Searching for: "${query}"`);
-            const searchParams = new URLSearchParams({
-                key: YOUTUBE_API_KEY,
-                cx: CSE_ID,
-                q: query + ' site:youtube.com'
-            });
+            log(`SEARCH: Searching for educational content: "${query}"`);
+            
+            // Enhanced search queries with educational focus
+            const educationalQueries = [
+                `"${query}" tutorial explanation site:youtube.com`,
+                `"${query}" lecture university site:youtube.com`,
+                `"${query}" how to learn site:youtube.com`,
+                `"${query}" course lesson site:youtube.com`,
+                `"${query}" explained simply site:youtube.com`
+            ];
 
-            try {
-                const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
-                if (!response.ok) throw new Error(`Search API failed: ${response.status}`);
-                
-                const data = await response.json();
-                if (!data.items) return [];
+            let allResults = [];
+            
+            for (const searchQuery of educationalQueries) {
+                const searchParams = new URLSearchParams({
+                    key: YOUTUBE_API_KEY,
+                    cx: CSE_ID,
+                    q: searchQuery
+                });
 
-                return data.items.map(item => {
-                    const url = new URL(item.link);
-                    const videoId = url.searchParams.get('v');
-                    if (videoId) {
-                        return {
-                            youtubeId: videoId,
-                            title: item.title,
-                            description: item.snippet || '',
-                            thumbnail: item.pagemap?.cse_thumbnail?.[0]?.src || ''
-                        };
-                    }
-                    return null;
-                }).filter(Boolean);
-            } catch (error) {
-                logError("Search failed:", error);
-                return [];
+                try {
+                    const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
+                    if (!response.ok) continue;
+                    
+                    const data = await response.json();
+                    if (!data.items) continue;
+
+                    const results = data.items.map(item => {
+                        const url = new URL(item.link);
+                        const videoId = url.searchParams.get('v');
+                        if (videoId) {
+                            // Score videos based on educational indicators
+                            let score = 0;
+                            const title = item.title.toLowerCase();
+                            const description = (item.snippet || '').toLowerCase();
+                            
+                            // Boost educational keywords
+                            if (title.includes('tutorial') || title.includes('how to') || title.includes('explained')) score += 3;
+                            if (title.includes('course') || title.includes('lesson') || title.includes('learn')) score += 2;
+                            if (title.includes('university') || title.includes('lecture') || title.includes('professor')) score += 2;
+                            if (description.includes('educational') || description.includes('teaching')) score += 1;
+                            
+                            // Penalize non-educational content
+                            if (title.includes('reaction') || title.includes('funny') || title.includes('prank')) score -= 2;
+                            if (title.includes('compilation') || title.includes('fails') || title.includes('meme')) score -= 2;
+
+                            return {
+                                youtubeId: videoId,
+                                title: item.title,
+                                description: item.snippet || '',
+                                thumbnail: item.pagemap?.cse_thumbnail?.[0]?.src || '',
+                                educationalScore: score
+                            };
+                        }
+                        return null;
+                    }).filter(Boolean);
+
+                    allResults.push(...results);
+                    
+                    // Stop early if we have enough good results
+                    if (allResults.length >= 20) break;
+                    
+                } catch (error) {
+                    log(`Search query failed: ${searchQuery}`);
+                    continue;
+                }
             }
+
+            // Sort by educational score and remove duplicates
+            const uniqueResults = allResults
+                .filter((video, index, self) => self.findIndex(v => v.youtubeId === video.youtubeId) === index)
+                .sort((a, b) => b.educationalScore - a.educationalScore)
+                .slice(0, 15);
+
+            log(`SEARCH: Found ${uniqueResults.length} educational videos`);
+            return uniqueResults;
         }
 
         async checkTranscriptAvailable(videoId) {
@@ -347,37 +399,100 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // STEP 2: Search videos
+        // STEP 2: Search videos and pre-filter for transcripts
         async searchVideos(learningPoint) {
-            log("FLOW: Step 2 - Search videos");
+            log("FLOW: Step 2 - Search educational videos with transcripts");
             updateStatus('searching_videos');
-            updateCanvasVisuals('🔎 Searching for videos...', `Finding content for: "${learningPoint}"`);
+            updateCanvasVisuals('🔎 Finding educational content...', `Searching for: "${learningPoint}"`);
 
             const searchQueries = await this.gemini.generateSearchQueries(learningPoint, currentLessonPlan.topic);
-            currentVideoChoices = [];
+            let allVideos = [];
             
             if (searchQueries) {
                 for (const query of searchQueries) {
+                    updateCanvasVisuals('🔎 Searching educational videos...', `Query: "${query}"`);
                     const results = await this.videoSourcer.searchYouTube(query);
-                    currentVideoChoices.push(...results);
-                    if (currentVideoChoices.length >= 10) break;
+                    allVideos.push(...results);
+                    if (allVideos.length >= 15) break;
                 }
             }
 
-            if (currentVideoChoices.length === 0) {
-                displayError("No videos found. Skipping to next segment.");
+            if (allVideos.length === 0) {
+                updateCanvasVisuals('🚫 No videos found', 'Moving to next segment...');
                 setTimeout(() => this.processNextLearningPoint(), 3000);
                 return;
             }
 
-            this.chooseVideo(learningPoint);
+            // Remove duplicates and get top educational videos
+            const uniqueVideos = allVideos
+                .filter((video, index, self) => self.findIndex(v => v.youtubeId === video.youtubeId) === index)
+                .sort((a, b) => (b.educationalScore || 0) - (a.educationalScore || 0))
+                .slice(0, 10);
+
+            updateCanvasVisuals('📝 Checking for transcripts...', 'Finding videos with captions...');
+            
+            // Check transcripts for all videos in parallel
+            const transcriptChecks = await Promise.allSettled(
+                uniqueVideos.map(async video => {
+                    const hasTranscript = await this.videoSourcer.checkTranscriptAvailable(video.youtubeId);
+                    return { ...video, hasTranscript };
+                })
+            );
+
+            // Filter to only videos with transcripts
+            currentVideoChoices = transcriptChecks
+                .filter(result => result.status === 'fulfilled' && result.value.hasTranscript)
+                .map(result => result.value)
+                .slice(0, 5);
+
+            if (currentVideoChoices.length === 0) {
+                updateCanvasVisuals('😔 No transcripts available', 'All videos lack captions. Using fallback content...');
+                // Use fallback: create a simple explanation segment
+                await this.createFallbackContent(learningPoint);
+                return;
+            }
+
+            log(`FLOW: Found ${currentVideoChoices.length} videos with transcripts`);
+            this.autoSelectBestVideo(learningPoint);
         }
 
-        // STEP 4: Choose video
-        chooseVideo(learningPoint) {
-            log("FLOW: Step 4 - Choose video");
+        // STEP 4: Auto-select best video (no more manual choice)
+        autoSelectBestVideo(learningPoint) {
+            log("FLOW: Step 4 - Auto-selecting best educational video");
             updateStatus('choosing_video');
-            displayVideoChoices(currentVideoChoices.slice(0, 5), learningPoint);
+            
+            // Sort by educational score and automatically pick the best one
+            const bestVideo = currentVideoChoices[0];
+            updateCanvasVisuals('✅ Video selected!', `"${bestVideo.title}"`);
+            
+            // Automatically proceed with the best video
+            setTimeout(() => this.handleVideoSelection(bestVideo), 1500);
+        }
+
+        // STEP 4B: Fallback content when no transcripts available
+        async createFallbackContent(learningPoint) {
+            log("FLOW: Step 4B - Creating fallback educational content");
+            updateStatus('generating_segments');
+            updateCanvasVisuals('🤖 Creating custom content...', 'Generating explanation without video...');
+
+            // Generate a comprehensive explanation
+            const explanation = await this.gemini.generateDetailedExplanation(learningPoint);
+            
+            if (explanation) {
+                // Play the explanation as narration
+                updateCanvasVisuals('📚 Learning segment', `Topic: "${learningPoint}"`);
+                await this.speechEngine.play(explanation, {
+                    onProgress: (progress) => updateTeleprompter(explanation, progress),
+                    onComplete: () => {
+                        if (lessonState === 'generating_segments') {
+                            this.showQuiz();
+                        }
+                    }
+                });
+            } else {
+                updateCanvasVisuals('⏭️ Skipping segment', 'Moving to next topic...');
+                setTimeout(() => this.processNextLearningPoint(), 2000);
+            }
         }
 
         // STEP 5: Check video for transcript (without YouTube Data API)
@@ -645,26 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.levelSelection.classList.remove('hidden');
     }
     
-    function displayVideoChoices(videos, learningPoint) {
-        const playerContainer = document.getElementById('youtube-player-container');
-        playerContainer.innerHTML = `
-            <div class="p-8 text-white overflow-y-auto h-full">
-                <h2 class="text-2xl font-bold mb-4">Choose a video for: "${learningPoint}"</h2>
-                <div id="video-choices-list"></div>
-            </div>
-        `;
-        const list = document.getElementById('video-choices-list');
-        videos.forEach(video => {
-            const div = document.createElement('div');
-            div.className = 'flex items-center p-3 mb-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10';
-            div.innerHTML = `
-                <img src="${video.thumbnail}" class="w-32 h-20 object-cover rounded mr-4" alt="${video.title}">
-                <span class="font-medium">${video.title}</span>
-            `;
-            div.onclick = () => learningPipeline.handleVideoSelection(video);
-            list.appendChild(div);
-        });
-    }
+    // Video choice display removed - now auto-selecting best educational videos
     
     function updateSegmentProgress() {
         const learningPoints = currentLessonPlan[currentLearningPath];
