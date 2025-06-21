@@ -287,6 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
             this.audioElement = new Audio(); 
             this.onCompleteCallback = null; 
             this.onProgressCallback = null; 
+            this.isPaused = false;
+            this.isPlaying = false;
         }
         
         async play(text, { onProgress = null, onComplete = null } = {}) { 
@@ -297,9 +299,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } 
             this.onProgressCallback = onProgress; 
             this.onCompleteCallback = onComplete; 
+            this.isPaused = false;
+            this.isPlaying = true;
+            
             try { 
                 const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, { 
                     method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         input: { text }, 
                         voice: { languageCode: 'en-US', name: 'en-US-Standard-C' }, 
@@ -308,30 +314,84 @@ document.addEventListener('DOMContentLoaded', () => {
                 }); 
                 if (!response.ok) { 
                     const d = await response.json(); 
-                    throw new Error(d.error.message); 
+                    throw new Error(d.error?.message || 'Speech API error'); 
                 } 
                 const data = await response.json(); 
                 const audioBlob = this.base64ToBlob(data.audioContent, 'audio/mpeg'); 
                 this.audioElement.src = URL.createObjectURL(audioBlob); 
-                this.audioElement.play(); 
+                
+                this.audioElement.onloadeddata = () => {
+                    if (this.isPlaying && !this.isPaused) {
+                        this.audioElement.play().catch(e => log(`Audio play error: ${e}`));
+                    }
+                };
+                
                 this.audioElement.ontimeupdate = () => { 
                     if (this.onProgressCallback && this.audioElement.duration) { 
                         this.onProgressCallback(this.audioElement.currentTime / this.audioElement.duration); 
                     } 
                 }; 
                 this.audioElement.onended = () => { 
+                    this.isPlaying = false;
+                    this.isPaused = false;
                     if (this.onProgressCallback) this.onProgressCallback(1); 
                     if (this.onCompleteCallback) this.onCompleteCallback(); 
                 }; 
+                this.audioElement.onerror = (e) => {
+                    log(`Audio element error: ${e}`);
+                    this.isPlaying = false;
+                    this.isPaused = false;
+                    if (this.onCompleteCallback) this.onCompleteCallback();
+                };
             } catch (error) { 
                 log(`Speech Error: ${error}`); 
+                this.isPlaying = false;
+                this.isPaused = false;
                 if (this.onCompleteCallback) this.onCompleteCallback(); 
             } 
         }
-        pause() { this.audioElement.pause(); }
-        resume() { this.audioElement.play(); }
-        stop() { this.audioElement.pause(); if (this.audioElement.src) this.audioElement.currentTime = 0; }
-        base64ToBlob(base64) { const byteCharacters = atob(base64); const byteArrays = []; for (let offset = 0; offset < byteCharacters.length; offset += 512) { const slice = byteCharacters.slice(offset, offset + 512); const byteNumbers = new Array(slice.length); for (let i = 0; i < slice.length; i++) { byteNumbers[i] = slice.charCodeAt(i); } byteArrays.push(new Uint8Array(byteNumbers)); } return new Blob(byteArrays, { type: 'audio/mpeg' }); }
+        
+        pause() { 
+            if (this.isPlaying && !this.isPaused) {
+                this.audioElement.pause(); 
+                this.isPaused = true;
+                log('Speech paused');
+            }
+        }
+        
+        resume() { 
+            if (this.isPaused && this.isPlaying) {
+                this.audioElement.play().catch(e => log(`Resume error: ${e}`)); 
+                this.isPaused = false;
+                log('Speech resumed');
+            }
+        }
+        
+        stop() { 
+            this.audioElement.pause(); 
+            this.isPlaying = false;
+            this.isPaused = false;
+            if (this.audioElement.src) {
+                this.audioElement.currentTime = 0; 
+                URL.revokeObjectURL(this.audioElement.src);
+                this.audioElement.src = '';
+            }
+            log('Speech stopped');
+        }
+        
+        base64ToBlob(base64) { 
+            const byteCharacters = atob(base64); 
+            const byteArrays = []; 
+            for (let offset = 0; offset < byteCharacters.length; offset += 512) { 
+                const slice = byteCharacters.slice(offset, offset + 512); 
+                const byteNumbers = new Array(slice.length); 
+                for (let i = 0; i < slice.length; i++) { 
+                    byteNumbers[i] = slice.charCodeAt(i); 
+                } 
+                byteArrays.push(new Uint8Array(byteNumbers)); 
+            } 
+            return new Blob(byteArrays, { type: 'audio/mpeg' }); 
+        }
     }
 
     class LearningPipeline {
@@ -429,6 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
         async playNarration(learningPoint, previousPoint) {
             log("FLOW: Step 3 - Play narration");
             updateStatus('narrating');
+            updatePlayPauseIcon();
             ui.nextSegmentButton.disabled = true;
 
             const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint, `a video about ${learningPoint}`);
@@ -662,6 +723,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStatus('quiz');
             ui.skipVideoButton.style.display = 'none';
             ui.canvas.style.opacity = '1';
+            ui.nextSegmentButton.disabled = false;
+            updatePlayPauseIcon();
             
             if (this.youtubePlayer) { 
                 this.youtubePlayer.destroy(); 
@@ -674,8 +737,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (quiz) {
                 this.displayQuiz(quiz);
             } else {
-                updateCanvasVisuals("Quiz generation failed", "Moving to next segment...");
-                setTimeout(() => this.processNextLearningPoint(), 2000);
+                updateCanvasVisuals("Quiz completed", "Click 'Next Segment' to continue...");
+                ui.nextSegmentButton.disabled = false;
             }
         }
 
@@ -747,32 +810,59 @@ document.addEventListener('DOMContentLoaded', () => {
     function initializeUI() {
         ui.curateButton.addEventListener('click', handleCurateClick);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
-        ui.nextSegmentButton.addEventListener('click', () => { 
-            if (!ui.nextSegmentButton.disabled) learningPipeline.processNextLearningPoint(); 
+        ui.nextSegmentButton.addEventListener('click', (e) => { 
+            e.preventDefault();
+            e.stopPropagation();
+            log(`Next segment clicked - Disabled: ${ui.nextSegmentButton.disabled}, State: ${lessonState}`);
+            if (!ui.nextSegmentButton.disabled) {
+                ui.nextSegmentButton.disabled = true;
+                learningPipeline.processNextLearningPoint(); 
+            }
         });
-        ui.skipVideoButton.addEventListener('click', () => { 
-            if (lessonState === 'playing_video') learningPipeline.showQuiz(); 
+        ui.skipVideoButton.addEventListener('click', (e) => { 
+            e.preventDefault();
+            e.stopPropagation();
+            log(`Skip video clicked - State: ${lessonState}`);
+            if (lessonState === 'playing_video') {
+                if (learningPipeline.youtubePlayer) {
+                    learningPipeline.youtubePlayer.destroy();
+                    learningPipeline.youtubePlayer = null;
+                }
+                learningPipeline.showQuiz(); 
+            }
         });
     }
 
     function playPauseLesson() {
+        log(`Play/Pause clicked - Current state: ${lessonState}`);
+        
         switch (lessonState) {
             case 'narrating': 
                 learningPipeline.speechEngine.pause(); 
                 updateStatus("narration_paused"); 
+                log('Narration paused');
                 break;
             case 'narration_paused': 
                 learningPipeline.speechEngine.resume(); 
                 updateStatus("narrating"); 
+                log('Narration resumed');
                 break;
             case 'playing_video': 
-                if (learningPipeline.youtubePlayer) learningPipeline.youtubePlayer.pauseVideo(); 
-                updateStatus("paused"); 
+                if (learningPipeline.youtubePlayer) {
+                    learningPipeline.youtubePlayer.pauseVideo(); 
+                    updateStatus("paused"); 
+                    log('Video paused');
+                }
                 break;
             case 'paused': 
-                if (learningPipeline.youtubePlayer) learningPipeline.youtubePlayer.playVideo(); 
-                updateStatus("playing_video"); 
+                if (learningPipeline.youtubePlayer) {
+                    learningPipeline.youtubePlayer.playVideo(); 
+                    updateStatus("playing_video"); 
+                    log('Video resumed');
+                }
                 break;
+            default:
+                log(`Cannot play/pause in state: ${lessonState}`);
         }
         updatePlayPauseIcon();
     }
@@ -781,6 +871,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isPlaying = lessonState === 'playing_video' || lessonState === 'narrating';
         ui.playIcon.classList.toggle('hidden', isPlaying);
         ui.pauseIcon.classList.toggle('hidden', !isPlaying);
+        log(`Icon updated - Playing: ${isPlaying}, State: ${lessonState}`);
     }
 
     async function handleCurateClick() {
