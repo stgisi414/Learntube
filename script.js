@@ -219,6 +219,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'x-api-key': SUPADATA_API_KEY }
                 });
                 
+                if (response.status === 429) {
+                    log(`TRANSCRIPT CHECK: Rate limited for ${videoId}, skipping`);
+                    return false;
+                }
+                
                 if (response.ok) {
                     const data = await response.json();
                     return Array.isArray(data) && data.length > 0;
@@ -446,13 +451,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             updateCanvasVisuals('📝 Checking for transcripts...', 'Finding videos with captions...');
             
-            // Check transcripts for all videos in parallel
-            const transcriptChecks = await Promise.allSettled(
-                uniqueVideos.map(async video => {
+            // Check transcripts sequentially to avoid rate limiting
+            const transcriptChecks = [];
+            for (const video of uniqueVideos) {
+                try {
                     const hasTranscript = await this.videoSourcer.checkTranscriptAvailable(video.youtubeId);
-                    return { ...video, hasTranscript };
-                })
-            );
+                    transcriptChecks.push({ status: 'fulfilled', value: { ...video, hasTranscript } });
+                    // Add small delay between requests to respect rate limits
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                } catch (error) {
+                    transcriptChecks.push({ status: 'rejected', reason: error });
+                }
+            }
 
             // Filter to only videos with transcripts
             currentVideoChoices = transcriptChecks
