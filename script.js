@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================================
     const GEMINI_API_KEY = "AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA";
     const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
-    const CSE_ID = 'b53121b78d1c64563';
+    const CSE_ID = '534de8daaf2cb449d';
     const SUPADATA_API_KEY = "sd_1d4e0e4e3d5aecda115fc39d1d47a33b";
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
