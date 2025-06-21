@@ -54,12 +54,74 @@ document.addEventListener('DOMContentLoaded', () => {
         constructor() { this.requestQueue = []; this.isProcessing = false; this.rateLimitDelay = 1000; }
         async makeRequest(prompt, options = {}) { return new Promise((resolve, reject) => { this.requestQueue.push({ prompt, options, resolve, reject }); if (!this.isProcessing) this.processQueue(); }); }
         async processQueue() { if (this.requestQueue.length === 0) { this.isProcessing = false; return; } this.isProcessing = true; const { prompt, options, resolve, reject } = this.requestQueue.shift(); try { await new Promise(r => setTimeout(r, this.rateLimitDelay)); const result = await this.executeSingleRequest(prompt, options); resolve(result); } catch (error) { reject(error); } finally { this.processQueue(); } }
-        async executeSingleRequest(prompt, options = {}) { const defaultConfig = { temperature: 0.7, maxOutputTokens: 2048, ...options }; const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: defaultConfig }) }); if (!response.ok) { throw new Error(`Gemini API failed: ${response.status} ${response.statusText}`); } const data = await response.json(); const content = data.candidates?.[0]?.content?.parts?.[0]?.text; if (!content) { throw new Error('No content in Gemini response'); } return content.trim(); }
+        async executeSingleRequest(prompt, options = {}) { 
+            const defaultConfig = { 
+                temperature: 0.7, 
+                maxOutputTokens: 2048, 
+                ...options 
+            }; 
+            
+            const requestBody = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: defaultConfig,
+                safetySettings: [
+                    {
+                        category: "HARM_CATEGORY_HARASSMENT",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_HATE_SPEECH", 
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        threshold: "BLOCK_NONE"
+                    }
+                ]
+            };
+            
+            const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(requestBody)
+            }); 
+            
+            if (!response.ok) { 
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`Gemini API failed: ${response.status} ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`); 
+            } 
+            
+            const data = await response.json(); 
+            const content = data.candidates?.[0]?.content?.parts?.[0]?.text; 
+            
+            if (!content) { 
+                log('Gemini response data:', data);
+                throw new Error('No content in Gemini response - content may have been blocked by safety filters'); 
+            } 
+            
+            return content.trim(); 
+        }
         parseJSONResponse(response) { if(!response) return null; try { let cleanedResponse = response.trim().replace(/```json\s*/g, '').replace(/```\s*/g, ''); const jsonMatch = cleanedResponse.match(/(\{[\s\S]*\}|\[[\s\S]*\])/); if (jsonMatch) { return JSON.parse(jsonMatch[0]); } logError(`No valid JSON found in response:`, response); return null; } catch (error) { logError(`Failed to parse JSON:`, error, `Raw response: "${response}"`); return null; } }
         
         async generateLessonPlan(topic) {
             log("GEMINI: Generating lesson plan...");
-            const prompt = `Create a comprehensive, 4-level learning curriculum for "${topic}". Each level (Apprentice, Journeyman, Senior, Master) must have exactly 5 specific, searchable learning points. Return ONLY valid JSON.`;
+            const prompt = `Create a simple learning plan for "${topic}". Make exactly 4 levels: Apprentice, Journeyman, Senior, Master. Each level needs exactly 3 learning points (not 5). Keep topics simple and educational.
+
+Example format:
+{
+  "Apprentice": ["Basic concept 1", "Basic concept 2", "Basic concept 3"],
+  "Journeyman": ["Intermediate topic 1", "Intermediate topic 2", "Intermediate topic 3"],
+  "Senior": ["Advanced topic 1", "Advanced topic 2", "Advanced topic 3"],
+  "Master": ["Expert topic 1", "Expert topic 2", "Expert topic 3"]
+}
+
+Topic: "${topic}"
+
+Return ONLY the JSON, no other text.`;
             const response = await this.makeRequest(prompt);
             return this.parseJSONResponse(response);
         }
@@ -75,11 +137,11 @@ document.addEventListener('DOMContentLoaded', () => {
             log(`GEMINI: Generating narration for "${learningPoint}"`);
             let prompt;
             if (previousPoint) {
-                prompt = `Previous topic: "${previousPoint}". Current topic: "${learningPoint}". Video title: "${videoTitle}". Create a concise, engaging 2-sentence narration (50-80 words) to bridge these topics and introduce the video. Return ONLY the narration text.`;
+                prompt = `Write a simple 1-2 sentence introduction. Previous topic was "${previousPoint}". Now we're learning about "${learningPoint}". Keep it simple and educational. Just return the text, nothing else.`;
             } else {
-                prompt = `This is the start of a lesson on "${learningPoint}". Video title: "${videoTitle}". Create a concise, engaging 2-sentence opening narration (50-80 words) to welcome the learner and introduce the video. Return ONLY the narration text.`;
+                prompt = `Write a simple welcome message for learning about "${learningPoint}". Just 1-2 sentences. Keep it friendly and educational. Just return the text, nothing else.`;
             }
-            return await this.makeRequest(prompt, { temperature: 0.8 });
+            return await this.makeRequest(prompt, { temperature: 0.5 });
         }
 
         async findVideoSegments(videoTitle, youtubeUrl, learningPoint) {
