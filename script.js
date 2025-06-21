@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const GEMINI_API_KEY = "AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA";
     const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
     const CSE_ID = '534de8daaf2cb449d';
-    const SUPADATA_API_KEY = "sd_1d4e0e4e3d5aecda115fc39d1d47a33b";
+    const TRANSCRIPT_API_URL = "https://transcript-scraper-stefdgisi.replit.app";
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
     const log = (message, ...args) => console.log(`[${new Date().toLocaleTimeString()}] ${message}`, ...args);
@@ -119,56 +119,96 @@ document.addEventListener('DOMContentLoaded', () => {
         constructor() {}
 
         async searchYouTube(query) {
-            log(`SEARCH: Searching for educational content: "${query}"`);
+            log(`SEARCH: Searching for educational content with captions: "${query}"`);
             
-            // For Filmot.com, use simpler, direct YouTube search queries
-            const filmotQueries = [
-                query,  // Direct query first
-                `${query} explained`,
+            try {
+                // Use the transcript API to search for videos with captions
+                const response = await fetch(`${TRANSCRIPT_API_URL}/captions-search?q=${encodeURIComponent(query)}&max_results=15&use_ai=true`);
+                
+                if (!response.ok) {
+                    log(`SEARCH: Transcript API failed: ${response.status}`);
+                    return this.fallbackSearch(query);
+                }
+                
+                const data = await response.json();
+                log(`SEARCH: Transcript API response:`, data);
+                
+                if (!data || !data.videos || data.videos.length === 0) {
+                    log(`SEARCH: No videos found via transcript API`);
+                    return this.fallbackSearch(query);
+                }
+
+                const results = data.videos.map(video => {
+                    // Score videos based on educational indicators
+                    let score = 0;
+                    const title = (video.title || '').toLowerCase();
+                    const description = (video.description || '').toLowerCase();
+                    
+                    // Boost educational keywords
+                    if (title.includes('tutorial') || title.includes('how to') || title.includes('explained')) score += 3;
+                    if (title.includes('course') || title.includes('lesson') || title.includes('learn')) score += 2;
+                    if (title.includes('university') || title.includes('lecture') || title.includes('professor')) score += 2;
+                    if (description.includes('educational') || description.includes('teaching')) score += 1;
+                    
+                    // Penalize non-educational content
+                    if (title.includes('reaction') || title.includes('funny') || title.includes('prank')) score -= 2;
+                    if (title.includes('compilation') || title.includes('fails') || title.includes('meme')) score -= 2;
+
+                    // Boost videos that have captions (main advantage of this API)
+                    if (video.has_captions) score += 5;
+
+                    return {
+                        youtubeId: video.video_id,
+                        title: video.title || 'Untitled',
+                        description: video.description || '',
+                        thumbnail: video.thumbnail || '',
+                        educationalScore: score,
+                        hasTranscript: video.has_captions
+                    };
+                }).filter(video => video.hasTranscript) // Only return videos with captions
+                  .sort((a, b) => b.educationalScore - a.educationalScore);
+
+                log(`SEARCH: Found ${results.length} educational videos with captions`);
+                return results;
+
+            } catch (error) {
+                log(`SEARCH: Transcript API error:`, error);
+                return this.fallbackSearch(query);
+            }
+        }
+
+        async fallbackSearch(query) {
+            log(`SEARCH: Using fallback Custom Search for: "${query}"`);
+            
+            const searchQueries = [
                 `${query} tutorial`,
+                `${query} explained`,
                 `how to ${query}`,
-                `${query} guide`
+                `${query} course`
             ];
 
             let allResults = [];
             
-            for (const searchQuery of filmotQueries) {
+            for (const searchQuery of searchQueries.slice(0, 2)) { // Limit to 2 queries for fallback
                 const searchParams = new URLSearchParams({
                     key: YOUTUBE_API_KEY,
                     cx: CSE_ID,
                     q: searchQuery,
-                    num: 10  // Request more results per query
+                    num: 5
                 });
 
                 try {
-                    log(`SEARCH: Trying query: "${searchQuery}"`);
                     const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
                     
-                    log(`SEARCH: Response status: ${response.status}`);
-                    
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        log(`SEARCH: API Error: ${response.status} - ${errorText}`);
-                        continue;
-                    }
+                    if (!response.ok) continue;
                     
                     const data = await response.json();
-                    log(`SEARCH: Response data:`, data);
                     
-                    if (!data.items || data.items.length === 0) {
-                        log(`SEARCH: No items found for "${searchQuery}"`);
-                        continue;
-                    }
-
-                    log(`SEARCH: Found ${data.items.length} raw results for "${searchQuery}"`);
+                    if (!data.items || data.items.length === 0) continue;
 
                     const results = data.items.map(item => {
-                        log(`SEARCH: Processing item:`, item);
-                        
-                        // Filmot.com might structure URLs differently
                         let videoId = null;
                         
-                        // Try multiple URL patterns
                         if (item.link) {
                             try {
                                 const url = new URL(item.link);
@@ -176,72 +216,44 @@ document.addEventListener('DOMContentLoaded', () => {
                                          url.pathname.split('/').pop() ||
                                          (item.link.match(/[?&]v=([^&]+)/) || [])[1];
                             } catch (e) {
-                                // If URL parsing fails, try regex
                                 const match = item.link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
                                 videoId = match ? match[1] : null;
                             }
                         }
                         
                         if (videoId) {
-                            // Score videos based on educational indicators
-                            let score = 0;
-                            const title = (item.title || '').toLowerCase();
-                            const description = (item.snippet || '').toLowerCase();
-                            
-                            // Boost educational keywords
-                            if (title.includes('tutorial') || title.includes('how to') || title.includes('explained')) score += 3;
-                            if (title.includes('course') || title.includes('lesson') || title.includes('learn')) score += 2;
-                            if (title.includes('university') || title.includes('lecture') || title.includes('professor')) score += 2;
-                            if (description.includes('educational') || description.includes('teaching')) score += 1;
-                            
-                            // Penalize non-educational content
-                            if (title.includes('reaction') || title.includes('funny') || title.includes('prank')) score -= 2;
-                            if (title.includes('compilation') || title.includes('fails') || title.includes('meme')) score -= 2;
-
-                            const result = {
+                            return {
                                 youtubeId: videoId,
                                 title: item.title || 'Untitled',
                                 description: item.snippet || '',
                                 thumbnail: item.pagemap?.cse_thumbnail?.[0]?.src || '',
-                                educationalScore: score
+                                educationalScore: 1, // Low score for fallback
+                                hasTranscript: false // Unknown, will check later
                             };
-                            
-                            log(`SEARCH: Created result:`, result);
-                            return result;
-                        } else {
-                            log(`SEARCH: Could not extract video ID from:`, item.link);
                         }
                         return null;
                     }).filter(Boolean);
 
-                    log(`SEARCH: Processed ${results.length} valid results`);
                     allResults.push(...results);
                     
-                    // Stop early if we have enough good results
-                    if (allResults.length >= 15) break;
-                    
                 } catch (error) {
-                    log(`SEARCH: Query failed for "${searchQuery}":`, error);
+                    log(`SEARCH: Fallback query failed for "${searchQuery}":`, error);
                     continue;
                 }
             }
 
-            // Sort by educational score and remove duplicates
             const uniqueResults = allResults
                 .filter((video, index, self) => self.findIndex(v => v.youtubeId === video.youtubeId) === index)
-                .sort((a, b) => b.educationalScore - a.educationalScore)
-                .slice(0, 15);
+                .slice(0, 10);
 
-            log(`SEARCH: Found ${uniqueResults.length} educational videos total`);
+            log(`SEARCH: Fallback found ${uniqueResults.length} videos`);
             return uniqueResults;
         }
 
         async checkTranscriptAvailable(videoId) {
             log(`TRANSCRIPT CHECK: Checking availability for ${videoId}`);
             try {
-                const response = await fetch(`https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`, {
-                    headers: { 'x-api-key': SUPADATA_API_KEY }
-                });
+                const response = await fetch(`${TRANSCRIPT_API_URL}/captions-search?q=${encodeURIComponent(videoId)}&max_results=1`);
                 
                 if (response.status === 429) {
                     log(`TRANSCRIPT CHECK: Rate limited for ${videoId}, skipping`);
@@ -250,7 +262,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (response.ok) {
                     const data = await response.json();
-                    return Array.isArray(data) && data.length > 0;
+                    // Check if we found videos with captions
+                    return data && data.videos && data.videos.length > 0 && 
+                           data.videos.some(video => video.video_id === videoId && video.has_captions);
                 }
                 return false;
             } catch (error) {
@@ -262,15 +276,20 @@ document.addEventListener('DOMContentLoaded', () => {
         async getTranscript(videoId) {
             log(`TRANSCRIPT: Fetching for ${videoId}`);
             try {
-                const response = await fetch(`https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`, {
-                    headers: { 'x-api-key': SUPADATA_API_KEY }
-                });
+                const response = await fetch(`${TRANSCRIPT_API_URL}/transcript/${videoId}`);
                 
                 if (!response.ok) throw new Error(`Transcript API failed: ${response.status}`);
                 
                 const data = await response.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    return data.map(line => line.text).join(' ');
+                if (data && data.transcript) {
+                    // Handle both string and array formats
+                    if (typeof data.transcript === 'string') {
+                        return data.transcript;
+                    } else if (Array.isArray(data.transcript)) {
+                        return data.transcript.map(item => 
+                            typeof item === 'string' ? item : (item.text || '')
+                        ).join(' ');
+                    }
                 }
                 return null;
             } catch (error) {
