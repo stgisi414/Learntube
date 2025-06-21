@@ -613,64 +613,72 @@ If you cannot determine good segments from the context, return a single comprehe
 
         // STEP 2: Search videos and pre-filter for transcripts
         async searchVideos(learningPoint) {
-            log("FLOW: Step 2 - Search educational videos with transcripts");
+            log("FLOW: Step 2 - Search educational videos");
             updateStatus('searching_videos');
             updateCanvasVisuals('🔎 Finding educational content...', `Searching for: "${learningPoint}"`);
 
-            const searchQueries = await this.gemini.generateSearchQueries(learningPoint, currentLessonPlan.topic);
-            let allVideos = [];
-            
-            if (searchQueries) {
-                for (const query of searchQueries) {
-                    updateCanvasVisuals('🔎 Searching educational videos...', `Query: "${query}"`);
-                    const results = await this.videoSourcer.searchYouTube(query);
+            try {
+                const searchQueries = await this.gemini.generateSearchQueries(learningPoint, currentLessonPlan.topic);
+                log(`Generated search queries:`, searchQueries);
+                
+                let allVideos = [];
+                
+                if (searchQueries && Array.isArray(searchQueries)) {
+                    for (const query of searchQueries.slice(0, 3)) { // Limit to 3 queries
+                        updateCanvasVisuals('🔎 Searching educational videos...', `Query: "${query}"`);
+                        try {
+                            const results = await this.videoSourcer.searchYouTube(query);
+                            log(`Search results for "${query}":`, results.length);
+                            allVideos.push(...results);
+                            if (allVideos.length >= 15) break;
+                        } catch (error) {
+                            logError(`Search failed for query "${query}":`, error);
+                        }
+                    }
+                } else {
+                    // Fallback search with simple query
+                    log('Using fallback search strategy');
+                    const fallbackQuery = `${learningPoint} tutorial`;
+                    const results = await this.videoSourcer.searchYouTube(fallbackQuery);
                     allVideos.push(...results);
-                    if (allVideos.length >= 15) break;
                 }
-            }
 
-            if (allVideos.length === 0) {
-                updateCanvasVisuals('🚫 No videos found', 'Moving to next segment...');
-                setTimeout(() => this.processNextLearningPoint(), 3000);
-                return;
-            }
+                log(`Total videos found: ${allVideos.length}`);
 
-            // Remove duplicates and get top educational videos
-            const uniqueVideos = allVideos
-                .filter((video, index, self) => self.findIndex(v => v.youtubeId === video.youtubeId) === index)
-                .sort((a, b) => (b.educationalScore || 0) - (a.educationalScore || 0))
-                .slice(0, 10);
-
-            updateCanvasVisuals('📝 Checking for transcripts...', 'Finding videos with captions...');
-            
-            // Check transcripts sequentially to avoid rate limiting
-            const transcriptChecks = [];
-            for (const video of uniqueVideos) {
-                try {
-                    const hasTranscript = await this.videoSourcer.checkTranscriptAvailable(video.youtubeId);
-                    transcriptChecks.push({ status: 'fulfilled', value: { ...video, hasTranscript } });
-                    // Add small delay between requests to respect rate limits
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                } catch (error) {
-                    transcriptChecks.push({ status: 'rejected', reason: error });
+                if (allVideos.length === 0) {
+                    updateCanvasVisuals('🚫 No videos found', 'Creating educational content...');
+                    await this.createFallbackContent(learningPoint);
+                    return;
                 }
-            }
 
-            // Filter to only videos with transcripts
-            currentVideoChoices = transcriptChecks
-                .filter(result => result.status === 'fulfilled' && result.value.hasTranscript)
-                .map(result => result.value)
-                .slice(0, 5);
+                // Remove duplicates and get top educational videos
+                const uniqueVideos = allVideos
+                    .filter((video, index, self) => self.findIndex(v => v.youtubeId === video.youtubeId) === index)
+                    .sort((a, b) => (b.educationalScore || 0) - (a.educationalScore || 0))
+                    .slice(0, 8);
 
-            if (currentVideoChoices.length === 0) {
-                updateCanvasVisuals('😔 No transcripts available', 'All videos lack captions. Using fallback content...');
-                // Use fallback: create a simple explanation segment
+                log(`Unique videos after filtering: ${uniqueVideos.length}`);
+
+                // Skip transcript checking and use all videos
+                currentVideoChoices = uniqueVideos.map(video => ({
+                    ...video,
+                    hasTranscript: true // Assume all videos can be used
+                }));
+
+                if (currentVideoChoices.length === 0) {
+                    updateCanvasVisuals('😔 No suitable videos', 'Creating educational content...');
+                    await this.createFallbackContent(learningPoint);
+                    return;
+                }
+
+                log(`FLOW: Found ${currentVideoChoices.length} educational videos`);
+                this.autoSelectBestVideo(learningPoint);
+                
+            } catch (error) {
+                logError('Video search failed:', error);
+                updateCanvasVisuals('❌ Search failed', 'Creating educational content...');
                 await this.createFallbackContent(learningPoint);
-                return;
             }
-
-            log(`FLOW: Found ${currentVideoChoices.length} videos with transcripts`);
-            this.autoSelectBestVideo(learningPoint);
         }
 
         // STEP 4: Auto-select best video (no more manual choice)
@@ -678,8 +686,15 @@ If you cannot determine good segments from the context, return a single comprehe
             log("FLOW: Step 4 - Auto-selecting best educational video");
             updateStatus('choosing_video');
             
+            if (!currentVideoChoices || currentVideoChoices.length === 0) {
+                logError('No video choices available');
+                this.createFallbackContent(learningPoint);
+                return;
+            }
+            
             // Sort by educational score and automatically pick the best one
             const bestVideo = currentVideoChoices[0];
+            log(`Selected best video: ${bestVideo.title} (ID: ${bestVideo.youtubeId})`);
             updateCanvasVisuals('✅ Video selected!', `"${bestVideo.title}"`);
             
             // Automatically proceed with the best video
@@ -740,50 +755,100 @@ If you cannot determine good segments from the context, return a single comprehe
         playSegments(video) {
             log("FLOW: Step 8 - Play segments");
             updateStatus('playing_video');
+            updatePlayPauseIcon();
             this.createYouTubePlayer(video);
         }
 
         createYouTubePlayer(videoInfo) {
-            if (this.youtubePlayer) { this.youtubePlayer.destroy(); }
+            if (this.youtubePlayer) { 
+                this.youtubePlayer.destroy(); 
+                this.youtubePlayer = null;
+            }
             
             ui.skipVideoButton.style.display = 'block';
+            ui.canvas.style.opacity = '0';
+            
+            log(`Creating YouTube player for video: ${videoInfo.youtubeId}`);
+            log(`Available segments: ${currentSegments.length}`);
+            
+            if (!currentSegments || currentSegments.length === 0) {
+                log('No segments available, creating default segment');
+                currentSegments = [{ startTime: 0, endTime: 180, reason: "Full video segment" }];
+            }
+            
+            currentSegmentPlayIndex = 0;
+            this.playCurrentSegment(videoInfo);
+        }
 
-            const playNextSegment = () => {
-                if (currentSegmentPlayIndex >= currentSegments.length) {
-                    log('FLOW: All segments complete, showing quiz');
-                    this.showQuiz();
-                    return;
-                }
+        playCurrentSegment(videoInfo) {
+            if (currentSegmentPlayIndex >= currentSegments.length) {
+                log('FLOW: All segments complete, showing quiz');
+                this.showQuiz();
+                return;
+            }
 
-                const segment = currentSegments[currentSegmentPlayIndex];
-                log(`Playing segment ${currentSegmentPlayIndex + 1}/${currentSegments.length}`);
-                
-                if (this.youtubePlayer) { this.youtubePlayer.destroy(); }
-                
+            const segment = currentSegments[currentSegmentPlayIndex];
+            log(`Playing segment ${currentSegmentPlayIndex + 1}/${currentSegments.length}: ${segment.startTime}s - ${segment.endTime}s`);
+            
+            if (this.youtubePlayer) { 
+                this.youtubePlayer.destroy(); 
+                this.youtubePlayer = null;
+            }
+            
+            // Clear the container first
+            const container = document.getElementById('youtube-player-container');
+            container.innerHTML = '';
+            
+            try {
                 this.youtubePlayer = new YT.Player('youtube-player-container', {
-                    height: '100%', width: '100%', videoId: videoInfo.youtubeId,
-                    playerVars: { autoplay: 1, controls: 1, rel: 0, start: segment.startTime, end: segment.endTime, modestbranding: 1, origin: window.location.origin },
+                    height: '100%', 
+                    width: '100%', 
+                    videoId: videoInfo.youtubeId,
+                    playerVars: { 
+                        autoplay: 1, 
+                        controls: 1, 
+                        rel: 0, 
+                        start: Math.floor(segment.startTime), 
+                        end: Math.floor(segment.endTime),
+                        modestbranding: 1,
+                        iv_load_policy: 3,
+                        origin: window.location.origin
+                    },
                     events: {
                         'onReady': (event) => {
+                            log('YouTube player ready, starting playback');
                             event.target.playVideo();
-                            ui.canvas.style.opacity = '0';
+                            updateStatus('playing_video');
+                            updatePlayPauseIcon();
                         },
                         'onStateChange': (event) => {
+                            log(`YouTube player state changed: ${event.data}`);
                             if (event.data === YT.PlayerState.ENDED) {
+                                log('Video segment ended, moving to next');
                                 currentSegmentPlayIndex++;
-                                playNextSegment();
+                                this.playCurrentSegment(videoInfo);
+                            } else if (event.data === YT.PlayerState.PLAYING) {
+                                updateStatus('playing_video');
+                                updatePlayPauseIcon();
+                            } else if (event.data === YT.PlayerState.PAUSED) {
+                                updateStatus('paused');
+                                updatePlayPauseIcon();
                             }
                         },
-                        'onError': () => { 
+                        'onError': (event) => { 
+                            logError(`YouTube player error: ${event.data}`);
                             displayError("Video playback error. Moving to next segment.");
                             currentSegmentPlayIndex++;
-                            playNextSegment();
+                            this.playCurrentSegment(videoInfo);
                         }
                     }
                 });
-            };
-            
-            playNextSegment();
+            } catch (error) {
+                logError('Failed to create YouTube player:', error);
+                displayError("Failed to load video player. Moving to next segment.");
+                currentSegmentPlayIndex++;
+                this.playCurrentSegment(videoInfo);
+            }
         }
 
         // STEP 9: Quiz
@@ -897,6 +962,8 @@ If you cannot determine good segments from the context, return a single comprehe
                     learningPipeline.youtubePlayer.destroy();
                     learningPipeline.youtubePlayer = null;
                 }
+                // Skip all remaining segments and go to quiz
+                currentSegmentPlayIndex = currentSegments.length;
                 learningPipeline.showQuiz(); 
             }
         });
