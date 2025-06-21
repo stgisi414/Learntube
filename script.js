@@ -82,21 +82,47 @@ document.addEventListener('DOMContentLoaded', () => {
             return await this.makeRequest(prompt, { temperature: 0.8 });
         }
 
-        async findVideoSegments(videoTitle, transcript, learningPoint) {
-            log(`SEGMENTER: Analyzing transcript for "${learningPoint}"`);
-            if (!transcript) {
-                log("SEGMENTER WARN: No transcript provided. Returning a single 3-minute fallback segment.");
-                return [{ startTime: 0, endTime: 180, reason: "Full video playback (no transcript available)." }];
-            }
-            const prompt = `You are a precise video editor. Analyze this transcript for a video titled "${videoTitle}" to find the best segments that teach about: "${learningPoint}".\n\nTranscript (first 15,000 chars):\n"""\n${transcript.substring(0, 15000)}\n"""\n\nRules:\n1. Find all distinct, relevant segments based on the transcript.\n2. Each segment MUST be 20-90 seconds long.\n3. The TOTAL duration of all segments MUST be between 45 and 240 seconds.\n4. Prioritize parts where the speaker clearly explains the learning point.\n\nReturn ONLY a valid JSON array of objects like [{"startTime": 120, "endTime": 165, "reason": "Explains core definition."}], or an empty array if no good segments are found.`;
-            const response = await this.makeRequest(prompt, { temperature: 0.2, maxOutputTokens: 1024 });
+        async findVideoSegments(videoTitle, youtubeUrl, learningPoint) {
+            log(`SEGMENTER: Analyzing YouTube video for "${learningPoint}"`);
+            log(`SEGMENTER: Video URL: ${youtubeUrl}`);
+            
+            const prompt = `You are an expert video analyst. I need you to analyze this YouTube video and identify the most relevant segments for learning about: "${learningPoint}"
+
+Video Details:
+- Title: "${videoTitle}"
+- YouTube URL: ${youtubeUrl}
+- Learning Focus: "${learningPoint}"
+
+Your task:
+1. Based on the video title and URL context, predict where the most relevant content would be located
+2. Educational videos typically follow patterns - intro (0-30s), main content (30s-80% of video), conclusion (final 20%)
+3. For the learning point "${learningPoint}", identify 1-3 key segments where this topic would be most thoroughly explained
+
+Requirements:
+- Each segment MUST be 30-120 seconds long
+- Total duration of all segments should be 60-240 seconds
+- Focus on the most educational portions
+- Avoid intro/outro fluff unless they contain crucial information
+
+Return ONLY a valid JSON array of objects like:
+[
+  {"startTime": 45, "endTime": 135, "reason": "Main explanation of core concepts"},
+  {"startTime": 180, "endTime": 240, "reason": "Practical examples and applications"}
+]
+
+If you cannot determine good segments from the context, return a single comprehensive segment:
+[{"startTime": 30, "endTime": 210, "reason": "Core educational content"}]`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 1024 });
             const segments = this.parseJSONResponse(response);
+            
             if (Array.isArray(segments) && segments.length > 0) {
-                log(`SEGMENTER: Found ${segments.length} high-quality segments.`);
+                log(`SEGMENTER: Found ${segments.length} predicted segments.`);
                 return segments;
             } else {
-                log("SEGMENTER WARN: AI could not find specific segments. Creating a fallback.");
-                return [{ startTime: 0, endTime: 180, reason: "Full video fallback." }];
+                log("SEGMENTER WARN: AI could not predict segments. Creating a smart fallback.");
+                // Smart fallback based on typical educational video structure
+                return [{ startTime: 30, endTime: 210, reason: "Main educational content (predicted)" }];
             }
         }
 
@@ -109,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async generateQuiz(learningPoint, transcript) {
             log(`GEMINI: Generating quiz for "${learningPoint}"`);
-            const prompt = `Based on the learning point "${learningPoint}" and this transcript content, create a single multiple-choice quiz question. Return ONLY valid JSON with format: {"question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}`;
+            const prompt = `Create a single multiple-choice quiz question about "${learningPoint}". Make it educational and test understanding of key concepts. Return ONLY valid JSON with format: {"question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}`;
             const response = await this.makeRequest(prompt, { temperature: 0.7 });
             return this.parseJSONResponse(response);
         }
@@ -624,63 +650,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // STEP 5: Check video for transcript (without YouTube Data API)
+        // STEP 5: Direct to segment generation using video URL context
         async handleVideoSelection(video) {
-            log("FLOW: Step 5 - Check transcript availability");
-            updateStatus('checking_transcript');
-            updateCanvasVisuals('🔍 Checking transcript availability...', `"${video.title}"`);
+            log("FLOW: Step 5 - Proceeding with URL-based segment analysis");
+            updateStatus('generating_segments');
+            updateCanvasVisuals('🎯 Analyzing video for learning segments...', `"${video.title}"`);
 
-            const hasTranscript = await this.videoSourcer.checkTranscriptAvailable(video.youtubeId);
-            
-            if (!hasTranscript) {
-                log("FLOW: No transcript available, removing video and trying again");
-                currentVideoChoices = currentVideoChoices.filter(v => v.youtubeId !== video.youtubeId);
-                
-                if (currentVideoChoices.length > 0) {
-                    const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-                    displayVideoChoices(currentVideoChoices.slice(0, 5), learningPoint);
-                } else {
-                    displayError("No videos with transcripts found. Skipping to next segment.");
-                    setTimeout(() => this.processNextLearningPoint(), 3000);
-                }
-                return;
-            }
-
-            this.loadTranscript(video);
-        }
-
-        // STEP 6: Load transcript with Supabase
-        async loadTranscript(video) {
-            log("FLOW: Step 6 - Load transcript");
-            updateStatus('loading_transcript');
-            updateCanvasVisuals('📄 Loading transcript...', `"${video.title}"`);
-
-            currentTranscript = await this.videoSourcer.getTranscript(video.youtubeId);
-            
-            if (!currentTranscript) {
-                displayError("Failed to load transcript. Trying another video.");
-                currentVideoChoices = currentVideoChoices.filter(v => v.youtubeId !== video.youtubeId);
-                
-                if (currentVideoChoices.length > 0) {
-                    const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-                    displayVideoChoices(currentVideoChoices.slice(0, 5), learningPoint);
-                } else {
-                    setTimeout(() => this.processNextLearningPoint(), 3000);
-                }
-                return;
-            }
-
+            // Skip transcript loading entirely and use URL context
             this.generateSegments(video);
         }
 
-        // STEP 7: Generate segments from transcript
+        // STEP 7: Generate segments from video URL
         async generateSegments(video) {
             log("FLOW: Step 7 - Generate segments");
             updateStatus('generating_segments');
-            updateCanvasVisuals('✂️ Finding best segments...', 'Analyzing transcript content...');
+            updateCanvasVisuals('✂️ Finding best segments...', 'Analyzing video content...');
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-            currentSegments = await this.gemini.findVideoSegments(video.title, currentTranscript, learningPoint);
+            const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
+            currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint);
             currentSegmentPlayIndex = 0;
 
             this.playSegments(video);
@@ -751,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-            const quiz = await this.gemini.generateQuiz(learningPoint, currentTranscript);
+            const quiz = await this.gemini.generateQuiz(learningPoint, null);
             
             if (quiz) {
                 this.displayQuiz(quiz);
