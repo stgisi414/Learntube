@@ -116,23 +116,48 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) { logError('Error fetching transcript:', error); return null; }
         }
         async searchYouTube(query) {
-            log(`SEARCH API: Searching for: "${query}"`);
-            const searchParams = new URLSearchParams({ key: YOUTUBE_API_KEY, cx: CSE_ID, q: query, num: 5 });
+            log(`SEARCH API: Searching YouTube Data API for: "${query}"`);
+            const Youtube_API_URL = 'https://www.googleapis.com/youtube/v3/search';
+
+            // Note: The YOUTUBE_API_KEY from the top of the file is used here.
+            const searchParams = new URLSearchParams({
+                part: 'snippet',
+                q: query,
+                key: YOUTUBE_API_KEY,
+                type: 'video',
+                videoCaption: 'closedCaption', // CRITICAL FIX: Only find videos with captions.
+                maxResults: 5,
+                order: 'relevance'
+            });
+
             try {
-                const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
-                if (!response.ok) { throw new Error(`Custom Search API failed: ${response.status}`); }
+                const response = await fetch(`${Youtube_API_URL}?${searchParams}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    // Provide a more detailed error message from the API itself.
+                    throw new Error(`YouTube Data API failed: ${response.status} - ${errorData.error.message}`);
+                }
                 const data = await response.json();
+
                 if (!data.items) return [];
+
+                // Transform the v3 search results into the format the app expects.
                 return data.items.map(item => {
-                    try {
-                        const url = new URL(item.link);
-                        const videoId = url.searchParams.get('v');
-                        if (!videoId) return null;
-                        return { youtubeId: videoId, title: item.title, description: item.snippet, thumbnail: item.pagemap?.cse_thumbnail?.[0]?.src || '' };
-                    } catch (e) { return null; }
+                    if (item.id && item.id.videoId) {
+                        return {
+                            youtubeId: item.id.videoId,
+                            title: item.snippet.title,
+                            description: item.snippet.description,
+                            thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || ''
+                        };
+                    }
+                    return null;
                 }).filter(Boolean);
+
             } catch (error) {
-                logError("YouTube Search Failed:", error);
+                logError("Youtube Failed:", error);
+                // Propagate the error to the UI so the user isn't left wondering.
+                handleVideoError(error); 
                 return [];
             }
         }
@@ -153,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.videoSourcer = new VideoSourcer();
             this.speechEngine = new SpeechEngine();
             this.youtubePlayer = null;
+            this.currentVideoChoices = []; // <-- ADD THIS LINE
         }
 
         async start(topic) {
@@ -161,26 +187,64 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawPlan = await this.gemini.generateLessonPlan(topic);
             hideLoading();
 
-            if (rawPlan && typeof rawPlan === 'object') {
-                const keys = Object.keys(rawPlan);
-                if (keys.length === 1 && typeof rawPlan[keys[0]] === 'object' && rawPlan[keys[0]].Apprentice) {
-                    log(`NOTE: Correcting nested lesson plan under key "${keys[0]}".`);
-                    currentLessonPlan = rawPlan[keys[0]];
-                } else {
-                    currentLessonPlan = rawPlan;
-                }
+            // --- ADAPTER / TRANSFORMER FUNCTIONS ---
 
-                if (typeof currentLessonPlan !== 'object' || !currentLessonPlan.Apprentice) {
-                    displayError("The AI returned a lesson plan in an unknown format. Please try again.");
-                    logError("Processed lesson plan is invalid.", currentLessonPlan);
-                    ui.curateButton.disabled = false;
-                    return;
+            /**
+             * Adapter for the original, simple format, e.g., { "Apprentice": [...] }.
+             * Recursively searches for the lesson plan object.
+             * @param {object} obj The object to search.
+             * @returns {object|null} The parsed lesson plan or null.
+             */
+            const findSimpleLessonPlan = (obj) => {
+                if (!obj || typeof obj !== 'object') return null;
+                const apprenticeKey = Object.keys(obj).find(k => k.toLowerCase() === 'apprentice');
+                if (apprenticeKey && Array.isArray(obj[apprenticeKey])) {
+                    if (obj.Journeyman || obj.Senior || obj.Master) return obj;
                 }
-                
+                for (const key of Object.keys(obj)) {
+                    const potentialPlan = findSimpleLessonPlan(obj[key]);
+                    if (potentialPlan) return potentialPlan;
+                }
+                return null;
+            };
+
+            /**
+             * Adapter for the new, complex format, e.g., { curriculum: { levels: [...] } }.
+             * Transforms the complex structure into the simple format our app needs.
+             * @param {object} plan The raw plan from the AI.
+             * @returns {object|null} The transformed lesson plan or null.
+             */
+            const transformComplexLessonPlan = (plan) => {
+                try {
+                    if (plan && plan.curriculum && Array.isArray(plan.curriculum.levels)) {
+                        const transformed = {};
+                        plan.curriculum.levels.forEach(levelData => {
+                            if (levelData.level && Array.isArray(levelData.learningPoints)) {
+                                transformed[levelData.level] = levelData.learningPoints.map(lp => lp.point).filter(Boolean);
+                            }
+                        });
+                        // A valid transformation must have produced an "Apprentice" level.
+                        return transformed.Apprentice ? transformed : null;
+                    }
+                    return null;
+                } catch (e) {
+                    logError("Error during complex plan transformation", e);
+                    return null;
+                }
+            };
+
+            // --- PARSING STRATEGY ---
+            // First, try the adapter for the new complex format. If it fails, fall back to the simple one.
+            currentLessonPlan = transformComplexLessonPlan(rawPlan) || findSimpleLessonPlan(rawPlan);
+
+            if (currentLessonPlan) {
+                log("Successfully parsed lesson plan using one of the available adapters.", currentLessonPlan);
                 currentLessonPlan.topic = topic;
                 displayLevelSelection();
             } else {
-                displayError("Failed to generate a valid lesson plan. The AI may be temporarily unavailable.");
+                displayError("The AI returned a lesson plan in an unexpected format that could not be parsed.");
+                const rawResponseForDebugging = JSON.stringify(rawPlan, null, 2);
+                logError("Could not parse the lesson plan with any known adapter. Full raw AI response below:", rawResponseForDebugging);
                 ui.curateButton.disabled = false;
             }
         }
@@ -223,27 +287,95 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (potentialVideos.length === 0) {
+            this.currentVideoChoices = potentialVideos; // <-- ADD THIS LINE
+
+            if (this.currentVideoChoices.length === 0) {
                 handleVideoError(new Error("No videos found after searching all queries."));
                 return;
             }
-            displayVideoChoices(potentialVideos.slice(0, 5), learningPoint);
+            displayVideoChoices(this.currentVideoChoices.slice(0, 5), learningPoint);
         }
         
         async handleVideoSelection(video) {
+            updateStatus("validating_video");
+            updateCanvasVisuals(`Verifying video has captions...`, `"${video.title}"`);
+
+            // Validate the video for captions using a temporary player
+            const hasCaptions = await new Promise((resolve) => {
+                const tempPlayerId = 'temp-validation-player';
+                let tempContainer = document.getElementById(tempPlayerId);
+                if (!tempContainer) {
+                    tempContainer = document.createElement('div');
+                    tempContainer.id = tempPlayerId;
+                    tempContainer.style.position = 'absolute';
+                    tempContainer.style.left = '-9999px'; // Hide it off-screen
+                    document.body.appendChild(tempContainer);
+                }
+
+                const validationPlayer = new YT.Player(tempPlayerId, {
+                    videoId: video.youtubeId,
+                    events: {
+                        'onReady': () => {
+                            let captionsAvailable = false;
+                            try {
+                                // Check the internal config as you specified.
+                                if (window.ytplayer && window.ytplayer.config && window.ytplayer.config.args && window.ytplayer.config.args.caption_tracks) {
+                                    captionsAvailable = true;
+                                }
+                            } catch (e) { /* ignore error */ }
+                            log(`VALIDATOR: Caption check for "${video.title}": ${captionsAvailable}`);
+                            validationPlayer.destroy();
+                            resolve(captionsAvailable);
+                        },
+                        'onError': () => {
+                            logError(`VALIDATOR: Player error during caption check for ${video.youtubeId}.`);
+                            validationPlayer.destroy();
+                            resolve(false);
+                        }
+                    }
+                });
+                 // Add a timeout to prevent the app from getting stuck
+                setTimeout(() => {
+                    try { validationPlayer.destroy(); } catch(e){}
+                    resolve(false);
+                }, 8000);
+            });
+
+            // If the video does NOT have captions, remove it from the list and show the choices again.
+            if (!hasCaptions) {
+                logError(`Video rejected: "${video.title}" does not have captions.`);
+                displayError(`Video "${video.title}" has no captions. Please select another.`);
+
+                this.currentVideoChoices = this.currentVideoChoices.filter(v => v.youtubeId !== video.youtubeId);
+
+                if (this.currentVideoChoices.length > 0) {
+                    const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
+                    displayVideoChoices(this.currentVideoChoices, learningPoint);
+                } else {
+                    handleVideoError(new Error("No other videos with captions were found."));
+                }
+                return; 
+            }
+
+            // If the video DOES have captions, proceed with the original logic.
             updateStatus("fetching_transcript");
             document.getElementById('youtube-player-container').innerHTML = '';
             updateCanvasVisuals('Fetching transcript...', `Please wait while we analyze "${video.title}"`);
-            
+
             const transcript = await this.videoSourcer.getTranscript(video.youtubeId);
+
+            if (!transcript) {
+                 handleVideoError(new Error("Transcript fetch failed, though captions were detected."));
+                 return;
+            }
+
             updateStatus("finding_segments");
             updateCanvasVisuals('Finding best segments...', `Using the transcript to find key moments.`);
-            
+
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             const segments = await this.gemini.findVideoSegments(video.title, transcript, learningPoint);
 
-            const finalVideoInfo = { ...video, segments: segments };
-            this.createYouTubePlayer(finalVideoInfo);
+            this.createYouTubePlayer({ ...video, segments });
         }
 
         createYouTubePlayer(videoInfo) {
