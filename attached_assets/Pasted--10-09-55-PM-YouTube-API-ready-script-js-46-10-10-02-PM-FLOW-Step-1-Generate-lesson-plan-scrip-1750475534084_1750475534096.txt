@@ -1,0 +1,115 @@
+[10:09:55 PM] YouTube API ready
+script.js:46 [10:10:02 PM] FLOW: Step 1 - Generate lesson plan
+script.js:46 [10:10:02 PM] GEMINI: Generating lesson plan...
+script.js:46 [10:10:12 PM] FLOW: Starting level Journeyman
+script.js:46 [10:10:12 PM] FLOW: Step 3 - Play narration
+script.js:46 [10:10:12 PM] STATE: narrating
+script.js:46 [10:10:12 PM] GEMINI: Generating narration for "Biden's role as Vice President in the Obama administration"
+script.js:46 [10:10:35 PM] FLOW: Step 2 - Search educational videos with transcripts
+script.js:46 [10:10:35 PM] STATE: searching_videos
+script.js:46 [10:10:35 PM] GEMINI: Generating search queries for "Biden's role as Vice President in the Obama administration"
+script.js:46 [10:10:36 PM] SEARCH: Searching for educational content: "Biden VP role"
+script.js:46 [10:10:38 PM] SEARCH: Found 15 educational videos
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for D7flxHdmfTk
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for digx7kMpc7E
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for k7EGovk60pQ
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for OyruZFSJMSs
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for cqS55obOG2M
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for -g5qcBAjPeg
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for F7LZtNQGXlY
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for LIjsFE4R-LE
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for u3PVGpuZPhw
+script.js:46 [10:10:38 PM] TRANSCRIPT CHECK: Checking availability for a0Cn1uAd6Zs
+script.js:218 
+            
+            
+           GET https://api.supadata.ai/v1/youtube/transcript?videoId=D7flxHdmfTk 429 (Too Many Requests)
+checkTranscriptAvailable @ script.js:218
+(anonymous) @ script.js:452
+searchVideos @ script.js:451
+await in searchVideos
+onComplete @ script.js:411
+audioElement.onended @ script.js:295Understand this error
+script.js:218 
+            
+            
+           GET https://api.supadata.ai/v1/youtube/transcript?videoId=cqS55obOG2M 429 (Too Many Requests)
+checkTranscriptAvailable @ script.js:218
+(anonymous) @ script.js:452
+searchVideos @ script.js:451
+await in searchVideos
+onComplete @ script.js:411
+audioElement.onended @ script.js:295Understand this error
+script.js:218 
+            
+            
+           GET https://api.supadata.ai/v1/youtube/transcript?videoId=u3PVGpuZPhw 429 (Too Many Requests)
+checkTranscriptAvailable @ script.js:218
+(anonymous) @ script.js:452
+searchVideos @ script.js:451
+await in searchVideos
+onComplete @ script.js:411
+audioElement.onended @ script.js:295Understand this error
+script.js:218 
+            
+            
+           GET https://api.supadata.ai/v1/youtube/transcript?videoId=LIjsFE4R-LE 429 (Too Many Requests)
+checkTranscriptAvailable @ script.js:218
+(anonymous) @ script.js:452
+searchVideos @ script.js:451
+await in searchVideos
+onComplete @ script.js:411
+audioElement.onended @ script.js:295Understand this error
+script.js:218 
+            
+            
+           GET https://api.supadata.ai/v1/youtube/transcript?videoId=F7LZtNQGXlY 429 (Too Many Requests)
+checkTranscriptAvailable @ script.js:218
+(anonymous) @ script.js:452
+searchVideos @ script.js:451
+await in searchVideos
+onComplete @ script.js:411
+audioElement.onended @ script.js:295Understand this error
+script.js:218 
+            
+            
+           GET https://api.supadata.ai/v1/youtube/transcript?videoId=a0Cn1uAd6Zs 429 (Too Many Requests)
+checkTranscriptAvailable @ script.js:218
+(anonymous) @ script.js:452
+searchVideos @ script.js:451
+await in searchVideos
+onComplete @ script.js:411
+audioElement.onended @ script.js:295Understand this error
+script.js:218 
+            
+            
+           GET https://api.supadata.ai/v1/youtube/transcript?videoId=k7EGovk60pQ 429 (Too Many Requests)
+checkTranscriptAvailable @ script.js:218
+(anonymous) @ script.js:452
+searchVideos @ script.js:451
+await in searchVideos
+onComplete @ script.js:411
+audioElement.onended @ script.js:295Understand this error
+script.js:218 
+            
+            
+           GET https://api.supadata.ai/v1/youtube/transcript?videoId=OyruZFSJMSs 429 (Too Many Requests)
+checkTranscriptAvailable @ script.js:218
+(anonymous) @ script.js:452
+searchVideos @ script.js:451
+await in searchVideos
+onComplete @ script.js:411
+audioElement.onended @ script.js:295Understand this error
+script.js:218 
+            
+            
+           GET https://api.supadata.ai/v1/youtube/transcript?videoId=-g5qcBAjPeg 429 (Too Many Requests)
+checkTranscriptAvailable @ script.js:218
+(anonymous) @ script.js:452
+searchVideos @ script.js:451
+await in searchVideos
+onComplete @ script.js:411
+audioElement.onended @ script.js:295Understand this error
+script.js:46 [10:10:43 PM] FLOW: Step 4B - Creating fallback educational content
+script.js:46 [10:10:43 PM] STATE: generating_segments
+script.js:46 [10:10:43 PM] GEMINI: Generating detailed explanation for "Biden's role as Vice President in the Obama administration"
