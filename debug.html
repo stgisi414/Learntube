@@ -143,6 +143,87 @@
         searchBtn.addEventListener('click', searchAndPlay);
         searchBtn.disabled = true; // Disabled until API is ready
 
+        let currentUtterance = null;
+        let speechState = 'idle'; // 'idle', 'speaking', 'paused', 'stopped'
+        let originalText = '';
+
+        function testSpeechSynthesis() {
+            const text = document.getElementById('speechText').value || 'This is a test of speech synthesis functionality.';
+            originalText = text;
+
+            // Stop any current speech
+            if (speechSynthesis.speaking || speechSynthesis.paused) {
+                speechSynthesis.cancel();
+            }
+
+            currentUtterance = new SpeechSynthesisUtterance(text);
+            currentUtterance.rate = 1;
+            currentUtterance.pitch = 1;
+            currentUtterance.volume = 1;
+
+            currentUtterance.onstart = () => {
+                speechState = 'speaking';
+                log('Speech started');
+                document.getElementById('speechStatus').textContent = 'Speaking...';
+            };
+
+            currentUtterance.onend = () => {
+                speechState = 'idle';
+                log('Speech ended naturally');
+                document.getElementById('speechStatus').textContent = 'Speech completed';
+            };
+
+            currentUtterance.onerror = (event) => {
+                speechState = 'idle';
+                log(`Speech error: ${event.error}`);
+                document.getElementById('speechStatus').textContent = `Speech error: ${event.error}`;
+            };
+
+            speechSynthesis.speak(currentUtterance);
+            log('Speech synthesis started');
+        }
+
+        function pauseSpeech() {
+            if (speechState === 'speaking' && speechSynthesis.speaking) {
+                speechSynthesis.pause();
+                speechState = 'paused';
+                log('Speech paused');
+                document.getElementById('speechStatus').textContent = 'Speech paused';
+            } else {
+                log('Cannot pause - speech not currently speaking');
+                log(`Current state: ${speechState}, speechSynthesis.speaking: ${speechSynthesis.speaking}`);
+            }
+        }
+
+        function resumeSpeech() {
+            if (speechState === 'paused' && speechSynthesis.paused) {
+                speechSynthesis.resume();
+                speechState = 'speaking';
+                log('Speech resumed');
+                document.getElementById('speechStatus').textContent = 'Speaking...';
+            } else if (speechState === 'stopped' && originalText) {
+                // Restart from beginning if stopped
+                log('Restarting speech from beginning');
+                testSpeechSynthesis();
+            } else {
+                log('Cannot resume - no paused speech available');
+                log(`Current state: ${speechState}, speechSynthesis.paused: ${speechSynthesis.paused}`);
+            }
+        }
+
+        function stopSpeech() {
+            try {
+                speechSynthesis.cancel();
+                speechState = 'stopped';
+                log('Speech stopped and cleared');
+                document.getElementById('speechStatus').textContent = 'Speech stopped';
+            } catch (error) {
+                speechState = 'idle';
+                log(`Error stopping speech: ${error.message}`);
+                document.getElementById('speechStatus').textContent = `Stop error: ${error.message}`;
+            }
+        }
+
     </script>
 </body>
 </html>
