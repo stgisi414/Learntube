@@ -121,53 +121,71 @@ document.addEventListener('DOMContentLoaded', () => {
         async searchYouTube(query) {
             log(`SEARCH: Searching for educational content: "${query}"`);
             
-            // Extract key terms from complex queries
-            const extractKeyTerms = (text) => {
-                // Remove common filler words and extract main concepts
-                const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'their', 'during', 'under'];
-                const words = text.toLowerCase()
-                    .replace(/[^\w\s]/g, ' ')
-                    .split(/\s+/)
-                    .filter(word => word.length > 3 && !stopWords.includes(word));
-                
-                // Return top 3-4 most relevant terms
-                return words.slice(0, 4).join(' ');
-            };
-
-            const keyTerms = extractKeyTerms(query);
-            
-            // Simpler, more effective search queries
-            const educationalQueries = [
-                `${keyTerms} explained site:youtube.com`,
-                `${keyTerms} tutorial site:youtube.com`,
-                `${keyTerms} lesson site:youtube.com`,
-                `${keyTerms} documentary site:youtube.com`,
-                `"${keyTerms}" education site:youtube.com`
+            // For Filmot.com, use simpler, direct YouTube search queries
+            const filmotQueries = [
+                query,  // Direct query first
+                `${query} explained`,
+                `${query} tutorial`,
+                `how to ${query}`,
+                `${query} guide`
             ];
 
             let allResults = [];
             
-            for (const searchQuery of educationalQueries) {
+            for (const searchQuery of filmotQueries) {
                 const searchParams = new URLSearchParams({
                     key: YOUTUBE_API_KEY,
                     cx: CSE_ID,
-                    q: searchQuery
+                    q: searchQuery,
+                    num: 10  // Request more results per query
                 });
 
                 try {
+                    log(`SEARCH: Trying query: "${searchQuery}"`);
                     const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
-                    if (!response.ok) continue;
+                    
+                    log(`SEARCH: Response status: ${response.status}`);
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        log(`SEARCH: API Error: ${response.status} - ${errorText}`);
+                        continue;
+                    }
                     
                     const data = await response.json();
-                    if (!data.items) continue;
+                    log(`SEARCH: Response data:`, data);
+                    
+                    if (!data.items || data.items.length === 0) {
+                        log(`SEARCH: No items found for "${searchQuery}"`);
+                        continue;
+                    }
+
+                    log(`SEARCH: Found ${data.items.length} raw results for "${searchQuery}"`);
 
                     const results = data.items.map(item => {
-                        const url = new URL(item.link);
-                        const videoId = url.searchParams.get('v');
+                        log(`SEARCH: Processing item:`, item);
+                        
+                        // Filmot.com might structure URLs differently
+                        let videoId = null;
+                        
+                        // Try multiple URL patterns
+                        if (item.link) {
+                            try {
+                                const url = new URL(item.link);
+                                videoId = url.searchParams.get('v') || 
+                                         url.pathname.split('/').pop() ||
+                                         (item.link.match(/[?&]v=([^&]+)/) || [])[1];
+                            } catch (e) {
+                                // If URL parsing fails, try regex
+                                const match = item.link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+                                videoId = match ? match[1] : null;
+                            }
+                        }
+                        
                         if (videoId) {
                             // Score videos based on educational indicators
                             let score = 0;
-                            const title = item.title.toLowerCase();
+                            const title = (item.title || '').toLowerCase();
                             const description = (item.snippet || '').toLowerCase();
                             
                             // Boost educational keywords
@@ -180,24 +198,30 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (title.includes('reaction') || title.includes('funny') || title.includes('prank')) score -= 2;
                             if (title.includes('compilation') || title.includes('fails') || title.includes('meme')) score -= 2;
 
-                            return {
+                            const result = {
                                 youtubeId: videoId,
-                                title: item.title,
+                                title: item.title || 'Untitled',
                                 description: item.snippet || '',
                                 thumbnail: item.pagemap?.cse_thumbnail?.[0]?.src || '',
                                 educationalScore: score
                             };
+                            
+                            log(`SEARCH: Created result:`, result);
+                            return result;
+                        } else {
+                            log(`SEARCH: Could not extract video ID from:`, item.link);
                         }
                         return null;
                     }).filter(Boolean);
 
+                    log(`SEARCH: Processed ${results.length} valid results`);
                     allResults.push(...results);
                     
                     // Stop early if we have enough good results
-                    if (allResults.length >= 20) break;
+                    if (allResults.length >= 15) break;
                     
                 } catch (error) {
-                    log(`Search query failed: ${searchQuery}`);
+                    log(`SEARCH: Query failed for "${searchQuery}":`, error);
                     continue;
                 }
             }
@@ -208,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .sort((a, b) => b.educationalScore - a.educationalScore)
                 .slice(0, 15);
 
-            log(`SEARCH: Found ${uniqueResults.length} educational videos`);
+            log(`SEARCH: Found ${uniqueResults.length} educational videos total`);
             return uniqueResults;
         }
 
