@@ -148,7 +148,8 @@ Return ONLY the JSON, no other text.`;
             log(`SEGMENTER: Analyzing YouTube video for "${learningPoint}"`);
             log(`SEGMENTER: Video URL: ${youtubeUrl}`);
             
-            const prompt = `You are an expert video analyst. I need you to analyze this YouTube video and identify the most relevant segments for learning about: "${learningPoint}"
+            try {
+                const prompt = `You are an expert video analyst. I need you to analyze this YouTube video and identify the most relevant segments for learning about: "${learningPoint}"
 
 Video Details:
 - Title: "${videoTitle}"
@@ -175,17 +176,37 @@ Return ONLY a valid JSON array of objects like:
 If you cannot determine good segments from the context, return a single comprehensive segment:
 [{"startTime": 30, "endTime": 210, "reason": "Core educational content"}]`;
 
-            const response = await this.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 1024 });
-            const segments = this.parseJSONResponse(response);
-            
-            if (Array.isArray(segments) && segments.length > 0) {
-                log(`SEGMENTER: Found ${segments.length} predicted segments.`);
-                return segments;
-            } else {
-                log("SEGMENTER WARN: AI could not predict segments. Creating a smart fallback.");
-                // Smart fallback based on typical educational video structure
-                return [{ startTime: 30, endTime: 210, reason: "Main educational content (predicted)" }];
+                const response = await this.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 1024 });
+                log(`SEGMENTER: Raw AI response:`, response);
+                
+                const segments = this.parseJSONResponse(response);
+                log(`SEGMENTER: Parsed segments:`, segments);
+                
+                if (Array.isArray(segments) && segments.length > 0) {
+                    // Validate segment format
+                    const validSegments = segments.filter(seg => 
+                        seg && typeof seg.startTime === 'number' && typeof seg.endTime === 'number' && 
+                        seg.startTime < seg.endTime && seg.startTime >= 0
+                    );
+                    
+                    if (validSegments.length > 0) {
+                        log(`SEGMENTER: Found ${validSegments.length} valid segments.`);
+                        return validSegments;
+                    }
+                }
+                
+                log("SEGMENTER WARN: AI response invalid or empty. Using fallback.");
+                return this.createFallbackSegments();
+                
+            } catch (error) {
+                logError("SEGMENTER ERROR:", error);
+                return this.createFallbackSegments();
             }
+        }
+        
+        createFallbackSegments() {
+            // Smart fallback based on typical educational video structure
+            return [{ startTime: 30, endTime: 180, reason: "Main educational content (fallback)" }];
         }
 
         async generateDetailedExplanation(learningPoint) {
@@ -743,12 +764,35 @@ If you cannot determine good segments from the context, return a single comprehe
             updateStatus('generating_segments');
             updateCanvasVisuals('✂️ Finding best segments...', 'Analyzing video content...');
 
-            const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-            const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
-            currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint);
-            currentSegmentPlayIndex = 0;
+            try {
+                const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
+                const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
+                
+                log(`Generating segments for: ${learningPoint}`);
+                currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint);
+                
+                if (!currentSegments || currentSegments.length === 0) {
+                    log('No segments generated, creating default segment');
+                    currentSegments = [{ startTime: 30, endTime: 180, reason: "Default educational segment" }];
+                }
+                
+                log(`Generated ${currentSegments.length} segments:`, currentSegments);
+                currentSegmentPlayIndex = 0;
 
-            this.playSegments(video);
+                updateCanvasVisuals('🎬 Starting video playback...', 'Loading player...');
+                
+                // Add a small delay to show the transition message
+                setTimeout(() => {
+                    this.playSegments(video);
+                }, 1000);
+                
+            } catch (error) {
+                logError('Failed to generate segments:', error);
+                // Fallback to default segment
+                currentSegments = [{ startTime: 30, endTime: 180, reason: "Fallback segment due to error" }];
+                currentSegmentPlayIndex = 0;
+                this.playSegments(video);
+            }
         }
 
         // STEP 8: Play segments
