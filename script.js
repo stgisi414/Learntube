@@ -66,8 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async generateSearchQueries(learningPoint, topic) {
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
-            const prompt = `Generate 5 highly-specific, educational YouTube search queries for "${learningPoint}" within the broader topic of "${topic}". Focus on "how-to", "tutorial", "explained", "documentary", and "academic lecture". Avoid generic or irrelevant terms. Return ONLY a JSON array.`;
-            const response = await this.makeRequest(prompt, { temperature: 0.6 });
+            const prompt = `Generate 3 simple, effective YouTube search queries for "${learningPoint}". Each query should be 2-4 words maximum. Focus on the core concept only. Examples: "ACA explained", "financial crisis", "foreign policy". Return ONLY a JSON array of short strings.`;
+            const response = await this.makeRequest(prompt, { temperature: 0.3 });
             return this.parseJSONResponse(response);
         }
 
@@ -121,13 +121,28 @@ document.addEventListener('DOMContentLoaded', () => {
         async searchYouTube(query) {
             log(`SEARCH: Searching for educational content: "${query}"`);
             
-            // Enhanced search queries with educational focus
+            // Extract key terms from complex queries
+            const extractKeyTerms = (text) => {
+                // Remove common filler words and extract main concepts
+                const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'their', 'during', 'under'];
+                const words = text.toLowerCase()
+                    .replace(/[^\w\s]/g, ' ')
+                    .split(/\s+/)
+                    .filter(word => word.length > 3 && !stopWords.includes(word));
+                
+                // Return top 3-4 most relevant terms
+                return words.slice(0, 4).join(' ');
+            };
+
+            const keyTerms = extractKeyTerms(query);
+            
+            // Simpler, more effective search queries
             const educationalQueries = [
-                `"${query}" tutorial explanation site:youtube.com`,
-                `"${query}" lecture university site:youtube.com`,
-                `"${query}" how to learn site:youtube.com`,
-                `"${query}" course lesson site:youtube.com`,
-                `"${query}" explained simply site:youtube.com`
+                `${keyTerms} explained site:youtube.com`,
+                `${keyTerms} tutorial site:youtube.com`,
+                `${keyTerms} lesson site:youtube.com`,
+                `${keyTerms} documentary site:youtube.com`,
+                `"${keyTerms}" education site:youtube.com`
             ];
 
             let allResults = [];
