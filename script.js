@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSegmentIndex = -1;
     let lessonState = 'idle'; // 'idle', 'narrating', 'choosing_video', 'searching_videos', 'generating_segments', 'playing_video', 'paused', 'quiz', 'summary', 'complete'
     let currentVideoChoices = [];
-    let currentTranscript = null;
     let currentSegments = [];
     let currentSegmentPlayIndex = 0;
 
@@ -16,9 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         curateButton: document.getElementById('curate-button'),
         inputSection: document.getElementById('input-section'),
         loadingIndicator: document.getElementById('loading-indicator'),
-        loadingMessage: document.getElementById('loading-message'),
         levelSelection: document.getElementById('level-selection'),
-        levelButtonsContainer: document.getElementById('level-buttons-container'),
         learningCanvasContainer: document.getElementById('learning-canvas-container'),
         lessonProgressContainer: document.getElementById('lesson-progress-container'),
         canvas: document.getElementById('lessonCanvas'),
@@ -34,8 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
         errorDisplay: document.getElementById('error-display'),
         errorMessage: document.getElementById('error-message'),
         headerDescription: document.querySelector('.header-description'),
-        headerFeatures: document.querySelector('.header-features'),
         youtubePlayerContainer: document.getElementById('youtube-player-container'),
+        progressSpacer: document.getElementById('progress-spacer'),
+        viewContainer: document.getElementById('view-container'),
     };
     const canvasCtx = ui.canvas.getContext('2d');
 
@@ -69,36 +67,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return content.trim();
         }
         parseJSONResponse(response) { if (!response) return null; try { let cleanedResponse = response.trim().replace(/```json\s*/g, '').replace(/```\s*/g, ''); const jsonMatch = cleanedResponse.match(/(\{[\s\S]*\}|\[[\s\S]*\])/); if (jsonMatch) { return JSON.parse(jsonMatch[0]); } logError(`No valid JSON found in response:`, response); return null; } catch (error) { logError(`Failed to parse JSON:`, error, `Raw response: "${response}"`); return null; } }
-
         async generateLessonPlan(topic) {
             log("GEMINI: Generating lesson plan...");
             const prompt = `Create a learning plan for "${topic}".
 - Create 4 levels: Apprentice, Journeyman, Senior, Master.
 - Set the number of learning points for each level: Apprentice (3), Journeyman (5), Senior (7), Master (9).
 - Keep topics concise and educational.
-
-Example format:
-{
-  "Apprentice": ["Point 1", "Point 2", "Point 3"],
-  "Journeyman": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5"],
-  "Senior": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5", "Point 6", "Point 7"],
-  "Master": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5", "Point 6", "Point 7", "Point 8", "Point 9"]
-}
-
-Topic: "${topic}"
-
-Return ONLY the valid JSON, no other text.`;
+- Return ONLY the valid JSON, no other text.`;
             const response = await this.makeRequest(prompt);
             return this.parseJSONResponse(response);
         }
-
         async generateSearchQueries(learningPoint) {
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
-            const prompt = `Generate 3 simple, effective Youtube queries for "${learningPoint}". Each query should be 2-5 words. Focus on finding educational content like tutorials, explanations, or documentaries. Return ONLY a JSON array of strings. Example: ["quantum physics explained", "basics of quantum mechanics", "quantum theory documentary"]`;
-            const response = await this.makeRequest(prompt, { temperature: 0.3 });
+            const prompt = `Generate 3 highly specific Youtube queries for the learning topic: "${learningPoint}". The queries must target educational content like university lectures, detailed documentaries, or expert explanations. Avoid overly simplistic or general terms. Each query should be 3-7 words. Return ONLY a valid JSON array of strings. Example for "Mitochondria": ["mitochondria function cellular respiration lecture", "mitochondrion structure and function documentary", "ATP synthesis in mitochondria explanation"]`;
+            const response = await this.makeRequest(prompt, { temperature: 0.4 });
             return this.parseJSONResponse(response);
         }
-
         async generateNarration(learningPoint, previousPoint) {
             log(`GEMINI: Generating narration for "${learningPoint}"`);
             let prompt = previousPoint ?
@@ -106,19 +90,17 @@ Return ONLY the valid JSON, no other text.`;
                 `Write a simple 1-2 sentence welcome message for a lesson about "${learningPoint}". Keep it friendly and educational. Just return the text.`;
             return await this.makeRequest(prompt, { temperature: 0.5, maxOutputTokens: 256 });
         }
-
         async generateConcludingNarration(learningPoint) {
             log(`GEMINI: Generating concluding narration for "${learningPoint}"`);
             const prompt = `Write a short, 1-sentence concluding summary for the topic "${learningPoint}" that we just covered. This will play after the video or quiz. Keep it encouraging. Just return the text.`;
             return await this.makeRequest(prompt, { temperature: 0.6, maxOutputTokens: 256 });
         }
-
-        async findVideoSegments(videoTitle, youtubeUrl, learningPoint) {
+        async findVideoSegments(videoTitle, learningPoint) {
             log(`SEGMENTER: Analyzing YouTube video for "${learningPoint}"`);
             try {
                 const prompt = `You are a video analyst. For a YouTube video titled "${videoTitle}", identify the most relevant segments for the learning topic: "${learningPoint}".
-- Educational videos usually have an intro (0-30s), main content, and an outro. Focus on the main content.
-- Identify 1-3 key segments, each 30-120 seconds long. Total duration should be 60-240 seconds.
+- Focus on the main educational content, skipping intros/outros.
+- Identify 1-2 key segments, each 45-180 seconds long.
 - Return ONLY a valid JSON array like: [{"startTime": 45, "endTime": 135, "reason": "Explanation of core concepts"}]
 - If you can't determine specific segments, return one comprehensive segment: [{"startTime": 30, "endTime": 210, "reason": "Core educational content"}]`;
                 const response = await this.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 1024 });
@@ -134,20 +116,17 @@ Return ONLY the valid JSON, no other text.`;
                 return [{ startTime: 30, endTime: 180, reason: "Main educational content (fallback)" }];
             }
         }
-
         async generateDetailedExplanation(learningPoint) {
             log(`GEMINI: Generating detailed explanation for "${learningPoint}"`);
             const prompt = `Create a comprehensive, educational explanation about "${learningPoint}" (150-250 words). Structure it as an engaging lesson covering: 1) What it is, 2) Why it's important, 3) Key concepts/examples. Write in a clear, teaching style. Return ONLY the explanation text.`;
             return await this.makeRequest(prompt, { temperature: 0.8, maxOutputTokens: 1024 });
         }
-
         async generateQuiz(learningPoint) {
             log(`GEMINI: Generating quiz for "${learningPoint}"`);
             const prompt = `Create a single multiple-choice quiz question about "${learningPoint}". The question should test understanding of a key concept. Return ONLY valid JSON with format: {"question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}`;
             const response = await this.makeRequest(prompt, { temperature: 0.7 });
             return this.parseJSONResponse(response);
         }
-
         async generateLessonSummary(topic, learningPoints) {
             log(`GEMINI: Generating lesson summary for "${topic}"`);
             const prompt = `Generate a brief, encouraging summary for a lesson on "${topic}". The lesson covered these points: ${learningPoints.join(', ')}. Provide 3-5 bullet points highlighting the key takeaways. The tone should be positive and affirm the user's progress. Return ONLY the summary text in markdown format.`;
@@ -169,7 +148,6 @@ Return ONLY the valid JSON, no other text.`;
                 return [];
             }
         }
-
         processSearchResults(data, query) {
             if (!data.items || data.items.length === 0) { log(`SEARCH: No results found for "${query}"`); return []; }
             const results = data.items.map(item => {
@@ -184,7 +162,7 @@ Return ONLY the valid JSON, no other text.`;
                     return { youtubeId: videoId, title: item.title || 'Untitled', educationalScore: score };
                 }
                 return null;
-            }).filter(item => item && item.youtubeId && item.youtubeId.length === 11); // Extra validation
+            }).filter(item => item && item.youtubeId && item.youtubeId.length === 11);
             log(`SEARCH: Found ${results.length} valid videos for "${query}"`);
             return results;
         }
@@ -200,19 +178,25 @@ Return ONLY the valid JSON, no other text.`;
     }
 
     class LearningPipeline {
-        constructor() { this.gemini = new GeminiOrchestrator(); this.videoSourcer = new VideoSourcer(); this.speechEngine = new SpeechEngine(); this.youtubePlayer = null; }
+        constructor() {
+            this.gemini = new GeminiOrchestrator();
+            this.videoSourcer = new VideoSourcer();
+            this.speechEngine = new SpeechEngine();
+            this.youtubePlayer = null;
+        }
 
         async start(topic) {
-            log("FLOW: Step 1 - Generate lesson plan");
-            showLoading("Generating comprehensive lesson plan...");
+            setView('loading');
             const rawPlan = await this.gemini.generateLessonPlan(topic);
-            hideLoading();
-            currentLessonPlan = rawPlan;
-            if (currentLessonPlan && currentLessonPlan.Apprentice) {
+
+            if (rawPlan && rawPlan.Apprentice) {
+                currentLessonPlan = rawPlan;
                 currentLessonPlan.topic = topic;
                 displayLevelSelection();
+                setView('level-selection');
             } else {
                 displayError("Failed to generate a valid lesson plan. Please try a different topic.");
+                setView('input');
                 ui.curateButton.disabled = false;
             }
         }
@@ -221,10 +205,10 @@ Return ONLY the valid JSON, no other text.`;
             log("FLOW: Starting level", level);
             currentLearningPath = level;
             currentSegmentIndex = -1;
-            ui.levelSelection.classList.add('hidden');
-            ui.lessonProgressContainer.classList.remove('hidden');
+            ui.viewContainer.classList.add('hidden');
             ui.learningCanvasContainer.classList.remove('hidden');
-            document.getElementById('progress-spacer').classList.remove('hidden');
+            ui.lessonProgressContainer.classList.remove('hidden');
+            ui.progressSpacer.classList.remove('hidden');
             this.processNextLearningPoint();
         }
 
@@ -235,75 +219,71 @@ Return ONLY the valid JSON, no other text.`;
                 this.showLessonSummary();
                 return;
             }
+
+            log(`--- Starting Learning Point ${currentSegmentIndex + 1}/${learningPoints.length} ---`);
+
             const learningPoint = learningPoints[currentSegmentIndex];
             const previousPoint = currentSegmentIndex > 0 ? learningPoints[currentSegmentIndex - 1] : null;
+
             updateSegmentProgress();
             ui.currentTopicDisplay.textContent = learningPoint;
-            await this.playNarration(learningPoint, previousPoint, () => this.searchVideos(learningPoint));
-        }
 
-        async playNarration(learningPoint, previousPoint, onComplete) {
-            log("FLOW: Play intro narration");
-            updateStatus('narrating');
-            updatePlayPauseIcon();
-            ui.nextSegmentButton.disabled = true;
-            const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
-            await this.speechEngine.play(narrationText, {
-                onProgress: (progress) => updateTeleprompter(narrationText, progress),
-                onComplete: () => { if (lessonState === 'narrating') onComplete(); }
+            await this.playNarration(learningPoint, previousPoint, () => {
+                this.searchVideos(learningPoint);
             });
         }
 
-        async playConcludingNarration(learningPoint, onComplete) {
-            log("FLOW: Play concluding narration");
+        async playNarration(learningPoint, previousPoint, onComplete) {
+            log("FLOW: Play intro narration for:", learningPoint);
             updateStatus('narrating');
-            const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
+            const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
             await this.speechEngine.play(narrationText, {
                 onProgress: (progress) => updateTeleprompter(narrationText, progress),
-                onComplete
+                onComplete: () => {
+                    if (lessonState === 'narrating') onComplete();
+                }
             });
         }
 
         async searchVideos(learningPoint) {
-            log("FLOW: Step 2 - Search educational videos");
+            log("FLOW: Search educational videos");
             updateStatus('searching_videos');
             updateCanvasVisuals('🔎 Finding educational content...', `Searching for: "${learningPoint}"`);
             try {
                 const searchQueries = await this.gemini.generateSearchQueries(learningPoint);
-                if (!searchQueries || !Array.isArray(searchQueries) || searchQueries.length === 0) {
-                    throw new Error("Failed to generate search queries.");
-                }
+                if (!searchQueries || searchQueries.length === 0) throw new Error("Failed to generate search queries.");
+
                 log(`Generated search queries:`, searchQueries);
                 let allVideos = [];
                 for (const query of searchQueries.slice(0, 2)) {
-                    updateCanvasVisuals('🔎 Searching educational videos...', `Query: "${query}"`);
                     const results = await this.videoSourcer.searchYouTube(query);
                     allVideos.push(...results);
                     if (allVideos.length >= 10) break;
                 }
-                log(`Total videos found: ${allVideos.length}`);
+
                 if (allVideos.length === 0) {
                     await this.createFallbackContent(learningPoint);
                     return;
                 }
+
                 const uniqueVideos = [...new Map(allVideos.map(v => [v.youtubeId, v])).values()]
                     .sort((a, b) => b.educationalScore - a.educationalScore);
-                log(`Unique videos after filtering: ${uniqueVideos.length}`);
                 currentVideoChoices = uniqueVideos.slice(0, 5);
+
                 if (currentVideoChoices.length === 0) {
                     await this.createFallbackContent(learningPoint);
                     return;
                 }
-                log(`FLOW: Found ${currentVideoChoices.length} potential videos`);
-                this.autoSelectBestVideo(learningPoint);
+
+                this.autoSelectBestVideo();
             } catch (error) {
                 logError('Video search failed:', error);
                 await this.createFallbackContent(learningPoint);
             }
         }
 
-        autoSelectBestVideo(learningPoint) {
-            log("FLOW: Step 4 - Auto-selecting best video");
+        autoSelectBestVideo() {
+            log("FLOW: Auto-selecting best video");
             updateStatus('choosing_video');
             const bestVideo = currentVideoChoices[0];
             log(`FLOW: Selected video: ${bestVideo.title} (ID: ${bestVideo.youtubeId})`);
@@ -312,12 +292,11 @@ Return ONLY the valid JSON, no other text.`;
         }
 
         async createFallbackContent(learningPoint) {
-            log("FLOW: Step 4B - Creating fallback content");
+            log("FLOW: Creating fallback content");
             updateStatus('generating_segments');
             updateCanvasVisuals('🤖 Creating custom content...', 'No suitable videos found. Generating text explanation...');
             const explanation = await this.gemini.generateDetailedExplanation(learningPoint);
             if (explanation) {
-                updateCanvasVisuals('📚 Learning segment', `Topic: "${learningPoint}"`);
                 await this.speechEngine.play(explanation, {
                     onProgress: (progress) => updateTeleprompter(explanation, progress),
                     onComplete: () => { if (lessonState === 'generating_segments') this.showQuiz(); }
@@ -329,18 +308,13 @@ Return ONLY the valid JSON, no other text.`;
         }
 
         async generateSegments(video) {
-            log("FLOW: Step 7 - Generate segments");
+            log("FLOW: Generate segments");
             updateStatus('generating_segments');
             updateCanvasVisuals('✂️ Finding best segments...', `Analyzing: "${video.title}"`);
             try {
                 const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-                const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
-                currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint);
-                if (!currentSegments || currentSegments.length === 0) {
-                    currentSegments = [{ startTime: 30, endTime: 180, reason: "Default educational segment" }];
-                }
+                currentSegments = await this.gemini.findVideoSegments(video.title, learningPoint);
                 log(`Generated ${currentSegments.length} segments:`, currentSegments);
-                currentSegmentPlayIndex = 0;
                 this.playSegments(video);
             } catch (error) {
                 logError('Failed to generate segments:', error);
@@ -350,156 +324,93 @@ Return ONLY the valid JSON, no other text.`;
         }
 
         playSegments(video) {
-            log("FLOW: Step 8 - Play segments");
+            log("FLOW: Play segments");
             updateStatus('playing_video');
-            updatePlayPauseIcon();
+            currentSegmentPlayIndex = 0;
             this.createYouTubePlayer(video);
         }
 
         createYouTubePlayer(videoInfo) {
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch (e) {} this.youtubePlayer = null; }
 
-            // --- FIX: Hide canvas and show video player area ---
-            ui.canvas.style.opacity = '0';
-            ui.canvas.style.pointerEvents = 'none'; // Prevent clicks on invisible canvas
+            setCanvasVisible(false);
             ui.skipVideoButton.style.display = 'block';
-            ui.youtubePlayerContainer.innerHTML = ''; // Clear any previous content
+            ui.youtubePlayerContainer.innerHTML = '';
 
-            log(`Creating player for video: ${videoInfo.youtubeId}`);
-            if (!videoInfo || !videoInfo.youtubeId || videoInfo.youtubeId.length !== 11) {
-                logError('Invalid video info provided to player:', videoInfo);
+            if (!videoInfo?.youtubeId) {
                 this.handleVideoError();
                 return;
             }
-            if (!currentSegments || currentSegments.length === 0) {
-                currentSegments = [{ startTime: 30, endTime: 180, reason: "Default segment" }];
-            }
-            currentSegmentPlayIndex = 0;
             this.currentVideoInfo = videoInfo;
             this.playCurrentSegment();
         }
 
         playCurrentSegment() {
             if (currentSegmentPlayIndex >= currentSegments.length) {
-                log('FLOW: All segments complete');
                 this.handleVideoEnd();
                 return;
             }
             const segment = currentSegments[currentSegmentPlayIndex];
             log(`Playing segment ${currentSegmentPlayIndex + 1}/${currentSegments.length}: ${segment.startTime}s - ${segment.endTime}s`);
 
-            if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch (e) {} }
-            if (this.segmentTimer) clearInterval(this.segmentTimer);
+            const playerDivId = 'youtube-player-div';
+            ui.youtubePlayerContainer.innerHTML = `<div id="${playerDivId}"></div>`;
 
-            const playerDivId = 'youtube-player-' + Date.now();
-            ui.youtubePlayerContainer.innerHTML = `<div id="${playerDivId}" class="w-full h-full"></div>`;
-
-            let startTime = Math.max(0, segment.startTime || 30);
-            this.currentSegmentEndTime = segment.endTime || (startTime + 120);
-
-            const playerTimeout = setTimeout(() => { logError('Video loading timeout'); this.tryNextSegmentOrQuiz(); }, 12000);
-
-            try {
-                this.youtubePlayer = new YT.Player(playerDivId, {
-                    height: '100%', width: '100%', videoId: this.currentVideoInfo.youtubeId,
-                    playerVars: { autoplay: 1, controls: 1, rel: 0, start: startTime, modestbranding: 1, iv_load_policy: 3, enablejsapi: 1, origin: window.location.origin, fs: 0 },
-                    events: {
-                        'onReady': (event) => {
-                            clearTimeout(playerTimeout);
-                            log('YouTube player ready.');
-                            event.target.playVideo();
-                            this.startSegmentTimer();
-                        },
-                        'onStateChange': (event) => {
-                            if (event.data === YT.PlayerState.PLAYING) { clearTimeout(playerTimeout); updateStatus('playing_video'); }
-                            if (event.data === YT.PlayerState.PAUSED) updateStatus('paused');
-                            if (event.data === YT.PlayerState.ENDED) this.endCurrentSegment();
-                        },
-                        'onError': (event) => {
-                            clearTimeout(playerTimeout);
-                            logError(`Youtubeer error: ${event.data}`);
-                            this.tryNextSegmentOrQuiz();
-                        }
-                    }
-                });
-            } catch (error) {
-                clearTimeout(playerTimeout);
-                logError('Failed to create YouTube player:', error);
-                this.tryNextSegmentOrQuiz();
-            }
-        }
-
-        startSegmentTimer() {
-            if (this.segmentTimer) clearInterval(this.segmentTimer);
-            this.segmentTimer = setInterval(() => {
-                if (this.youtubePlayer && typeof this.youtubePlayer.getCurrentTime === 'function') {
-                    const currentTime = this.youtubePlayer.getCurrentTime();
-                    if (currentTime >= this.currentSegmentEndTime) {
-                        log(`Segment timer ended segment.`);
-                        this.endCurrentSegment();
+            this.youtubePlayer = new YT.Player(playerDivId, {
+                height: '100%', width: '100%', videoId: this.currentVideoInfo.youtubeId,
+                playerVars: { autoplay: 1, controls: 1, rel: 0, start: segment.startTime, modestbranding: 1, iv_load_policy: 3, enablejsapi: 1, origin: window.location.origin, fs: 0 },
+                events: {
+                    'onReady': e => e.target.playVideo(),
+                    'onStateChange': e => {
+                        if (e.data === YT.PlayerState.PAUSED) updateStatus('paused');
+                        if (e.data === YT.PlayerState.PLAYING) updateStatus('playing_video');
+                    },
+                    'onError': e => {
+                        logError(`Youtubeer error: ${e.data}`);
+                        this.tryNextSegmentOrQuiz();
                     }
                 }
-            }, 1000);
-        }
-
-        endCurrentSegment() {
-            if (this.segmentTimer) clearInterval(this.segmentTimer);
-            this.segmentTimer = null;
-            log('Ending current segment');
-            currentSegmentPlayIndex++;
-            setTimeout(() => this.playCurrentSegment(), 500);
+            });
         }
 
         tryNextSegmentOrQuiz() {
-            if (this.segmentTimer) clearInterval(this.segmentTimer);
             currentSegmentPlayIndex++;
             if (currentSegmentPlayIndex >= currentSegments.length) {
                 this.handleVideoEnd();
             } else {
-                log('Trying next segment after error/timeout');
-                setTimeout(() => this.playCurrentSegment(), 1000);
+                this.playCurrentSegment();
             }
         }
 
-        handleVideoEnd() {
+        async handleVideoEnd() {
             log('Video playback finished');
             ui.skipVideoButton.style.display = 'none';
-            // --- FIX: Show canvas again ---
-            ui.canvas.style.opacity = '1';
-            ui.canvas.style.pointerEvents = 'auto';
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} this.youtubePlayer = null; }
-            ui.youtubePlayerContainer.innerHTML = '';
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-            this.playConcludingNarration(learningPoint, () => this.showQuiz());
+            const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
+
+            await this.speechEngine.play(narrationText, {
+                onProgress: (p) => updateTeleprompter(narrationText, p),
+                onComplete: () => this.showQuiz()
+            });
         }
 
         handleVideoError() {
             logError('Handling video error. Creating fallback content.');
-            ui.skipVideoButton.style.display = 'none';
-            // --- FIX: Show canvas again ---
-            ui.canvas.style.opacity = '1';
-            ui.canvas.style.pointerEvents = 'auto';
-            if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} }
-            ui.youtubePlayerContainer.innerHTML = '';
-            const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-            updateCanvasVisuals('🎥 Video unavailable', 'Creating educational content instead...');
-            setTimeout(async () => { await this.createFallbackContent(learningPoint); }, 1000);
+            this.createFallbackContent(currentLessonPlan[currentLearningPath][currentSegmentIndex]);
         }
 
         async showQuiz() {
-            log("FLOW: Step 9 - Show quiz");
+            log("FLOW: Show quiz");
             updateStatus('quiz');
             ui.lessonControls.style.display = 'none';
-
-            // --- FIX: Ensure canvas is hidden ---
-            ui.canvas.style.opacity = '0';
-            ui.canvas.style.pointerEvents = 'none';
+            setCanvasVisible(false);
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             const quiz = await this.gemini.generateQuiz(learningPoint);
 
-            if (quiz && quiz.question) {
+            if (quiz?.question) {
                 this.displayQuiz(quiz);
             } else {
                 logError("Failed to generate quiz. Skipping.");
@@ -511,12 +422,8 @@ Return ONLY the valid JSON, no other text.`;
             ui.youtubePlayerContainer.innerHTML = `
                 <div class="p-6 md:p-8 text-white h-full flex flex-col justify-start">
                     <div class="flex-grow flex flex-col justify-center max-w-3xl mx-auto w-full">
-                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6 border border-white/20">
-                            <p class="text-xl lg:text-2xl leading-relaxed">${quiz.question}</p>
-                        </div>
-                        <div class="space-y-4 mb-6">
-                            ${quiz.options.map((option, index) => `<button class="quiz-option w-full text-left p-4 bg-blue-600 hover:bg-blue-700 rounded-xl transition-all" data-index="${index}"><span>${String.fromCharCode(65 + index)})</span> <span class="ml-3">${option}</span></button>`).join('')}
-                        </div>
+                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6 border border-white/20"><p class="text-xl lg:text-2xl leading-relaxed">${quiz.question}</p></div>
+                        <div class="space-y-4 mb-6">${quiz.options.map((option, index) => `<button class="quiz-option w-full text-left p-4 bg-blue-600 hover:bg-blue-700 rounded-xl transition-all" data-index="${index}"><span>${String.fromCharCode(65 + index)})</span> <span class="ml-3">${option}</span></button>`).join('')}</div>
                         <div id="quiz-result" class="hidden opacity-0 transition-opacity duration-500">
                             <div id="quiz-explanation-container" class="border rounded-xl p-4 mb-4"><p id="quiz-explanation"></p></div>
                             <div class="text-center"><button id="continue-button" class="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-xl font-semibold">Continue →</button></div>
@@ -551,16 +458,13 @@ Return ONLY the valid JSON, no other text.`;
         }
 
         async showLessonSummary() {
-            log("FLOW: Step 10 - Show lesson summary");
+            log("FLOW: Show lesson summary");
             updateStatus('summary');
             ui.lessonControls.style.display = 'none';
-            // --- FIX: Ensure canvas is hidden ---
-            ui.canvas.style.opacity = '0';
-            ui.canvas.style.pointerEvents = 'none';
+            setCanvasVisible(false);
 
             const topic = currentLessonPlan.topic;
             const learningPoints = currentLessonPlan[currentLearningPath];
-
             const summary = await this.gemini.generateLessonSummary(topic, learningPoints);
 
             ui.youtubePlayerContainer.innerHTML = `
@@ -571,7 +475,7 @@ Return ONLY the valid JSON, no other text.`;
                          <h3 class="text-2xl font-semibold mb-4 text-blue-300">Key Takeaways</h3>
                          <div id="summary-content" class="prose prose-invert max-w-none">${summary.replace(/•/g, '<li class="ml-4">')}</div>
                     </div>
-                    <button id="finish-lesson-button" class="bg-purple-600 hover:bg-purple-700 px-10 py-4 rounded-xl font-semibold text-lg transition-transform transform hover:scale-105">Finish Lesson & Start Over</button>
+                    <button id="finish-lesson-button" class="bg-purple-600 hover:bg-purple-700 px-10 py-4 rounded-xl font-semibold text-lg">Finish Lesson & Start Over</button>
                 </div>`;
 
             document.getElementById('finish-lesson-button').addEventListener('click', resetUIState);
@@ -584,30 +488,57 @@ Return ONLY the valid JSON, no other text.`;
 
     const learningPipeline = new LearningPipeline();
 
-    function updateStatus(state) { lessonState = state; log(`STATE: ${state}`); }
+    function updateStatus(state) {
+        lessonState = state;
+        log(`STATE: ${state}`);
+        updatePlayPauseIcon();
+    }
+
+    // --- FIX: Correctly working view management function ---
+    function setView(viewName) {
+        const views = {
+            'input': ui.inputSection,
+            'loading': ui.loadingIndicator,
+            'level-selection': ui.levelSelection
+        };
+        for (const key in views) {
+            if (views[key]) {
+                if (key === viewName) {
+                    views[key].classList.remove('hidden');
+                } else {
+                    views[key].classList.add('hidden');
+                }
+            }
+        }
+    }
 
     function initializeUI() {
         ui.curateButton.addEventListener('click', handleCurateClick);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
-        ui.nextSegmentButton.addEventListener('click', () => { if (!ui.nextSegmentButton.disabled) { ui.nextSegmentButton.disabled = true; learningPipeline.processNextLearningPoint(); } });
-        ui.skipVideoButton.addEventListener('click', () => { if (lessonState === 'playing_video' || lessonState === 'paused') { if (learningPipeline.segmentTimer) clearInterval(learningPipeline.segmentTimer); learningPipeline.handleVideoEnd(); } });
-        // The official YT API script will call this function globally
-        window.onYouTubeIframeAPIReady = () => {
-            log("YouTube IFrame API is ready.");
-        };
+        ui.nextSegmentButton.addEventListener('click', () => learningPipeline.processNextLearningPoint());
+        ui.skipVideoButton.addEventListener('click', () => learningPipeline.handleVideoEnd());
+
+        window.onYouTubeIframeAPIReady = () => log("YouTube IFrame API is ready.");
+
+        if (localStorage.getItem('lastTopic')) {
+            ui.topicInput.value = localStorage.getItem('lastTopic');
+        }
     }
 
     function playPauseLesson() {
-        log(`Play/Pause clicked - State: ${lessonState}`);
         switch (lessonState) {
             case 'narrating': learningPipeline.speechEngine.pause(); updateStatus("paused"); break;
             case 'playing_video': learningPipeline.youtubePlayer?.pauseVideo(); updateStatus("paused"); break;
             case 'paused':
-                if (learningPipeline.speechEngine.isPaused) { learningPipeline.speechEngine.resume(); updateStatus("narrating"); } 
-                else if (learningPipeline.youtubePlayer) { learningPipeline.youtubePlayer.playVideo(); updateStatus("playing_video"); }
+                if (learningPipeline.speechEngine.isPaused) {
+                    learningPipeline.speechEngine.resume();
+                    updateStatus('narrating');
+                } else if (learningPipeline.youtubePlayer) {
+                    learningPipeline.youtubePlayer.playVideo();
+                    updateStatus('playing_video');
+                }
                 break;
         }
-        updatePlayPauseIcon();
     }
 
     function updatePlayPauseIcon() {
@@ -620,15 +551,12 @@ Return ONLY the valid JSON, no other text.`;
         const topic = ui.topicInput.value.trim();
         if (!topic) return;
         localStorage.setItem('lastTopic', topic);
-        resetUIState(false); // Don't reset to initial view yet
         ui.curateButton.disabled = true;
         ui.headerDescription.classList.add('hidden');
-        ui.headerFeatures.classList.add('hidden');
         await learningPipeline.start(topic);
     }
 
     function displayLevelSelection() {
-        ui.inputSection.classList.add('hidden');
         ui.levelButtonsContainer.innerHTML = '';
         const levels = Object.keys(currentLessonPlan).filter(k => k !== 'topic');
         levels.forEach(level => {
@@ -639,7 +567,6 @@ Return ONLY the valid JSON, no other text.`;
             button.onclick = () => learningPipeline.startLevel(level);
             ui.levelButtonsContainer.appendChild(button);
         });
-        ui.levelSelection.classList.remove('hidden');
     }
 
     function updateSegmentProgress() {
@@ -652,56 +579,73 @@ Return ONLY the valid JSON, no other text.`;
     function setCanvasVisible(visible) {
         ui.canvas.style.opacity = visible ? '1' : '0';
         ui.canvas.style.pointerEvents = visible ? 'auto' : 'none';
+        if (visible) {
+            ui.youtubePlayerContainer.innerHTML = '';
+        }
+    }
+
+    function drawCenteredText(ctx, text, options) {
+        const { y, font, color, maxWidth } = options;
+        ctx.font = font;
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const lines = wrapText(text, maxWidth, ctx);
+        const lineHeight = parseInt(ctx.font.match(/(\d+)px/)[1]) * 1.4;
+        const totalHeight = (lines.length -1) * lineHeight;
+        const startY = y - totalHeight / 2;
+
+        lines.forEach((line, i) => {
+            ctx.fillText(line, ctx.canvas.width / 2, startY + i * lineHeight);
+        });
     }
 
     function updateCanvasVisuals(mainText, subText = '') {
         setCanvasVisible(true);
-        ui.youtubePlayerContainer.innerHTML = '';
+        const { width, height } = ui.canvas;
         ui.canvas.width = ui.canvas.clientWidth;
         ui.canvas.height = ui.canvas.clientHeight;
-        const gradient = canvasCtx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
+
+        const gradient = canvasCtx.createLinearGradient(0, 0, width, height);
         gradient.addColorStop(0, '#1a1a2e');
         gradient.addColorStop(1, '#16213e');
         canvasCtx.fillStyle = gradient;
-        canvasCtx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
-        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        canvasCtx.textAlign = 'center';
-        canvasCtx.textBaseline = 'middle';
+        canvasCtx.fillRect(0, 0, width, height);
 
-        const maxWidth = ui.canvas.width * 0.85;
-        let fontSize = Math.max(22, Math.min(ui.canvas.width / 25, 36));
-        let lineHeight = fontSize * 1.4;
-        canvasCtx.font = `bold ${fontSize}px Inter, sans-serif`;
+        const maxWidth = width * 0.85;
 
-        const lines = wrapText(mainText, maxWidth, canvasCtx);
-        let startY = ui.canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
+        drawCenteredText(canvasCtx, mainText, {
+            y: height / 2 - (subText ? 20 : 0),
+            font: `bold ${Math.max(22, Math.min(width / 25, 36))}px Inter, sans-serif`,
+            color: 'rgba(255, 255, 255, 0.95)',
+            maxWidth: maxWidth
+        });
 
-        lines.forEach((line, i) => canvasCtx.fillText(line, ui.canvas.width / 2, startY + (i * lineHeight)));
-
-        if (subText) { 
-            let subFontSize = Math.max(16, Math.min(ui.canvas.width / 40, 20)); 
-            let subLineHeight = subFontSize * 1.4;
-            canvasCtx.font = `${subFontSize}px Inter, sans-serif`; 
-            canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)'; 
-            const subLines = wrapText(subText, maxWidth, canvasCtx); 
-            subLines.forEach((line, i) => { canvasCtx.fillText(line, ui.canvas.width / 2, startY + (lines.length * lineHeight) - (lineHeight / 2) + 16 + (i * subLineHeight)); }); 
+        if (subText) {
+            drawCenteredText(canvasCtx, subText, {
+                y: height / 2 + 30,
+                font: `${Math.max(16, Math.min(width / 40, 20))}px Inter, sans-serif`,
+                color: 'rgba(200, 200, 200, 0.8)',
+                maxWidth: maxWidth
+            });
         }
     }
 
     function updateTeleprompter(fullText, progress) {
-        if (!ui.canvas) return;
         setCanvasVisible(true);
-        ui.youtubePlayerContainer.innerHTML = '';
-        const ctx = ui.canvas.getContext('2d');
-        ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
-        const gradient = ctx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
+        const { width, height } = ui.canvas;
+        ui.canvas.width = ui.canvas.clientWidth;
+        ui.canvas.height = ui.canvas.clientHeight;
+        const ctx = canvasCtx;
+
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
         gradient.addColorStop(0, '#1a1a2e');
         gradient.addColorStop(1, '#16213e');
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+        ctx.fillRect(0, 0, width, height);
 
-        const maxWidth = ui.canvas.width * 0.9;
-        const fontSize = Math.max(24, Math.min(ui.canvas.width / 30, 36)); // Slightly larger font for teleprompter
+        const maxWidth = width * 0.9;
+        const fontSize = Math.max(24, Math.min(width / 30, 36));
         const lineHeight = fontSize * 1.5;
         ctx.font = `400 ${fontSize}px Inter, sans-serif`;
         ctx.textAlign = 'center';
@@ -710,71 +654,53 @@ Return ONLY the valid JSON, no other text.`;
 
         const lines = wrapText(fullText, maxWidth, ctx);
         const totalContentHeight = (lines.length) * lineHeight;
-
-        // The text starts centered and scrolls up
-        const startY = ui.canvas.height / 2;
-        const yOffset = startY - (totalContentHeight * progress);
+        const yOffset = height / 2 - (totalContentHeight * progress);
 
         ctx.save();
-        ctx.translate(ui.canvas.width / 2, yOffset);
-        lines.forEach((line, index) => { 
-            // Draw each line relative to the new (0,0) after translation
-            ctx.fillText(line, 0, index * lineHeight); 
-        });
+        ctx.translate(width / 2, yOffset);
+        lines.forEach((line, index) => ctx.fillText(line, 0, index * lineHeight));
         ctx.restore();
     }
 
     function wrapText(text, maxWidth, ctx) {
         const words = text.split(' ');
-        let line = '';
         let lines = [];
-        for (let n = 0; n < words.length; n++) {
-            const testLine = line + words[n] + ' ';
-            const metrics = ctx.measureText(testLine);
-            const testWidth = metrics.width;
-            if (testWidth > maxWidth && n > 0) {
-                lines.push(line.trim());
-                line = words[n] + ' ';
+        let currentLine = words[0] || '';
+        for (let i = 1; i < words.length; i++) {
+            const word = words[i];
+            const width = ctx.measureText(currentLine + " " + word).width;
+            if (width < maxWidth) {
+                currentLine += " " + word;
             } else {
-                line = testLine;
+                lines.push(currentLine);
+                currentLine = word;
             }
         }
-        lines.push(line.trim());
+        lines.push(currentLine);
         return lines;
     }
 
-    function showLoading(message) { ui.inputSection.classList.add('hidden'); ui.levelSelection.classList.add('hidden'); ui.loadingMessage.textContent = message; ui.loadingIndicator.classList.remove('hidden'); }
-    function hideLoading() { ui.loadingIndicator.classList.add('hidden'); }
-
     function resetUIState(fullReset = true) {
         log("Resetting UI state");
-        if(learningPipeline?.speechEngine) learningPipeline.speechEngine.stop();
-        if(learningPipeline?.youtubePlayer) { try { learningPipeline.youtubePlayer.destroy(); } catch(e){} }
-        if (learningPipeline?.segmentTimer) clearInterval(learningPipeline.segmentTimer);
+        if(learningPipeline.speechEngine) learningPipeline.speechEngine.stop();
+        if(learningPipeline.youtubePlayer) { try { learningPipeline.youtubePlayer.destroy(); } catch(e){} }
 
         ui.learningCanvasContainer.classList.add('hidden');
         ui.lessonProgressContainer.classList.add('hidden');
-        ui.levelSelection.classList.add('hidden');
-        document.getElementById('progress-spacer').classList.add('hidden');
-        ui.inputSection.classList.remove('hidden');
-        ui.curateButton.disabled = false;
+        ui.progressSpacer.classList.add('hidden');
+        ui.viewContainer.classList.remove('hidden');
+        setView('input');
 
         if (fullReset) {
             ui.headerDescription.classList.remove('hidden');
-            ui.headerFeatures.classList.remove('hidden');
         }
 
+        ui.curateButton.disabled = false;
         currentLessonPlan = null;
-        currentLearningPath = null;
-        currentSegmentIndex = -1;
         updateStatus('idle');
     }
 
     function displayError(message) { logError(message); ui.errorMessage.textContent = message; ui.errorDisplay.classList.remove('hidden'); setTimeout(() => ui.errorDisplay.classList.add('hidden'), 5000); }
 
-    // Initialize
     initializeUI();
-    if (localStorage.getItem('lastTopic')) {
-        ui.topicInput.value = localStorage.getItem('lastTopic');
-    }
 });
