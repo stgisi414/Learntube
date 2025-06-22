@@ -679,8 +679,8 @@ Return ONLY the valid JSON, no other text.`;
         ui.curateButton.classList.add('opacity-75');
         
         resetUIState(false); // Don't reset to initial view yet
-        ui.headerDescription.classList.add('hidden');
-        ui.headerFeatures.classList.add('hidden');
+        if (ui.headerDescription) ui.headerDescription.classList.add('hidden');
+        if (ui.headerFeatures) ui.headerFeatures.classList.add('hidden');
         
         try {
             await learningPipeline.start(topic);
@@ -832,8 +832,8 @@ Return ONLY the valid JSON, no other text.`;
         ui.curateButton.classList.remove('opacity-75');
 
         if (fullReset) {
-            ui.headerDescription.classList.remove('hidden');
-            ui.headerFeatures.classList.remove('hidden');
+            if (ui.headerDescription) ui.headerDescription.classList.remove('hidden');
+            if (ui.headerFeatures) ui.headerFeatures.classList.remove('hidden');
         }
 
         currentLessonPlan = null;
