@@ -42,6 +42,63 @@
             <div id="speechStatus" style="padding: 0.5rem; background-color: #374151; border-radius: 4px; color: #d1d5db;">Ready to test speech synthesis</div>
         </div>
 
+        <!-- Teleprompter Debug System -->
+        <div style="margin-top: 2rem; padding: 1.5rem; background-color: #1f2937; border: 1px solid #4b5563; border-radius: 6px;">
+            <h2 style="color: #ffffff; margin-bottom: 1rem;">Teleprompter Debug System</h2>
+            
+            <!-- Canvas Container -->
+            <div style="position: relative; width: 100%; height: 300px; background-color: #000; border: 1px solid #4b5563; border-radius: 6px; margin-bottom: 1rem;">
+                <canvas id="debugCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
+            </div>
+
+            <!-- Text Input -->
+            <div style="margin-bottom: 1rem;">
+                <textarea id="teleprompterText" placeholder="Enter text for teleprompter test..." style="width: 100%; padding: 0.75rem; background-color: #374151; border: 1px solid #4b5563; color: #ffffff; border-radius: 6px; min-height: 80px;">Welcome to The Curator, your AI-powered learning companion. Today we'll explore the fascinating world of machine learning and discover how artificial intelligence can help us understand complex patterns in data. This technology is revolutionizing everything from healthcare to transportation.</textarea>
+            </div>
+
+            <!-- Controls -->
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <button onclick="testTeleprompter()" style="padding: 0.5rem 1rem; background-color: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer;">Test Teleprompter</button>
+                <button onclick="simulateProgress()" style="padding: 0.5rem 1rem; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">Simulate Progress</button>
+                <button onclick="resetTeleprompter()" style="padding: 0.5rem 1rem; background-color: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer;">Reset</button>
+                <button onclick="testTextWrapping()" style="padding: 0.5rem 1rem; background-color: #8b5cf6; color: white; border: none; border-radius: 4px; cursor: pointer;">Test Text Wrap</button>
+            </div>
+
+            <!-- Progress Slider -->
+            <div style="margin-bottom: 1rem;">
+                <label style="color: #d1d5db; display: block; margin-bottom: 0.5rem;">Manual Progress Control:</label>
+                <input type="range" id="progressSlider" min="0" max="100" value="0" style="width: 100%;" oninput="updateTeleprompterProgress(this.value / 100)">
+                <div style="display: flex; justify-content: space-between; color: #9ca3af; font-size: 0.75rem; margin-top: 0.25rem;">
+                    <span>0%</span>
+                    <span id="progressValue">0%</span>
+                    <span>100%</span>
+                </div>
+            </div>
+
+            <!-- Debug Info -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div style="background-color: #374151; padding: 0.75rem; border-radius: 4px;">
+                    <h4 style="color: #ffffff; margin: 0 0 0.5rem 0; font-size: 0.875rem;">Canvas Info</h4>
+                    <div id="canvasInfo" style="font-family: monospace; font-size: 0.75rem; color: #d1d5db;">
+                        Width: <span id="canvasWidth">-</span><br>
+                        Height: <span id="canvasHeight">-</span><br>
+                        Aspect Ratio: <span id="canvasAspect">-</span>
+                    </div>
+                </div>
+                <div style="background-color: #374151; padding: 0.75rem; border-radius: 4px;">
+                    <h4 style="color: #ffffff; margin: 0 0 0.5rem 0; font-size: 0.875rem;">Text Metrics</h4>
+                    <div id="textMetrics" style="font-family: monospace; font-size: 0.75rem; color: #d1d5db;">
+                        Font Size: <span id="fontSize">-</span><br>
+                        Line Count: <span id="lineCount">-</span><br>
+                        Content Height: <span id="contentHeight">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Display -->
+            <div id="teleprompterStatus" style="padding: 0.5rem; background-color: #374151; border-radius: 4px; color: #d1d5db;">Ready to test teleprompter</div>
+        </div>
+
         <div id="log-container">
             <pre id="log"></pre>
         </div>
@@ -238,6 +295,237 @@
                 document.getElementById('speechStatus').textContent = `Stop error: ${error.message}`;
             }
         }
+
+        // Teleprompter Debug Functions
+        let debugCanvas = null;
+        let debugCtx = null;
+        let currentProgress = 0;
+        let currentText = '';
+        let progressAnimationId = null;
+
+        function initializeTeleprompterDebug() {
+            debugCanvas = document.getElementById('debugCanvas');
+            debugCtx = debugCanvas.getContext('2d');
+            
+            // Set canvas dimensions
+            const container = debugCanvas.parentElement;
+            debugCanvas.width = container.clientWidth;
+            debugCanvas.height = container.clientHeight;
+            
+            updateCanvasInfo();
+            log('Teleprompter debug system initialized');
+        }
+
+        function updateCanvasInfo() {
+            if (!debugCanvas) return;
+            
+            document.getElementById('canvasWidth').textContent = debugCanvas.width + 'px';
+            document.getElementById('canvasHeight').textContent = debugCanvas.height + 'px';
+            document.getElementById('canvasAspect').textContent = (debugCanvas.width / debugCanvas.height).toFixed(2);
+        }
+
+        function testTeleprompter() {
+            if (!debugCanvas || !debugCtx) {
+                initializeTeleprompterDebug();
+            }
+            
+            currentText = document.getElementById('teleprompterText').value || 'No text provided';
+            currentProgress = 0;
+            
+            log('Starting teleprompter test');
+            document.getElementById('teleprompterStatus').textContent = 'Testing teleprompter rendering...';
+            
+            renderTeleprompter(currentText, 0);
+        }
+
+        function renderTeleprompter(fullText, progress) {
+            if (!debugCanvas || !debugCtx || !fullText) return;
+
+            log(`Rendering teleprompter: ${Math.round(progress * 100)}% - "${fullText.substring(0, 30)}..."`);
+
+            // Clear and create background
+            debugCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+            const gradient = debugCtx.createLinearGradient(0, 0, debugCanvas.width, debugCanvas.height);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(1, '#16213e');
+            debugCtx.fillStyle = gradient;
+            debugCtx.fillRect(0, 0, debugCanvas.width, debugCanvas.height);
+
+            // Calculate responsive font size
+            const maxWidth = debugCanvas.width * 0.85;
+            const fontSize = Math.max(28, Math.min(debugCanvas.width / 20, 48));
+            const lineHeight = fontSize * 1.6;
+
+            // Set text properties
+            debugCtx.font = `600 ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
+            debugCtx.textAlign = 'center';
+            debugCtx.textBaseline = 'middle';
+            debugCtx.fillStyle = '#ffffff';
+
+            // Add text shadow for readability
+            debugCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            debugCtx.shadowBlur = 6;
+            debugCtx.shadowOffsetX = 2;
+            debugCtx.shadowOffsetY = 2;
+
+            // Wrap text and calculate positioning
+            const lines = wrapTextDebug(fullText, maxWidth, debugCtx);
+            const totalContentHeight = lines.length * lineHeight;
+            const centerY = debugCanvas.height / 2;
+            const startY = centerY - (totalContentHeight / 2);
+
+            // Apply gentle scroll effect
+            const scrollOffset = progress * Math.min(totalContentHeight * 0.2, 100);
+
+            // Draw each line
+            lines.forEach((line, index) => {
+                const y = startY + (index * lineHeight) - scrollOffset;
+
+                // Only render visible lines
+                if (y > -lineHeight && y < debugCanvas.height + lineHeight) {
+                    // Apply fade effect for smooth transitions
+                    let alpha = 1;
+                    const fadeZone = lineHeight * 0.5;
+
+                    if (y < fadeZone) {
+                        alpha = Math.max(0.1, y / fadeZone);
+                    } else if (y > debugCanvas.height - fadeZone) {
+                        alpha = Math.max(0.1, (debugCanvas.height - y) / fadeZone);
+                    }
+
+                    debugCtx.globalAlpha = alpha;
+                    debugCtx.fillText(line, debugCanvas.width / 2, y);
+                }
+            });
+
+            // Reset context properties
+            debugCtx.globalAlpha = 1;
+            debugCtx.shadowColor = 'transparent';
+            debugCtx.shadowBlur = 0;
+            debugCtx.shadowOffsetX = 0;
+            debugCtx.shadowOffsetY = 0;
+
+            // Update metrics
+            updateTextMetrics(fontSize, lines.length, totalContentHeight);
+        }
+
+        function wrapTextDebug(text, maxWidth, ctx) {
+            const words = text.split(' ');
+            let line = '';
+            let lines = [];
+            
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = ctx.measureText(testLine);
+                const testWidth = metrics.width;
+                
+                if (testWidth > maxWidth && n > 0) {
+                    lines.push(line.trim());
+                    line = words[n] + ' ';
+                } else {
+                    line = testLine;
+                }
+            }
+            lines.push(line.trim());
+            return lines;
+        }
+
+        function updateTextMetrics(fontSize, lineCount, contentHeight) {
+            document.getElementById('fontSize').textContent = fontSize + 'px';
+            document.getElementById('lineCount').textContent = lineCount;
+            document.getElementById('contentHeight').textContent = Math.round(contentHeight) + 'px';
+        }
+
+        function updateTeleprompterProgress(progress) {
+            currentProgress = progress;
+            document.getElementById('progressValue').textContent = Math.round(progress * 100) + '%';
+            document.getElementById('progressSlider').value = progress * 100;
+            
+            if (currentText) {
+                renderTeleprompter(currentText, progress);
+            }
+            
+            document.getElementById('teleprompterStatus').textContent = `Progress: ${Math.round(progress * 100)}%`;
+        }
+
+        function simulateProgress() {
+            if (!currentText) {
+                testTeleprompter();
+            }
+            
+            log('Simulating progress animation');
+            document.getElementById('teleprompterStatus').textContent = 'Simulating progress animation...';
+            
+            if (progressAnimationId) {
+                cancelAnimationFrame(progressAnimationId);
+            }
+            
+            let startTime = Date.now();
+            const duration = 5000; // 5 seconds
+            
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                updateTeleprompterProgress(progress);
+                
+                if (progress < 1) {
+                    progressAnimationId = requestAnimationFrame(animate);
+                } else {
+                    document.getElementById('teleprompterStatus').textContent = 'Progress simulation complete';
+                    log('Progress simulation complete');
+                }
+            }
+            
+            animate();
+        }
+
+        function resetTeleprompter() {
+            if (progressAnimationId) {
+                cancelAnimationFrame(progressAnimationId);
+                progressAnimationId = null;
+            }
+            
+            currentProgress = 0;
+            updateTeleprompterProgress(0);
+            
+            if (debugCtx) {
+                debugCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+                debugCtx.fillStyle = '#1a1a2e';
+                debugCtx.fillRect(0, 0, debugCanvas.width, debugCanvas.height);
+            }
+            
+            document.getElementById('teleprompterStatus').textContent = 'Teleprompter reset';
+            log('Teleprompter reset');
+        }
+
+        function testTextWrapping() {
+            const longText = "This is a very long text that should wrap across multiple lines to test the text wrapping functionality of the teleprompter system. It includes various words of different lengths and should demonstrate how the text flows naturally across the available width of the canvas while maintaining readability and proper spacing between words and lines.";
+            
+            document.getElementById('teleprompterText').value = longText;
+            testTeleprompter();
+            
+            log('Testing text wrapping with long text');
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            setTimeout(initializeTeleprompterDebug, 100);
+        });
+
+        // Handle canvas resize
+        window.addEventListener('resize', () => {
+            if (debugCanvas) {
+                const container = debugCanvas.parentElement;
+                debugCanvas.width = container.clientWidth;
+                debugCanvas.height = container.clientHeight;
+                updateCanvasInfo();
+                
+                if (currentText && currentProgress >= 0) {
+                    renderTeleprompter(currentText, currentProgress);
+                }
+            }
+        });
 
     </script>
 </body>
