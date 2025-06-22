@@ -637,17 +637,24 @@ Return ONLY the valid JSON, no other text.`;
         ctx.fillStyle = bgGradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
         
-        // Configure text rendering with mobile optimization
+        // Configure text rendering with enhanced mobile optimization
         const isMobile = ui.canvas.width <= 768;
+        const isVerySmall = ui.canvas.width <= 400;
         const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
         
         let fontSize, lineHeight, maxWidth, padding;
-        if (isMobile) {
+        if (isVerySmall) {
+            // Very small screen optimization
+            fontSize = Math.max(16, Math.min(baseSize / 25, 24));
+            lineHeight = fontSize * 1.3;
+            maxWidth = ui.canvas.width * 0.95;
+            padding = ui.canvas.width * 0.025;
+        } else if (isMobile) {
             // Mobile-optimized text sizing
-            fontSize = Math.max(18, Math.min(baseSize / 20, 32));
-            lineHeight = fontSize * 1.4;
-            maxWidth = ui.canvas.width * 0.92;
-            padding = ui.canvas.width * 0.04;
+            fontSize = Math.max(18, Math.min(baseSize / 22, 28));
+            lineHeight = fontSize * 1.35;
+            maxWidth = ui.canvas.width * 0.94;
+            padding = ui.canvas.width * 0.03;
         } else {
             // Desktop sizing
             fontSize = Math.max(28, Math.min(baseSize / 18, 52));
@@ -663,11 +670,11 @@ Return ONLY the valid JSON, no other text.`;
         // White text with optimized shadow for mobile
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowBlur = isMobile ? 4 : 8;
+        ctx.shadowBlur = isMobile ? 3 : 8;
         ctx.shadowOffsetX = isMobile ? 1 : 3;
         ctx.shadowOffsetY = isMobile ? 1 : 3;
         
-        // Split text into lines that fit
+        // Enhanced word wrapping for mobile
         const words = text.split(' ');
         const lines = [];
         let currentLine = '';
@@ -679,6 +686,23 @@ Return ONLY the valid JSON, no other text.`;
             if (metrics.width > maxWidth && currentLine) {
                 lines.push(currentLine);
                 currentLine = words[i];
+                
+                // Handle very long words on mobile
+                if (isMobile && ctx.measureText(currentLine).width > maxWidth) {
+                    // Break very long words
+                    const chars = currentLine.split('');
+                    let breakLine = '';
+                    for (let j = 0; j < chars.length; j++) {
+                        const testChar = breakLine + chars[j];
+                        if (ctx.measureText(testChar + '-').width > maxWidth && breakLine) {
+                            lines.push(breakLine + '-');
+                            breakLine = chars[j];
+                        } else {
+                            breakLine = testChar;
+                        }
+                    }
+                    currentLine = breakLine;
+                }
             } else {
                 currentLine = testLine;
             }
@@ -710,7 +734,7 @@ Return ONLY the valid JSON, no other text.`;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         
-        log(`TEXT DISPLAY: Rendered "${text.substring(0, 50)}..." for ${isMobile ? 'mobile' : 'desktop'}`);
+        log(`TEXT DISPLAY: Rendered "${text.substring(0, 50)}..." for ${isVerySmall ? 'very small' : isMobile ? 'mobile' : 'desktop'}`);
     }
 
     function animateTextProgress(fullText, progress) {
@@ -856,29 +880,98 @@ Return ONLY the valid JSON, no other text.`;
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
         
-        // Text styling
+        // Enhanced mobile text styling
+        const isMobile = ui.canvas.width <= 768;
+        const isVerySmall = ui.canvas.width <= 400;
         const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
-        const fontSize = Math.max(32, Math.min(baseSize / 16, 56));
-        const maxWidth = ui.canvas.width * 0.85;
+        
+        let fontSize, maxWidth, spacing;
+        if (isVerySmall) {
+            fontSize = Math.max(20, Math.min(baseSize / 20, 32));
+            maxWidth = ui.canvas.width * 0.95;
+            spacing = 25;
+        } else if (isMobile) {
+            fontSize = Math.max(24, Math.min(baseSize / 18, 40));
+            maxWidth = ui.canvas.width * 0.92;
+            spacing = 30;
+        } else {
+            fontSize = Math.max(32, Math.min(baseSize / 16, 56));
+            maxWidth = ui.canvas.width * 0.85;
+            spacing = 40;
+        }
         
         ctx.font = `bold ${fontSize}px Inter, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
+        ctx.shadowBlur = isMobile ? 4 : 6;
+        ctx.shadowOffsetX = isMobile ? 1 : 2;
+        ctx.shadowOffsetY = isMobile ? 1 : 2;
 
-        // Main text
-        ctx.fillText(mainText, ui.canvas.width / 2, ui.canvas.height / 2 - 20);
+        // Handle word wrapping for main text on mobile
+        if (isMobile && ctx.measureText(mainText).width > maxWidth) {
+            const words = mainText.split(' ');
+            const lines = [];
+            let currentLine = '';
+            
+            for (let i = 0; i < words.length; i++) {
+                const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+                if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = words[i];
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            if (currentLine) lines.push(currentLine);
+            
+            // Draw wrapped main text
+            const lineHeight = fontSize * 1.2;
+            const totalHeight = lines.length * lineHeight;
+            const startY = (ui.canvas.height / 2) - (totalHeight / 2) + (lineHeight / 2) - (subText ? spacing/2 : 0);
+            
+            lines.forEach((line, index) => {
+                ctx.fillText(line, ui.canvas.width / 2, startY + (index * lineHeight));
+            });
+        } else {
+            // Single line main text
+            ctx.fillText(mainText, ui.canvas.width / 2, ui.canvas.height / 2 - (subText ? spacing/2 : 0));
+        }
 
-        // Sub text
+        // Sub text with mobile optimization
         if (subText) { 
-            const subFontSize = Math.max(20, fontSize * 0.6); 
+            const subFontSize = Math.max(isMobile ? 14 : 20, fontSize * (isMobile ? 0.55 : 0.6)); 
             ctx.font = `${subFontSize}px Inter, sans-serif`; 
             ctx.fillStyle = 'rgba(200, 200, 200, 0.9)'; 
-            ctx.fillText(subText, ui.canvas.width / 2, ui.canvas.height / 2 + 40);
+            
+            // Handle word wrapping for sub text on mobile
+            if (isMobile && ctx.measureText(subText).width > maxWidth) {
+                const words = subText.split(' ');
+                const lines = [];
+                let currentLine = '';
+                
+                for (let i = 0; i < words.length; i++) {
+                    const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+                    if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                        lines.push(currentLine);
+                        currentLine = words[i];
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+                if (currentLine) lines.push(currentLine);
+                
+                // Draw wrapped sub text
+                const lineHeight = subFontSize * 1.2;
+                const startY = ui.canvas.height / 2 + spacing/2;
+                
+                lines.forEach((line, index) => {
+                    ctx.fillText(line, ui.canvas.width / 2, startY + (index * lineHeight));
+                });
+            } else {
+                ctx.fillText(subText, ui.canvas.width / 2, ui.canvas.height / 2 + spacing);
+            }
         }
         
         // Reset shadow
