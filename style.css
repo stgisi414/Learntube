@@ -161,8 +161,8 @@ button:disabled, #next-segment-button:disabled {
     /* Mobile lesson container optimization */
     #learning-canvas-container .relative {
         padding-bottom: 0 !important;
-        height: 70vh !important;
-        min-height: 400px !important;
+        height: 85vh !important;
+        min-height: 500px !important;
     }
 
     #lessonCanvas,
@@ -174,7 +174,12 @@ button:disabled, #next-segment-button:disabled {
 
     /* Adjust control bar for mobile */
     #control-bar {
-        padding: 1rem 0.75rem;
+        padding: 0.75rem;
+    }
+    
+    /* Reduce footer margin on mobile */
+    footer {
+        margin-top: 2rem !important;
     }
 
     /* Make lesson controls more accessible on mobile */
