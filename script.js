@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
         levelSelection: document.getElementById('level-selection'),
         levelButtonsContainer: document.getElementById('level-buttons-container'),
         learningCanvasContainer: document.getElementById('learning-canvas-container'),
-        lessonProgressContainer: document.getElementById('lesson-progress-container'),
         canvas: document.getElementById('lessonCanvas'),
         playPauseButton: document.getElementById('play-pause-button'),
         lessonControls: document.getElementById('lesson-controls'),
@@ -128,7 +127,7 @@ Return ONLY the valid JSON, no other text.`;
                     return segments;
                 }
                 log("SEGMENTER WARN: AI response invalid. Using fallback.");
-                return [{ startTime: 30, endTime: 180, reason: "Main educational content (fallback)" }];
+                return [{ startTime: 30, endTime: 180, reason: "Core educational content" }];
             } catch (error) {
                 logError("SEGMENTER ERROR:", error);
                 return [{ startTime: 30, endTime: 180, reason: "Main educational content (fallback)" }];
@@ -247,38 +246,31 @@ Return ONLY the valid JSON, no other text.`;
             updateStatus('narrating');
             updatePlayPauseIcon();
             ui.nextSegmentButton.disabled = true;
-            
-            // Ensure canvas is ready for teleprompter
+
+            // Ensure canvas is visible and properly sized
             setCanvasVisible(true);
-            updateCanvasVisuals('🗣️ Getting started...', `Introduction: "${learningPoint}"`);
-            
+            ui.youtubePlayerContainer.innerHTML = '';
+
             try {
                 const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
-                log(`FLOW: Generated intro narration: "${narrationText}"`);
-                
-                if (!narrationText || narrationText.trim().length === 0) {
-                    log('WARN: Empty intro narration generated, skipping');
-                    setTimeout(onComplete, 500);
-                    return;
-                }
-                
+                log(`FLOW: Generated intro narration: "${narrationText.substring(0, 50)}..."`);
+
+                // Initialize teleprompter before starting speech
+                updateTeleprompter(narrationText, 0);
+
                 await this.speechEngine.play(narrationText, {
                     onProgress: (progress) => {
                         updateTeleprompter(narrationText, progress);
                     },
                     onComplete: () => { 
                         log('FLOW: Intro narration completed');
-                        // Small delay to ensure teleprompter shows completion
-                        setTimeout(() => {
-                            if (lessonState === 'narrating') onComplete();
-                        }, 500);
+                        if (lessonState === 'narrating') onComplete(); 
                     }
                 });
             } catch (error) {
                 logError('Failed to play intro narration:', error);
-                // Show error message on canvas before continuing
-                updateCanvasVisuals('⚠️ Narration unavailable', 'Continuing to video search...');
-                setTimeout(onComplete, 2000);
+                // Continue to next step even if narration fails
+                setTimeout(onComplete, 1000);
             }
         }
 
@@ -287,21 +279,21 @@ Return ONLY the valid JSON, no other text.`;
             updateStatus('narrating');
             updatePlayPauseIcon();
             ui.nextSegmentButton.disabled = true;
-            
+
             // Ensure canvas is ready for teleprompter
             setCanvasVisible(true);
             updateCanvasVisuals('🗣️ Wrapping up...', `Concluding: "${learningPoint}"`);
-            
+
             try {
                 const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
                 log(`FLOW: Generated concluding narration: "${narrationText}"`);
-                
+
                 if (!narrationText || narrationText.trim().length === 0) {
                     log('WARN: Empty concluding narration generated, skipping');
                     setTimeout(onComplete, 500);
                     return;
                 }
-                
+
                 await this.speechEngine.play(narrationText, {
                     onProgress: (progress) => {
                         log(`Concluding narration progress: ${Math.round(progress * 100)}%`);
@@ -376,7 +368,7 @@ Return ONLY the valid JSON, no other text.`;
             log("FLOW: Step 4B - Creating fallback content");
             updateStatus('generating_segments');
             updateCanvasVisuals('🤖 Creating custom content...', 'No suitable videos found. Generating text explanation...');
-            
+
             try {
                 const explanation = await this.gemini.generateDetailedExplanation(learningPoint);
                 if (explanation) {
@@ -545,11 +537,11 @@ Return ONLY the valid JSON, no other text.`;
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             log('FLOW: Playing concluding narration for:', learningPoint);
-            
+
             // Ensure canvas is visible and properly sized for narration
             ui.canvas.width = ui.canvas.clientWidth;
             ui.canvas.height = ui.canvas.clientHeight;
-            
+
             this.playConcludingNarration(learningPoint, () => {
                 log('FLOW: Concluding narration finished, showing quiz');
                 this.showQuiz();
@@ -734,7 +726,7 @@ Return ONLY the valid JSON, no other text.`;
     function setCanvasVisible(visible) {
         ui.canvas.style.opacity = visible ? '1' : '0';
         ui.canvas.style.pointerEvents = visible ? 'auto' : 'none';
-        
+
         // Ensure canvas dimensions are set when making visible
         if (visible) {
             ui.canvas.width = ui.canvas.clientWidth;
@@ -777,32 +769,25 @@ Return ONLY the valid JSON, no other text.`;
     }
 
     function updateTeleprompter(fullText, progress) {
-        if (!ui.canvas) {
-            logError('Canvas element not found for teleprompter');
-            return;
-        }
-        
-        // Ensure canvas is visible and accessible
-        setCanvasVisible(true);
+        if (!ui.canvas || !fullText) return;
+
+        log(`Updating teleprompter: ${Math.round(progress * 100)}% - "${fullText.substring(0, 30)}..."`);
+
+        // Force canvas visibility and clear YouTube container
+        ui.canvas.style.opacity = '1';
+        ui.canvas.style.pointerEvents = 'auto';
+        ui.canvas.style.display = 'block';
         ui.youtubePlayerContainer.innerHTML = '';
-        
-        // Set canvas dimensions - ensure they're valid
+
+        // Force canvas dimensions update
         const rect = ui.canvas.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-            ui.canvas.width = rect.width;
-            ui.canvas.height = rect.height;
-        } else {
-            // Fallback dimensions if canvas isn't properly sized yet
-            ui.canvas.width = 800;
-            ui.canvas.height = 450;
-        }
-        
-        log(`Teleprompter canvas dimensions: ${ui.canvas.width}x${ui.canvas.height}`);
-        
+        ui.canvas.width = rect.width || 800;
+        ui.canvas.height = rect.height || 450;
+
         const ctx = ui.canvas.getContext('2d');
+
+        // Clear and create background
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
-        
-        // Create background gradient
         const gradient = ctx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
         gradient.addColorStop(0, '#1a1a2e');
         gradient.addColorStop(1, '#16213e');
@@ -811,51 +796,53 @@ Return ONLY the valid JSON, no other text.`;
 
         // Calculate responsive font size
         const maxWidth = ui.canvas.width * 0.85;
-        const fontSize = Math.max(28, Math.min(ui.canvas.width / 25, 42)); // Larger, more readable font
+        const fontSize = Math.max(28, Math.min(ui.canvas.width / 20, 48));
         const lineHeight = fontSize * 1.6;
-        
-        // Set text properties with better contrast
-        ctx.font = `500 ${fontSize}px Inter, sans-serif`;
+
+        // Set text properties
+        ctx.font = `600 ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'; // Higher opacity for better visibility
-        
-        // Add text shadow for better readability
+        ctx.fillStyle = '#ffffff';
+
+        // Add text shadow for readability
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 4;
+        ctx.shadowBlur = 6;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
 
+        // Wrap text and calculate positioning
         const lines = wrapText(fullText, maxWidth, ctx);
         const totalContentHeight = lines.length * lineHeight;
-
-        // Center the text vertically and apply scroll based on progress
         const centerY = ui.canvas.height / 2;
         const startY = centerY - (totalContentHeight / 2);
-        
-        // Create a smooth scrolling effect
-        const scrollOffset = progress * totalContentHeight * 0.3; // Reduced scroll speed for better readability
 
+        // Apply gentle scroll effect
+        const scrollOffset = progress * Math.min(totalContentHeight * 0.2, 100);
+
+        // Draw each line
         lines.forEach((line, index) => {
             const y = startY + (index * lineHeight) - scrollOffset;
-            
-            // Only draw lines that are visible on screen
+
+            // Only render visible lines
             if (y > -lineHeight && y < ui.canvas.height + lineHeight) {
-                // Calculate fade effect for lines going off screen
+                // Apply fade effect for smooth transitions
                 let alpha = 1;
-                if (y < lineHeight) {
-                    alpha = Math.max(0, y / lineHeight);
-                } else if (y > ui.canvas.height - lineHeight) {
-                    alpha = Math.max(0, (ui.canvas.height - y) / lineHeight);
+                const fadeZone = lineHeight * 0.5;
+
+                if (y < fadeZone) {
+                    alpha = Math.max(0.1, y / fadeZone);
+                } else if (y > ui.canvas.height - fadeZone) {
+                    alpha = Math.max(0.1, (ui.canvas.height - y) / fadeZone);
                 }
-                
+
                 ctx.globalAlpha = alpha;
                 ctx.fillText(line, ui.canvas.width / 2, y);
-                ctx.globalAlpha = 1;
             }
         });
-        
-        // Reset shadow
+
+        // Reset context properties
+        ctx.globalAlpha = 1;
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
