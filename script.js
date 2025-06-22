@@ -814,15 +814,18 @@ Return ONLY the valid JSON, no other text.`;
         // Wrap text and calculate positioning
         const lines = wrapText(fullText, maxWidth, ctx);
         const totalContentHeight = lines.length * lineHeight;
-        const centerY = ui.canvas.height / 2;
-        const startY = centerY - (totalContentHeight / 2);
-
-        // Apply gentle scroll effect
-        const scrollOffset = progress * Math.min(totalContentHeight * 0.2, 100);
+        
+        // Calculate scroll range - only scroll if content is taller than canvas
+        const maxScrollDistance = Math.max(0, totalContentHeight - ui.canvas.height + lineHeight);
+        const scrollOffset = progress * maxScrollDistance;
+        
+        // Start from top with padding, adjusted by scroll
+        const topPadding = Math.min(lineHeight, ui.canvas.height * 0.1);
+        const startY = topPadding + lineHeight - scrollOffset;
 
         // Draw each line
         lines.forEach((line, index) => {
-            const y = startY + (index * lineHeight) - scrollOffset;
+            const y = startY + (index * lineHeight);
 
             // Only render visible lines
             if (y > -lineHeight && y < ui.canvas.height + lineHeight) {
