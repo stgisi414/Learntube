@@ -836,11 +836,11 @@ If you cannot determine good segments from the context, return a single comprehe
             // Check if YouTube API is loaded
             if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
                 log('YouTube API not loaded, waiting...');
-                setTimeout(() => this.createYouTubePlayer(videoInfo), 1000);
+                setTimeout(() => this.createYouTubePlayer(videoInfo), 2000);
                 return;
             }
             
-            // Store video info for later use
+            // Store video info and start playing
             this.currentVideoInfo = videoInfo;
             this.playCurrentSegment();
         }
@@ -857,12 +857,13 @@ If you cannot determine good segments from the context, return a single comprehe
             
             // Use stored video info
             const videoInfo = this.currentVideoInfo;
-            if (!videoInfo) {
-                logError('No video info available');
+            if (!videoInfo || !videoInfo.youtubeId) {
+                logError('No valid video info available');
                 this.handleVideoError();
                 return;
             }
             
+            // Destroy existing player
             if (this.youtubePlayer) { 
                 try {
                     this.youtubePlayer.destroy(); 
@@ -872,7 +873,7 @@ If you cannot determine good segments from the context, return a single comprehe
                 this.youtubePlayer = null;
             }
             
-            // Clear the container and create a unique div for the player
+            // Get container and validate
             const container = document.getElementById('youtube-player-container');
             if (!container) {
                 logError('YouTube player container not found');
@@ -880,24 +881,22 @@ If you cannot determine good segments from the context, return a single comprehe
                 return;
             }
             
+            // Clear container and create new player div
             container.innerHTML = '';
             const playerDiv = document.createElement('div');
             playerDiv.id = 'youtube-player-' + Date.now();
-            playerDiv.style.width = '100%';
-            playerDiv.style.height = '100%';
+            playerDiv.style.cssText = 'width: 100%; height: 100%; background: #000;';
             container.appendChild(playerDiv);
             
-            // Validate video ID
-            if (!videoInfo.youtubeId || videoInfo.youtubeId.length < 10) {
-                logError('Invalid YouTube video ID:', videoInfo.youtubeId);
-                this.handleVideoError();
-                return;
-            }
+            // Validate segment times
+            const startTime = Math.max(0, Math.floor(segment.startTime || 30));
+            const endTime = Math.floor(segment.endTime || startTime + 120);
             
+            log(`Creating player for video: ${videoInfo.youtubeId}`);
+            log(`Segment times: ${startTime}s to ${endTime}s`);
+            
+            // Create player with error handling
             try {
-                log(`Creating player for video: ${videoInfo.youtubeId}`);
-                log(`Segment: ${segment.startTime}s to ${segment.endTime}s`);
-                
                 this.youtubePlayer = new YT.Player(playerDiv.id, {
                     height: '100%', 
                     width: '100%', 
@@ -906,33 +905,38 @@ If you cannot determine good segments from the context, return a single comprehe
                         autoplay: 1, 
                         controls: 1, 
                         rel: 0, 
-                        start: Math.max(0, Math.floor(segment.startTime)), 
-                        end: Math.floor(segment.endTime),
+                        start: startTime, 
+                        end: endTime,
                         modestbranding: 1,
                         iv_load_policy: 3,
                         enablejsapi: 1,
                         origin: window.location.origin,
                         fs: 0,
-                        cc_load_policy: 1
+                        cc_load_policy: 1,
+                        playsinline: 1
                     },
                     events: {
                         'onReady': (event) => {
                             log('YouTube player ready, starting playback');
-                            try {
-                                event.target.playVideo();
-                                updateStatus('playing_video');
-                                updatePlayPauseIcon();
-                            } catch (e) {
-                                logError('Error starting video:', e);
-                                this.handleVideoError();
-                            }
+                            setTimeout(() => {
+                                try {
+                                    if (this.youtubePlayer && this.youtubePlayer.playVideo) {
+                                        this.youtubePlayer.playVideo();
+                                        updateStatus('playing_video');
+                                        updatePlayPauseIcon();
+                                    }
+                                } catch (e) {
+                                    logError('Error starting video:', e);
+                                    this.handleVideoError();
+                                }
+                            }, 500);
                         },
                         'onStateChange': (event) => {
-                            log(`YouTube player state changed: ${event.data}`);
+                            log(`YouTube player state: ${event.data}`);
                             if (event.data === YT.PlayerState.ENDED) {
                                 log('Video segment ended, moving to next');
                                 currentSegmentPlayIndex++;
-                                setTimeout(() => this.playCurrentSegment(), 500);
+                                setTimeout(() => this.playCurrentSegment(), 1000);
                             } else if (event.data === YT.PlayerState.PLAYING) {
                                 updateStatus('playing_video');
                                 updatePlayPauseIcon();
@@ -943,18 +947,14 @@ If you cannot determine good segments from the context, return a single comprehe
                         },
                         'onError': (event) => { 
                             logError(`YouTube player error: ${event.data}`);
-                            // Error codes: 2 = Invalid parameter, 5 = HTML5 player error, 
-                            // 100 = Video not found, 101/150 = Embedding not allowed
-                            if (event.data === 100 || event.data === 101 || event.data === 150) {
-                                log('Video not available, trying next segment or quiz');
-                                currentSegmentPlayIndex++;
-                                if (currentSegmentPlayIndex >= currentSegments.length) {
-                                    this.showQuiz();
-                                } else {
-                                    setTimeout(() => this.playCurrentSegment(), 1000);
-                                }
+                            // Try next segment or fallback
+                            currentSegmentPlayIndex++;
+                            if (currentSegmentPlayIndex >= currentSegments.length) {
+                                log('No more segments available, showing quiz');
+                                this.showQuiz();
                             } else {
-                                this.handleVideoError();
+                                log('Trying next segment after error');
+                                setTimeout(() => this.playCurrentSegment(), 2000);
                             }
                         }
                     }
@@ -966,7 +966,7 @@ If you cannot determine good segments from the context, return a single comprehe
         }
         
         handleVideoError() {
-            logError('Handling video error');
+            logError('Handling video error - cleaning up and proceeding');
             ui.skipVideoButton.style.display = 'none';
             ui.canvas.style.opacity = '1';
             
@@ -979,16 +979,16 @@ If you cannot determine good segments from the context, return a single comprehe
                 this.youtubePlayer = null;
             }
             
-            // Try next segment or move to quiz
-            currentSegmentPlayIndex++;
-            if (currentSegmentPlayIndex >= currentSegments.length) {
-                log('No more segments, showing quiz');
-                this.showQuiz();
-            } else {
-                log('Trying next segment after error');
-                updateCanvasVisuals('⚠️ Video error, trying next segment...', 'Loading...');
-                setTimeout(() => this.playCurrentSegment(), 2000);
+            // Clear the player container
+            const container = document.getElementById('youtube-player-container');
+            if (container) {
+                container.innerHTML = '';
             }
+            
+            // Skip to quiz instead of trying more segments
+            log('Video playback failed, proceeding to quiz');
+            updateCanvasVisuals('📚 Video unavailable', 'Proceeding to learning assessment...');
+            setTimeout(() => this.showQuiz(), 2000);
         }
 
         // STEP 9: Quiz
