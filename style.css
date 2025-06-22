@@ -1,35 +1,73 @@
+/* --- Base & Typography --- */
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background: #0f172a; /* Use a solid color from your gradient for a cleaner base */
 }
 
-/* --- FIXES & ENHANCEMENTS START --- */
-
-/* 1. Fix Stacking Order & Scrolling */
-#youtube-player-container {
-    z-index: 20; /* Places video/quiz ABOVE the canvas */
-    background: #000;
-    overflow-y: auto; /* Allows the quiz content to scroll vertically */
-}
-
-#lessonCanvas {
-    z-index: 10; /* Places canvas BELOW the video/quiz container */
-}
-
-/* 2. Improve Heading Readability */
 h1 {
-    letter-spacing: -0.025em; /* Was -0.075em, this is a bit looser and easier to read */
+    letter-spacing: -0.025em;
     font-weight: 800;
 }
 
-/* --- FIXES & ENHANCEMENTS END --- */
+h2 {
+    letter-spacing: -0.05em;
+    font-weight: 700;
+}
 
+/* --- Core Layout Fixes --- */
+/* The main container now grows to fill vertical space */
+#app-container {
+    padding-top: 5rem; /* Add space for the fixed progress bar */
+}
 
-/* Enhanced loader animation */
+/* Hide the progress spacer, it's no longer needed */
+#progress-spacer {
+    display: none !important;
+}
+
+/* Use flexbox to make the main content area responsive and centered */
+#main-content {
+    width: 100%;
+}
+
+/* This container will hold either the input views or the learning canvas */
+.view-section.hidden {
+    display: none;
+}
+
+/* --- Learning Canvas & Video Player Fixes --- */
+/* This ensures the learning container fills the available space in the main content area */
+#learning-canvas-container {
+    min-height: 60vh; /* Ensure it has a good minimum height */
+    width: 100%;
+}
+
+/* This is the key fix for the video/canvas player area */
+#youtube-player-container,
+#lessonCanvas {
+    border-radius: 1.5rem; /* Match the container's border radius */
+}
+
+#youtube-player-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* --- UI Element Enhancements --- */
+* {
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out, opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
 .loader {
-    border-top-color: #3b82f6;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-left-color: #3b82f6;
+    border-radius: 50%;
     animation: spin 1s linear infinite;
 }
 
@@ -38,63 +76,26 @@ h1 {
     100% { transform: rotate(360deg); }
 }
 
-/* Pulse animation for loading states */
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
-.animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Smooth transitions for all interactive elements */
-* {
-    transition: all 0.2s ease-in-out;
-}
-
 /* Custom focus styles */
-input:focus, button:focus {
+input:focus, button:focus-visible {
     outline: 2px solid #3b82f6;
     outline-offset: 2px;
 }
 
-/* Enhanced gradient backgrounds */
-.bg-gradient-to-br {
-    background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
+/* Custom scrollbar for quiz section */
+#youtube-player-container {
+    overflow-y: auto;
 }
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(59, 130, 246, 0.5);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(59, 130, 246, 0.7);
-}
-
-/* Typography enhancements */
-h2 {
-    letter-spacing: -0.05em;
-    font-weight: 700;
-}
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
+::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.5); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(59, 130, 246, 0.7); }
 
 /* Button hover effects */
 button:not(:disabled):hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
-
 button:not(:disabled):active {
     transform: translateY(0);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
@@ -102,164 +103,36 @@ button:not(:disabled):active {
 
 /* Input enhancements */
 input[type="text"] {
-    background: rgba(17, 24, 39, 0.8);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(75, 85, 99, 0.5);
-    transition: all 0.3s ease;
+    transition: all 0.2s ease-in-out;
 }
-
 input[type="text"]:focus {
-    background: rgba(17, 24, 39, 0.9);
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
-/* Custom slider styles */
-.slider {
-    -webkit-appearance: none;
-    appearance: none;
-}
-
-.slider::-webkit-slider-thumb {
-    appearance: none;
-    height: 16px;
-    width: 16px;
-    border-radius: 50%;
-    background: #3b82f6;
-    cursor: pointer;
-}
-
-/* Header description hiding */
-.header-description.hidden,
-.header-features.hidden {
+/* Explicitly hide the header description when a lesson starts */
+.header-description.hidden {
     display: none !important;
 }
 
-/* Ensure proper button cursor behavior */
-button, #next-segment-button, #skip-video-button, #play-pause-button {
-    cursor: pointer !important;
-    user-select: none;
-}
+button { cursor: pointer; user-select: none; }
+button:disabled { cursor: not-allowed !important; }
 
-button:disabled, #next-segment-button:disabled {
-    cursor: not-allowed !important;
-}
-
-
-/* Canvas enhancements */
-#lessonCanvas {
-    border-radius: 0;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-}
-
-/* Progress bar animations */
-#progress-bar, #segment-progress {
-    transition: width 0.3s ease;
-}
-
-/* Responsive design improvements */
+/* --- Responsive Design Improvements --- */
 @media (max-width: 768px) {
-    h1 {
-        font-size: 3rem;
-    }
-
-    .text-6xl {
-        font-size: 3rem;
-    }
-
-    .text-4xl {
-        font-size: 2.25rem;
-    }
-
-    .text-3xl {
-        font-size: 1.875rem;
-    }
-
-    /* Mobile lesson container optimization */
-    #learning-canvas-container .relative {
-        padding-bottom: 0 !important;
-        height: auto !important; /* Let height grow with content */
-        min-height: 85vh !important;
-        display: flex; /* Use flexbox for better layout control */
-        flex-direction: column;
-    }
-
-    #lessonCanvas,
-    #youtube-player-container {
-        position: relative !important; /* Change to relative for flexbox flow */
-        height: 100% !important;
-        width: 100% !important;
-        flex-grow: 1; /* Allow container to fill space */
-    }
-
-    /* Adjust control bar for mobile */
-    #control-bar {
-        padding: 0.75rem;
-        flex-shrink: 0; /* Prevent control bar from shrinking */
-    }
-
-    /* Reduce footer margin on mobile */
-    footer {
-        margin-top: 2rem !important;
-    }
-
-    /* Make lesson controls more accessible on mobile */
-    #lesson-controls {
-        bottom: 1rem;
-        left: 1rem;
-        right: 1rem;
-    }
-
-    #lesson-controls .bg-black\/70 {
-        padding: 0.75rem 1rem;
-    }
-
-    #lesson-controls button {
-        padding: 0.75rem 1rem;
-        font-size: 0.875rem;
-    }
+    h1 { font-size: 2.5rem; }
+    .text-6xl { font-size: 2.5rem; }
+    .text-4xl { font-size: 2rem; }
+    .text-3xl { font-size: 1.5rem; }
 }
 
-@media (max-width: 640px) {
-    #control-bar {
-        padding: 1rem;
-    }
-
-    #level-buttons-container {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-}
-
-/* Loading states */
-.loading-shimmer {
-    background: linear-gradient(90deg, 
-        rgba(255, 255, 255, 0.1) 25%, 
-        rgba(255, 255, 255, 0.2) 50%, 
-        rgba(255, 255, 255, 0.1) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-}
-
-/* Error message styling */
+/* --- Error message styling --- */
 #error-display {
     animation: slideIn 0.3s ease-out;
 }
-
 @keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Accessibility improvements */
@@ -268,74 +141,6 @@ button:disabled, #next-segment-button:disabled {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
-    }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .bg-gray-800 {
-        background-color: #000000;
-    }
-
-    .text-gray-400 {
-        color: #ffffff;
-    }
-
-    .border-gray-600 {
-        border-color: #ffffff;
-    }
-}
-
-/* Keyboard navigation indicators */
-button:focus-visible, input:focus-visible {
-    outline: 3px solid #fbbf24;
-    outline-offset: 2px;
-}
-
-/* Glass morphism effects */
-.backdrop-blur-sm {
-    backdrop-filter: blur(4px);
-}
-
-.bg-white\/10 {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.border-white\/20 {
-    border-color: rgba(255, 255, 255, 0.2);
-}
-
-/* Custom kbd styling */
-kbd {
-    background-color: #374151;
-    border: 1px solid #4b5563;
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-family: monospace;
-    font-size: 0.75rem;
-    color: #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-/* Performance optimizations */
-.will-change-transform {
-    will-change: transform;
-}
-
-.gpu-accelerated {
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    perspective: 1000px;
-}
-
-/* Print styles */
-@media print {
-    .no-print {
-        display: none !important;
-    }
-
-    body {
-        background: white !important;
-        color: black !important;
+        transform: none !important;
     }
 }
