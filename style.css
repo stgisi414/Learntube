@@ -161,8 +161,8 @@ button:disabled, #next-segment-button:disabled {
     /* Mobile lesson container optimization */
     #learning-canvas-container .relative {
         padding-bottom: 0 !important;
-        height: 75vh !important;
-        min-height: 450px !important;
+        height: 65vh !important;
+        min-height: 400px !important;
     }
 
     #lessonCanvas,
