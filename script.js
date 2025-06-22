@@ -194,6 +194,7 @@ Return ONLY the valid JSON, no other text.`;
     class SpeechEngine {
         constructor() { this.apiKey = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8"; this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize'; this.audioElement = new Audio(); this.onCompleteCallback = null; this.onProgressCallback = null; this.isPaused = false; this.isPlaying = false; }
         async play(text, { onProgress = null, onComplete = null } = {}) {
+            log(`SPEECH: Starting playback for text: "${text.substring(0, 50)}..."`);
             this.stop();
             if (!text) {
                 if (onComplete) onComplete();
@@ -203,6 +204,8 @@ Return ONLY the valid JSON, no other text.`;
             this.onCompleteCallback = onComplete;
             this.isPaused = false;
             this.isPlaying = true;
+            
+            log('SPEECH: State set - isPlaying: true, isPaused: false');
 
             const maxRetries = 2;
             let currentRetry = 0;
@@ -270,14 +273,22 @@ Return ONLY the valid JSON, no other text.`;
 
                 this.audioElement.onloadeddata = () => {
                     clearTimeout(audioTimeout);
+                    log('SPEECH: Audio loaded successfully, attempting to play');
                     if (this.isPlaying && !this.isPaused) {
-                        this.audioElement.play().catch(e => {
-                            logError(`Audio play error: ${e}`);
-                            if (this.onCompleteCallback) {
-                                log('SPEECH: Using fallback timer due to play error');
-                                this.onCompleteCallback();
+                        // Add a small delay to ensure audio is fully ready
+                        setTimeout(() => {
+                            if (this.isPlaying && !this.isPaused) {
+                                this.audioElement.play().then(() => {
+                                    log('SPEECH: Audio playback started successfully');
+                                }).catch(e => {
+                                    logError(`Audio play error: ${e}`);
+                                    if (this.onCompleteCallback) {
+                                        log('SPEECH: Using fallback timer due to play error');
+                                        this.onCompleteCallback();
+                                    }
+                                });
                             }
-                        });
+                        }, 100);
                     }
                 };
 
@@ -292,6 +303,22 @@ Return ONLY the valid JSON, no other text.`;
                     if (this.onCompleteCallback) this.onCompleteCallback();
                 };
 
+                this.audioElement.oncanplay = () => {
+                    log('SPEECH: Audio can start playing');
+                };
+                
+                this.audioElement.oncanplaythrough = () => {
+                    log('SPEECH: Audio can play through without stopping');
+                };
+                
+                this.audioElement.onplay = () => {
+                    log('SPEECH: Audio play event fired');
+                };
+                
+                this.audioElement.onplaying = () => {
+                    log('SPEECH: Audio is now playing');
+                };
+                
                 this.audioElement.onerror = (e) => {
                     logError(`Audio element error, falling back to timer`, e);
                     this.isPlaying = false;
@@ -327,7 +354,34 @@ Return ONLY the valid JSON, no other text.`;
         resume() { 
             if (this.isPaused && this.isPlaying) { this.audioElement.play().catch(e => logError(`Resume error: ${e}`)); this.isPaused = false; log('Speech resumed'); } }
         stop() { 
-            this.audioElement.pause(); this.isPlaying = false; this.isPaused = false; if (this.audioElement.src) { this.audioElement.currentTime = 0; URL.revokeObjectURL(this.audioElement.src); this.audioElement.src = ''; } log('Speech stopped'); }
+            log('SPEECH: Stopping audio playback');
+            try {
+                this.audioElement.pause(); 
+            } catch (e) {
+                log('SPEECH: Error pausing audio:', e);
+            }
+            this.isPlaying = false; 
+            this.isPaused = false; 
+            if (this.audioElement.src) { 
+                try {
+                    this.audioElement.currentTime = 0; 
+                    URL.revokeObjectURL(this.audioElement.src); 
+                    this.audioElement.src = ''; 
+                } catch (e) {
+                    log('SPEECH: Error cleaning up audio source:', e);
+                }
+            } 
+            // Clear all event handlers to prevent issues
+            this.audioElement.onloadeddata = null;
+            this.audioElement.ontimeupdate = null;
+            this.audioElement.onended = null;
+            this.audioElement.onerror = null;
+            this.audioElement.oncanplay = null;
+            this.audioElement.oncanplaythrough = null;
+            this.audioElement.onplay = null;
+            this.audioElement.onplaying = null;
+            log('Speech stopped and cleaned up'); 
+        }
         base64ToBlob(base64) { 
             const byteCharacters = atob(base64); const byteArrays = []; for (let offset = 0; offset < byteCharacters.length; offset += 512) { const slice = byteCharacters.slice(offset, offset + 512); const byteNumbers = new Array(slice.length); for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i); byteArrays.push(new Uint8Array(byteNumbers)); } return new Blob(byteArrays, { type: 'audio/mpeg' }); }
     }
