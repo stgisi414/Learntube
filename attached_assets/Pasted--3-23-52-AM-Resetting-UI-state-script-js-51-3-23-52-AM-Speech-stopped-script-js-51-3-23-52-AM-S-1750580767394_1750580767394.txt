@@ -1,0 +1,144 @@
+[3:23:52 AM] Resetting UI state
+script.js:51 [3:23:52 AM] Speech stopped
+script.js:51 [3:23:52 AM] STATE: idle
+script.js:51 [3:23:52 AM] FLOW: Step 1 - Generate lesson plan
+script.js:51 [3:23:52 AM] GEMINI: Generating lesson plan...
+script.js:51 [3:23:57 AM] FLOW: Starting level Apprentice
+script.js:51 [3:23:57 AM] FLOW: Play intro narration
+script.js:51 [3:23:57 AM] STATE: narrating
+script.js:51 [3:23:57 AM] GEMINI: Generating narration for "Basic chemical structure of THC"
+script.js:51 [3:23:59 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:23:59 AM] TEXT DISPLAY: Rendered "Welcome!  In this lesson, we'll explore the fundam..." for mobile
+script.js:51 [3:23:59 AM] Speech stopped
+script.js:51 [3:24:04 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:04 AM] TEXT ANIMATION: Progress 0.2% (mobile)
+script.js:51 [3:24:04 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:04 AM] TEXT ANIMATION: Progress 2.8% (mobile)
+script.js:51 [3:24:04 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:04 AM] TEXT ANIMATION: Progress 5.5% (mobile)
+script.js:51 [3:24:05 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:05 AM] TEXT ANIMATION: Progress 8.4% (mobile)
+script.js:51 [3:24:05 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:05 AM] TEXT ANIMATION: Progress 11.2% (mobile)
+script.js:51 [3:24:05 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:05 AM] TEXT ANIMATION: Progress 13.9% (mobile)
+script.js:51 [3:24:05 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:05 AM] TEXT ANIMATION: Progress 17.0% (mobile)
+script.js:51 [3:24:06 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:06 AM] TEXT ANIMATION: Progress 19.8% (mobile)
+script.js:51 [3:24:06 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:06 AM] TEXT ANIMATION: Progress 22.6% (mobile)
+script.js:51 [3:24:06 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:06 AM] TEXT ANIMATION: Progress 25.4% (mobile)
+script.js:51 [3:24:07 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:07 AM] TEXT ANIMATION: Progress 28.3% (mobile)
+script.js:51 [3:24:07 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:07 AM] TEXT ANIMATION: Progress 31.0% (mobile)
+script.js:51 [3:24:07 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:07 AM] TEXT ANIMATION: Progress 34.2% (mobile)
+script.js:51 [3:24:07 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:07 AM] TEXT ANIMATION: Progress 36.9% (mobile)
+script.js:51 [3:24:08 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:08 AM] TEXT ANIMATION: Progress 39.8% (mobile)
+script.js:51 [3:24:08 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:08 AM] TEXT ANIMATION: Progress 42.6% (mobile)
+script.js:51 [3:24:08 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:08 AM] TEXT ANIMATION: Progress 45.3% (mobile)
+script.js:51 [3:24:08 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:08 AM] TEXT ANIMATION: Progress 48.3% (mobile)
+script.js:51 [3:24:09 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:09 AM] TEXT ANIMATION: Progress 51.2% (mobile)
+script.js:51 [3:24:09 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:09 AM] TEXT ANIMATION: Progress 54.0% (mobile)
+script.js:51 [3:24:09 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:09 AM] TEXT ANIMATION: Progress 56.8% (mobile)
+script.js:51 [3:24:09 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:09 AM] TEXT ANIMATION: Progress 59.9% (mobile)
+script.js:51 [3:24:10 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:10 AM] TEXT ANIMATION: Progress 62.7% (mobile)
+script.js:51 [3:24:10 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:10 AM] TEXT ANIMATION: Progress 65.5% (mobile)
+script.js:51 [3:24:10 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:10 AM] TEXT ANIMATION: Progress 68.5% (mobile)
+script.js:51 [3:24:11 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:11 AM] TEXT ANIMATION: Progress 71.3% (mobile)
+script.js:51 [3:24:11 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:11 AM] TEXT ANIMATION: Progress 74.2% (mobile)
+script.js:51 [3:24:11 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:11 AM] TEXT ANIMATION: Progress 76.9% (mobile)
+script.js:51 [3:24:11 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:11 AM] TEXT ANIMATION: Progress 79.8% (mobile)
+script.js:51 [3:24:12 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:12 AM] TEXT ANIMATION: Progress 82.6% (mobile)
+script.js:51 [3:24:12 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:12 AM] TEXT ANIMATION: Progress 85.7% (mobile)
+script.js:51 [3:24:12 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:12 AM] TEXT ANIMATION: Progress 88.5% (mobile)
+script.js:51 [3:24:12 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:12 AM] TEXT ANIMATION: Progress 91.4% (mobile)
+script.js:51 [3:24:13 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:13 AM] TEXT ANIMATION: Progress 94.0% (mobile)
+script.js:51 [3:24:13 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:13 AM] TEXT ANIMATION: Progress 96.8% (mobile)
+script.js:51 [3:24:13 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:13 AM] TEXT ANIMATION: Progress 99.7% (mobile)
+script.js:51 [3:24:13 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:13 AM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [3:24:13 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:13 AM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [3:24:13 AM] NARRATION: Speech completed successfully
+script.js:51 [3:24:13 AM] FLOW: Step 2 - Search educational videos
+script.js:51 [3:24:13 AM] STATE: searching_videos
+script.js:51 [3:24:13 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:13 AM] STATUS MESSAGE: "🔎 Finding educational content..."
+script.js:51 [3:24:13 AM] GEMINI: Generating search queries for "Basic chemical structure of THC"
+script.js:51 [3:24:15 AM] Generated search queries: (3) ['THC chemical structure', 'THC molecule explained', 'THC structure tutorial']
+script.js:51 [3:24:15 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:15 AM] STATUS MESSAGE: "🔎 Searching educational videos..."
+script.js:51 [3:24:15 AM] SEARCH: Using Custom Search for: "THC chemical structure"
+script.js:51 [3:24:15 AM] SEARCH: Found 10 valid videos for "THC chemical structure"
+script.js:51 [3:24:15 AM] Total videos found: 10
+script.js:51 [3:24:15 AM] Unique videos after filtering: 10
+script.js:51 [3:24:15 AM] FLOW: Found 5 potential videos
+script.js:51 [3:24:15 AM] FLOW: Step 4 - Auto-selecting best video
+script.js:51 [3:24:15 AM] STATE: choosing_video
+script.js:51 [3:24:15 AM] FLOW: Selected video: THC vs CBD: What's In Your Weed? - YouTube (ID: 1iIENII-lVo)
+script.js:51 [3:24:15 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:15 AM] STATUS MESSAGE: "✅ Video selected!"
+script.js:51 [3:24:17 AM] FLOW: Step 7 - Generate segments
+script.js:51 [3:24:17 AM] STATE: generating_segments
+script.js:51 [3:24:17 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:17 AM] STATUS MESSAGE: "✂️ Finding best segments..."
+script.js:51 [3:24:17 AM] SEGMENTER: Analyzing YouTube video for "Basic chemical structure of THC"
+script.js:51 [3:24:19 AM] SEGMENTER: Found 1 valid segments.
+script.js:51 [3:24:19 AM] Generated 1 segments: [{…}]
+script.js:51 [3:24:19 AM] FLOW: Step 8 - Play segments
+script.js:51 [3:24:19 AM] STATE: playing_video
+script.js:51 [3:24:19 AM] TEXT DISPLAY: Canvas is now hidden
+script.js:51 [3:24:19 AM] Creating player for video: 1iIENII-lVo
+script.js:51 [3:24:19 AM] Playing segment 1/1: 60s - 180s
+5Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('<URL>') does not match the recipient window's origin ('<URL>').Understand this warning
+script.js:51 [3:24:22 AM] YouTube player ready.
+script.js:51 [3:24:25 AM] STATE: playing_video
+script.js:51 [3:24:28 AM] Video playbook finished
+script.js:51 [3:24:28 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:28 AM] FLOW: Starting concluding narration sequence for: Basic chemical structure of THC
+script.js:654 DEBUG: Pre-narration state check: {learningPoint: 'Basic chemical structure of THC', lessonState: 'playing_video', speechEngineState: {…}}
+script.js:51 [3:24:28 AM] FLOW: Play concluding narration
+script.js:51 [3:24:28 AM] STATE: narrating
+script.js:51 [3:24:28 AM] GEMINI: Generating concluding narration for "Basic chemical structure of THC"
+script.js:51 [3:24:29 AM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [3:24:29 AM] TEXT DISPLAY: Rendered "You've now mastered the fundamentals of THC's chem..." for mobile
+script.js:51 [3:24:29 AM] Speech stopped
+script.js:52 [3:24:29 AM] ERROR: Audio element error, skipping speech Event {isTrusted: true, type: 'error', target: audio, currentTarget: audio, eventPhase: 2, …}
+logError @ script.js:52
+audioElement.onerror @ script.js:259Understand this error
+script.js:51 [3:24:44 AM] CONCLUDING NARRATION: Timeout reached, forcing completion
+script.js:51 [3:24:44 AM] Speech stopped
+script.js:51 [3:24:44 AM] CONCLUDING NARRATION: Completed successfully
+script.js:666 DEBUG: Post-narration state check: {lessonState: 'narrating', speechEngineState: {…}}
+script.js:51 [3:24:44 AM] FLOW: Step 9 - Show quiz
+script.js:51 [3:24:44 AM] STATE: quiz
+script.js:51 [3:24:44 AM] TEXT DISPLAY: Canvas is now hidden
+script.js:51 [3:24:44 AM] GEMINI: Generating quiz for "Basic chemical structure of THC"
+script.js:52 [3:24:44 AM] ERROR: Audio element error, skipping speech Event {isTrusted: true, type: 'error', target: audio, currentTarget: audio, eventPhase: 2, …}
