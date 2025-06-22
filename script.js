@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
     const CSE_ID = '534de8daaf2cb449d';
     const TRANSCRIPT_API_URL = "https://transcript-scraper-stefdgisi.replit.app";
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
 
     const log = (message, ...args) => console.log(`[${new Date().toLocaleTimeString()}] ${message}`, ...args);
     const logError = (message, ...args) => console.error(`[${new Date().toLocaleTimeString()}] ERROR: ${message}`, ...args);
@@ -220,23 +220,20 @@ If you cannot determine good segments from the context, return a single comprehe
         }
 
         async analyzeVideoWithGemini(videoId, learningPoint) {
-            log(`VIDEO ANALYSIS: Analyzing video ${videoId} with Gemini video understanding`);
+            log(`VIDEO ANALYSIS: Analyzing video ${videoId} with Gemini 2.0 YouTube URL feature`);
             
             try {
-                // Use Gemini's video understanding API
+                // Use Gemini 2.0's direct YouTube URL support
+                const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
                 const requestBody = {
                     contents: [{
                         parts: [
                             {
-                                fileData: {
-                                    mimeType: "video/*",
-                                    fileUri: `https://www.youtube.com/watch?v=${videoId}`
-                                }
-                            },
-                            {
-                                text: `Analyze this educational video and identify the most relevant segments for learning about "${learningPoint}". 
+                                text: `Analyze this educational YouTube video and identify the most relevant segments for learning about "${learningPoint}". 
 
-Find 1-3 key segments where this topic is explained most clearly. Each segment should be 30-120 seconds long.
+Watch the video carefully and find 1-3 key segments where this topic is explained most clearly. Each segment should be 30-120 seconds long.
+
+Provide timestamps based on what you observe in the video content.
 
 Return ONLY a JSON array with this format:
 [
@@ -245,6 +242,11 @@ Return ONLY a JSON array with this format:
 ]
 
 Focus on educational content that directly relates to "${learningPoint}".`
+                            },
+                            {
+                                file_data: {
+                                    file_uri: youtubeUrl
+                                }
                             }
                         ]
                     }],
@@ -254,6 +256,7 @@ Focus on educational content that directly relates to "${learningPoint}".`
                     }
                 };
 
+                log(`VIDEO ANALYSIS: Sending request to Gemini 2.0 for ${youtubeUrl}`);
                 const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -261,7 +264,8 @@ Focus on educational content that directly relates to "${learningPoint}".`
                 });
 
                 if (!response.ok) {
-                    log(`VIDEO ANALYSIS: Gemini video API failed: ${response.status}`);
+                    const errorText = await response.text();
+                    log(`VIDEO ANALYSIS: Gemini 2.0 API failed: ${response.status} - ${errorText}`);
                     return null;
                 }
 
@@ -269,23 +273,26 @@ Focus on educational content that directly relates to "${learningPoint}".`
                 const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 
                 if (!content) {
-                    log('VIDEO ANALYSIS: No content in video analysis response');
+                    log('VIDEO ANALYSIS: No content in Gemini 2.0 video analysis response');
+                    log('VIDEO ANALYSIS: Response data:', data);
                     return null;
                 }
 
+                log(`VIDEO ANALYSIS: Gemini 2.0 response:`, content);
                 const segments = this.parseJSONResponse(content);
                 if (Array.isArray(segments) && segments.length > 0) {
-                    log(`VIDEO ANALYSIS: Successfully analyzed video, found ${segments.length} segments`);
+                    log(`VIDEO ANALYSIS: Successfully analyzed video with Gemini 2.0, found ${segments.length} segments`);
                     return segments.filter(seg => 
                         seg && typeof seg.startTime === 'number' && typeof seg.endTime === 'number' && 
                         seg.startTime < seg.endTime && seg.startTime >= 0
                     );
                 }
 
+                log('VIDEO ANALYSIS: No valid segments parsed from Gemini 2.0 response');
                 return null;
                 
             } catch (error) {
-                log(`VIDEO ANALYSIS: Error analyzing video with Gemini:`, error);
+                log(`VIDEO ANALYSIS: Error analyzing video with Gemini 2.0:`, error);
                 return null;
             }
         }
