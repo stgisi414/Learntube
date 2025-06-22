@@ -696,36 +696,67 @@ Return ONLY the valid JSON, no other text.`;
         ui.canvas.style.pointerEvents = 'auto';
         ui.youtubePlayerContainer.innerHTML = '';
         
+        // Set canvas dimensions explicitly
+        ui.canvas.width = ui.canvas.clientWidth;
+        ui.canvas.height = ui.canvas.clientHeight;
+        
         const ctx = ui.canvas.getContext('2d');
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
+        
+        // Create background gradient
         const gradient = ctx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
         gradient.addColorStop(0, '#1a1a2e');
         gradient.addColorStop(1, '#16213e');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
 
-        const maxWidth = ui.canvas.width * 0.9;
-        const fontSize = Math.max(24, Math.min(ui.canvas.width / 30, 36)); // Slightly larger font for teleprompter
-        const lineHeight = fontSize * 1.5;
-        ctx.font = `400 ${fontSize}px Inter, sans-serif`;
+        // Configure text styling
+        const maxWidth = ui.canvas.width * 0.85;
+        const fontSize = Math.max(28, Math.min(ui.canvas.width / 25, 42));
+        const lineHeight = fontSize * 1.6;
+        
+        ctx.font = `600 ${fontSize}px Inter, sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
 
+        // Wrap text and calculate positions
         const lines = wrapText(fullText, maxWidth, ctx);
-        const totalContentHeight = (lines.length) * lineHeight;
-
-        // The text starts centered and scrolls up
-        const startY = ui.canvas.height / 2;
-        const yOffset = startY - (totalContentHeight * progress);
-
-        ctx.save();
-        ctx.translate(ui.canvas.width / 2, yOffset);
-        lines.forEach((line, index) => { 
-            // Draw each line relative to the new (0,0) after translation
-            ctx.fillText(line, 0, index * lineHeight); 
+        const totalTextHeight = lines.length * lineHeight;
+        
+        // Start text in center, scroll up as progress increases
+        const centerY = (ui.canvas.height / 2) - (totalTextHeight / 2);
+        const scrollOffset = progress * totalTextHeight * 0.7; // Scroll speed
+        
+        // Draw each line
+        lines.forEach((line, index) => {
+            const y = centerY + (index * lineHeight) - scrollOffset;
+            
+            // Only draw lines that are visible on canvas
+            if (y > -lineHeight && y < ui.canvas.height + lineHeight) {
+                // Add fade effect for lines going off screen
+                let alpha = 1;
+                if (y < lineHeight) {
+                    alpha = Math.max(0, y / lineHeight);
+                } else if (y > ui.canvas.height - lineHeight) {
+                    alpha = Math.max(0, (ui.canvas.height - y) / lineHeight);
+                }
+                
+                ctx.globalAlpha = alpha;
+                ctx.fillText(line, ui.canvas.width / 2, y);
+                ctx.globalAlpha = 1;
+            }
         });
-        ctx.restore();
+        
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
     }
 
     function wrapText(text, maxWidth, ctx) {
