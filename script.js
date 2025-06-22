@@ -225,7 +225,8 @@ Return ONLY the valid JSON, no other text.`;
             ui.levelSelection.classList.add('hidden');
             ui.lessonProgressContainer.classList.remove('hidden');
             ui.learningCanvasContainer.classList.remove('hidden');
-            document.getElementById('progress-spacer').classList.remove('hidden');
+            // Remove progress spacer to eliminate unnecessary spacing
+            document.getElementById('progress-spacer').classList.add('hidden');
             this.processNextLearningPoint();
         }
 

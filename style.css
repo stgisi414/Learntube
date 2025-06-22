@@ -356,16 +356,25 @@ footer {
     
     /* Even more compact when content is hidden */
     header:has(.header-description.hidden) {
-        margin-bottom: 0.25rem !important;
-        padding-bottom: 0.25rem !important;
+        margin-bottom: 0.125rem !important;
+        padding-bottom: 0.125rem !important;
     }
     
     /* Fallback for browsers that don't support :has() selector */
     @supports not (selector(:has(*))) {
         header.content-hidden {
-            margin-bottom: 0.25rem !important;
-            padding-bottom: 0.25rem !important;
+            margin-bottom: 0.125rem !important;
+            padding-bottom: 0.125rem !important;
         }
+    }
+    
+    /* Minimize progress spacer on mobile */
+    #progress-spacer {
+        height: 0.5rem !important;
+    }
+    
+    #progress-spacer.hidden {
+        height: 0 !important;
     }
     
     header .w-16.h-16 {
@@ -596,16 +605,38 @@ footer {
 
 /* Reduce header spacing when description content is hidden */
 header:has(.header-description.hidden) {
-    margin-bottom: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
+    margin-bottom: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
 }
 
 /* Fallback for browsers that don't support :has() selector */
 @supports not (selector(:has(*))) {
     header.content-hidden {
-        margin-bottom: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
     }
+}
+
+/* Ensure progress spacer doesn't add unnecessary height when canvas is visible */
+#progress-spacer.hidden {
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* When learning canvas is active, minimize all spacing */
+#learning-canvas-container:not(.hidden) ~ * {
+    margin-top: 0 !important;
+}
+
+/* Hide any elements that might be creating phantom spacing */
+#input-section.hidden,
+#level-selection.hidden,
+#loading-indicator.hidden {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* Ensure proper button cursor behavior (preserve existing) */
