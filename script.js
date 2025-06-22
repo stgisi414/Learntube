@@ -204,35 +204,50 @@ Return ONLY the valid JSON, no other text.`;
             this.isPaused = false;
             this.isPlaying = true;
 
-            const maxRetries = 1;
+            const maxRetries = 2;
             let currentRetry = 0;
 
             try {
                 let response;
                 while (currentRetry <= maxRetries) {
-                    response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            input: { text },
-                            voice: { languageCode: 'en-US', name: 'en-US-Standard-C' },
-                            audioConfig: { audioEncoding: 'MP3' }
-                        })
-                    });
+                    try {
+                        response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                input: { text },
+                                voice: { languageCode: 'en-US', name: 'en-US-Standard-C' },
+                                audioConfig: { audioEncoding: 'MP3' }
+                            })
+                        });
 
-                    // If the response is OK, break the retry loop and proceed.
-                    if (response.ok) {
-                        break;
-                    }
+                        // If the response is OK, break the retry loop and proceed.
+                        if (response.ok) {
+                            break;
+                        }
 
-                    // If we get a rate limit error and have retries left, wait and try again.
-                    if (response.status === 429 && currentRetry < maxRetries) {
-                        log(`SPEECH API: Rate limited. Retrying in 1 second...`);
-                        currentRetry++;
-                        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
-                    } else {
-                        // For other errors or if retries are exhausted, throw an error to be caught below.
-                        throw new Error(`Speech API failed with status ${response.status}: ${(await response.json()).error?.message || 'Unknown API error'}`);
+                        // Handle different error types
+                        if (response.status === 429 && currentRetry < maxRetries) {
+                            log(`SPEECH API: Rate limited. Retrying in ${currentRetry + 1} seconds...`);
+                            currentRetry++;
+                            await new Promise(resolve => setTimeout(resolve, (currentRetry) * 1000));
+                        } else if (response.status >= 500 && currentRetry < maxRetries) {
+                            log(`SPEECH API: Server error ${response.status}. Retrying...`);
+                            currentRetry++;
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        } else {
+                            // For other errors or if retries are exhausted, throw an error to be caught below.
+                            const errorData = await response.json().catch(() => ({}));
+                            throw new Error(`Speech API failed with status ${response.status}: ${errorData.error?.message || 'Unknown API error'}`);
+                        }
+                    } catch (fetchError) {
+                        if (currentRetry < maxRetries) {
+                            log(`SPEECH API: Network error. Retrying...`);
+                            currentRetry++;
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        } else {
+                            throw fetchError;
+                        }
                     }
                 }
 
@@ -240,8 +255,30 @@ Return ONLY the valid JSON, no other text.`;
                 const audioBlob = this.base64ToBlob(data.audioContent);
                 this.audioElement.src = URL.createObjectURL(audioBlob);
 
+                // Add timeout for audio loading
+                const audioTimeout = setTimeout(() => {
+                    if (this.isPlaying) {
+                        logError('Audio loading timeout, using fallback');
+                        this.isPlaying = false;
+                        this.isPaused = false;
+                        if (this.onCompleteCallback) {
+                            log('SPEECH: Using fallback timer due to loading timeout');
+                            this.onCompleteCallback();
+                        }
+                    }
+                }, 10000); // 10 second timeout
+
                 this.audioElement.onloadeddata = () => {
-                    if (this.isPlaying && !this.isPaused) this.audioElement.play().catch(e => log(`Audio play error: ${e}`));
+                    clearTimeout(audioTimeout);
+                    if (this.isPlaying && !this.isPaused) {
+                        this.audioElement.play().catch(e => {
+                            logError(`Audio play error: ${e}`);
+                            if (this.onCompleteCallback) {
+                                log('SPEECH: Using fallback timer due to play error');
+                                this.onCompleteCallback();
+                            }
+                        });
+                    }
                 };
 
                 this.audioElement.ontimeupdate = () => {
@@ -256,17 +293,33 @@ Return ONLY the valid JSON, no other text.`;
                 };
 
                 this.audioElement.onerror = (e) => {
-                    logError(`Audio element error, skipping speech`, e);
+                    logError(`Audio element error, falling back to timer`, e);
                     this.isPlaying = false;
                     this.isPaused = false;
-                    // onComplete is deliberately not called to allow timeout fallback.
+                    // Call onComplete after a delay to simulate speech completion
+                    if (this.onCompleteCallback) {
+                        setTimeout(() => {
+                            if (this.onCompleteCallback) {
+                                log('SPEECH: Using fallback timer due to audio error');
+                                this.onCompleteCallback();
+                            }
+                        }, Math.max(2000, text.length * 50)); // Estimate speech duration
+                    }
                 };
 
             } catch (error) {
                 logError(`Speech Error: ${error}`);
                 this.isPlaying = false;
                 this.isPaused = false;
-                // onComplete is deliberately not called to allow timeout fallback.
+                // Call onComplete after a delay as fallback
+                if (this.onCompleteCallback) {
+                    setTimeout(() => {
+                        if (this.onCompleteCallback) {
+                            log('SPEECH: Using fallback timer due to API error');
+                            this.onCompleteCallback();
+                        }
+                    }, Math.max(2000, text.length * 50)); // Estimate speech duration
+                }
             }
         }
         pause() { 
