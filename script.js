@@ -148,6 +148,16 @@ Return ONLY the JSON, no other text.`;
             log(`SEGMENTER: Analyzing YouTube video for "${learningPoint}"`);
             log(`SEGMENTER: Video URL: ${youtubeUrl}`);
             
+            // Try video understanding first, fallback to URL-based analysis
+            const videoId = this.extractVideoId(youtubeUrl);
+            if (videoId) {
+                const videoSegments = await this.analyzeVideoWithGemini(videoId, learningPoint);
+                if (videoSegments && videoSegments.length > 0) {
+                    return videoSegments;
+                }
+            }
+            
+            // Fallback to URL-based analysis
             try {
                 const prompt = `You are an expert video analyst. I need you to analyze this YouTube video and identify the most relevant segments for learning about: "${learningPoint}"
 
@@ -203,10 +213,148 @@ If you cannot determine good segments from the context, return a single comprehe
                 return this.createFallbackSegments();
             }
         }
+
+        extractVideoId(url) {
+            const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+            return match ? match[1] : null;
+        }
+
+        async analyzeVideoWithGemini(videoId, learningPoint) {
+            log(`VIDEO ANALYSIS: Analyzing video ${videoId} with Gemini video understanding`);
+            
+            try {
+                // Use Gemini's video understanding API
+                const requestBody = {
+                    contents: [{
+                        parts: [
+                            {
+                                fileData: {
+                                    mimeType: "video/*",
+                                    fileUri: `https://www.youtube.com/watch?v=${videoId}`
+                                }
+                            },
+                            {
+                                text: `Analyze this educational video and identify the most relevant segments for learning about "${learningPoint}". 
+
+Find 1-3 key segments where this topic is explained most clearly. Each segment should be 30-120 seconds long.
+
+Return ONLY a JSON array with this format:
+[
+  {"startTime": 45, "endTime": 135, "reason": "Main explanation of core concepts"},
+  {"startTime": 180, "endTime": 240, "reason": "Practical examples"}
+]
+
+Focus on educational content that directly relates to "${learningPoint}".`
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        temperature: 0.3,
+                        maxOutputTokens: 1024
+                    }
+                };
+
+                const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    log(`VIDEO ANALYSIS: Gemini video API failed: ${response.status}`);
+                    return null;
+                }
+
+                const data = await response.json();
+                const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (!content) {
+                    log('VIDEO ANALYSIS: No content in video analysis response');
+                    return null;
+                }
+
+                const segments = this.parseJSONResponse(content);
+                if (Array.isArray(segments) && segments.length > 0) {
+                    log(`VIDEO ANALYSIS: Successfully analyzed video, found ${segments.length} segments`);
+                    return segments.filter(seg => 
+                        seg && typeof seg.startTime === 'number' && typeof seg.endTime === 'number' && 
+                        seg.startTime < seg.endTime && seg.startTime >= 0
+                    );
+                }
+
+                return null;
+                
+            } catch (error) {
+                log(`VIDEO ANALYSIS: Error analyzing video with Gemini:`, error);
+                return null;
+            }
+        }
         
         createFallbackSegments() {
             // Smart fallback based on typical educational video structure
             return [{ startTime: 30, endTime: 180, reason: "Main educational content (fallback)" }];
+        }
+
+        async findVideoSegmentsWithTranscript(videoTitle, youtubeUrl, learningPoint, transcript) {
+            log(`TRANSCRIPT SEGMENTER: Analyzing transcript for "${learningPoint}"`);
+            
+            try {
+                const prompt = `You are an expert video analyst with access to the full transcript. Analyze this educational video transcript and identify the most relevant segments for learning about: "${learningPoint}"
+
+Video Details:
+- Title: "${videoTitle}"
+- YouTube URL: ${youtubeUrl}
+- Learning Focus: "${learningPoint}"
+
+TRANSCRIPT:
+${transcript.substring(0, 4000)} ${transcript.length > 4000 ? '...[truncated]' : ''}
+
+Your task:
+1. Read through the transcript and identify where "${learningPoint}" is discussed
+2. Find 1-3 key segments where this topic is explained most clearly
+3. Estimate timestamps based on typical speech patterns (150-200 words per minute)
+4. Focus on segments with substantive educational content
+
+Requirements:
+- Each segment MUST be 30-120 seconds long
+- Total duration of all segments should be 60-240 seconds
+- Base timing estimates on transcript content flow
+- Avoid repetitive or tangential content
+
+Return ONLY a valid JSON array of objects like:
+[
+  {"startTime": 45, "endTime": 135, "reason": "Core explanation of [specific concept]"},
+  {"startTime": 180, "endTime": 240, "reason": "Practical examples and applications"}
+]
+
+If the transcript doesn't clearly cover "${learningPoint}", return a general educational segment:
+[{"startTime": 60, "endTime": 180, "reason": "General educational content"}]`;
+
+                const response = await this.makeRequest(prompt, { temperature: 0.2, maxOutputTokens: 1024 });
+                log(`TRANSCRIPT SEGMENTER: Raw AI response:`, response);
+                
+                const segments = this.parseJSONResponse(response);
+                log(`TRANSCRIPT SEGMENTER: Parsed segments:`, segments);
+                
+                if (Array.isArray(segments) && segments.length > 0) {
+                    const validSegments = segments.filter(seg => 
+                        seg && typeof seg.startTime === 'number' && typeof seg.endTime === 'number' && 
+                        seg.startTime < seg.endTime && seg.startTime >= 0
+                    );
+                    
+                    if (validSegments.length > 0) {
+                        log(`TRANSCRIPT SEGMENTER: Found ${validSegments.length} valid segments.`);
+                        return validSegments;
+                    }
+                }
+                
+                log("TRANSCRIPT SEGMENTER WARN: AI response invalid or empty. Using fallback.");
+                return this.createFallbackSegments();
+                
+            } catch (error) {
+                logError("TRANSCRIPT SEGMENTER ERROR:", error);
+                return this.createFallbackSegments();
+            }
         }
 
         async generateDetailedExplanation(learningPoint) {
@@ -772,8 +920,17 @@ If you cannot determine good segments from the context, return a single comprehe
                 const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
                 const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
                 
-                log(`Generating segments for: ${learningPoint}`);
-                currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint);
+                // Try to get transcript for better analysis
+                updateCanvasVisuals('📝 Analyzing transcript...', 'Getting video content...');
+                const transcript = await this.videoSourcer.getTranscript(video.youtubeId);
+                
+                if (transcript) {
+                    log('Using transcript-based segment analysis');
+                    currentSegments = await this.gemini.findVideoSegmentsWithTranscript(video.title, youtubeUrl, learningPoint, transcript);
+                } else {
+                    log('No transcript available, using URL-based analysis');
+                    currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint);
+                }
                 
                 if (!currentSegments || currentSegments.length === 0) {
                     log('No segments generated, creating default segment');
