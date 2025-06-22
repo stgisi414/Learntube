@@ -1140,7 +1140,11 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             updateStatus('quiz');
             ui.skipVideoButton.style.display = 'none';
             ui.canvas.style.opacity = '1';
-            ui.nextSegmentButton.disabled = false;
+            
+            // Hide control buttons during quiz
+            ui.nextSegmentButton.style.display = 'none';
+            ui.playPauseButton.style.display = 'none';
+            
             updatePlayPauseIcon();
 
             if (this.youtubePlayer) { 
@@ -1162,21 +1166,36 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         displayQuiz(quiz) {
             const playerContainer = document.getElementById('youtube-player-container');
             playerContainer.innerHTML = `
-                <div class="p-8 text-white h-full flex flex-col justify-center">
-                    <h2 class="text-2xl font-bold mb-6">Quick Quiz!</h2>
-                    <p class="text-lg mb-6">${quiz.question}</p>
-                    <div class="space-y-3 mb-6">
-                        ${quiz.options.map((option, index) => `
-                            <button class="quiz-option w-full text-left p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors" data-index="${index}">
-                                ${String.fromCharCode(65 + index)}) ${option}
-                            </button>
-                        `).join('')}
+                <div class="p-6 text-white h-full flex flex-col justify-start overflow-y-auto" style="max-height: 100%; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+                    <div class="flex-shrink-0 text-center mb-6">
+                        <h2 class="text-2xl font-bold mb-2 text-blue-300">📚 Quick Quiz!</h2>
+                        <div class="w-16 h-1 bg-blue-500 mx-auto rounded-full"></div>
                     </div>
-                    <div id="quiz-result" class="hidden">
-                        <p id="quiz-explanation" class="text-sm text-gray-300"></p>
-                        <button id="continue-button" class="mt-4 bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg">
-                            Continue to Next Segment
-                        </button>
+                    
+                    <div class="flex-grow flex flex-col justify-center max-w-2xl mx-auto w-full">
+                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6 border border-white/20">
+                            <p class="text-lg leading-relaxed">${quiz.question}</p>
+                        </div>
+                        
+                        <div class="space-y-3 mb-6">
+                            ${quiz.options.map((option, index) => `
+                                <button class="quiz-option w-full text-left p-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-xl transition-all duration-200 transform hover:scale-105 border border-blue-500/30 shadow-lg" data-index="${index}">
+                                    <span class="font-bold text-blue-200">${String.fromCharCode(65 + index)})</span> 
+                                    <span class="ml-2">${option}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                        
+                        <div id="quiz-result" class="hidden">
+                            <div class="bg-green-500/20 border border-green-500/50 rounded-xl p-4 mb-4">
+                                <p id="quiz-explanation" class="text-green-100 leading-relaxed"></p>
+                            </div>
+                            <div class="text-center">
+                                <button id="continue-button" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 px-8 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
+                                    Continue to Next Segment →
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1198,6 +1217,11 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                     resultDiv.classList.remove('hidden');
 
                     document.getElementById('continue-button').addEventListener('click', () => {
+                        // Show control buttons again
+                        ui.nextSegmentButton.style.display = 'block';
+                        ui.playPauseButton.style.display = 'block';
+                        ui.nextSegmentButton.disabled = false;
+                        
                         this.processNextLearningPoint();
                     });
                 });

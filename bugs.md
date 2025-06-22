@@ -16,6 +16,7 @@ This document tracks the bugs and feature requests identified during the user fe
     -   The quiz section needs to be scrollable to accommodate questions and answers that may not fit on the screen.
     -   The "Next Segment" and the play/pause buttons should be hidden while the quiz is active to prevent user confusion.
 -   **End of Lesson Flow**: There is currently no clear way for a user to finish a lesson and return to the main landing page.
+-   **Video Content Relevance Mismatch**: The video search algorithm sometimes returns videos that don't match the learning topic. For example, searching for "Jason Statham the actor" returned a video about Christianity from a church, while the AI-generated narration was correctly about Jason Statham. The video selection needs better relevance filtering to ensure educational content matches the intended topic.
 
 ## Content & Pacing
 
