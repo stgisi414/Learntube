@@ -936,6 +936,8 @@ Return ONLY the valid JSON, no other text.`;
         ui.curateButton.disabled = true;
         ui.headerDescription.classList.add('hidden');
         ui.headerFeatures.classList.add('hidden');
+        // Add fallback class for browsers without :has() support
+        document.querySelector('header').classList.add('content-hidden');
         await learningPipeline.start(topic);
     }
 
@@ -980,6 +982,8 @@ Return ONLY the valid JSON, no other text.`;
         if (fullReset) {
             ui.headerDescription.classList.remove('hidden');
             ui.headerFeatures.classList.remove('hidden');
+            // Remove fallback class
+            document.querySelector('header').classList.remove('content-hidden');
         }
 
         currentLessonPlan = null;
