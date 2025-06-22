@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         async processQueue() { if (this.requestQueue.length === 0) { this.isProcessing = false; return; } this.isProcessing = true; const { prompt, options, resolve, reject } = this.requestQueue.shift(); try { await new Promise(r => setTimeout(r, this.rateLimitDelay)); const result = await this.executeSingleRequest(prompt, options); resolve(result); } catch (error) { reject(error); } finally { this.processQueue(); } }
         async executeSingleRequest(prompt, options = {}) { 
             const defaultConfig = { temperature: 0.7, maxOutputTokens: 2048, ...options };
-            const requestBody = { contents: [{ parts: [{ text: prompt }] }], generationConfig: defaultConfig, safetySettings: [ { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" } ] };
+            const requestBody = { contents: [{ parts: [{ text: prompt }] }], generationConfig: defaultConfig, safetySettings: [ { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" } ] };
             const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
             if (!response.ok) { const errorData = await response.json().catch(() => ({})); throw new Error(`Gemini API failed: ${response.status} ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`); }
             const data = await response.json();
@@ -66,96 +66,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!content) { log('Gemini response data:', data); throw new Error('No content in Gemini response - content may have been blocked by safety filters'); }
             return content.trim();
         }
-        parseJSONResponse(response) { 
-            if (!response) {
-                logError("Empty response received");
-                return null; 
-            }
-            
-            try { 
-                // Clean up the response by removing markdown and extra whitespace
-                let cleanedResponse = response.trim()
-                    .replace(/```json\s*/g, '')
-                    .replace(/```\s*/g, '')
-                    .replace(/^\s*[\r\n]/gm, '');
-                
-                // Try to find JSON object or array
-                const jsonMatch = cleanedResponse.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-                
-                if (jsonMatch) { 
-                    const parsed = JSON.parse(jsonMatch[0]);
-                    
-                    // Validate lesson plan structure if this is a lesson plan response
-                    if (parsed.Apprentice && parsed.Journeyman && parsed.Senior && parsed.Master) {
-                        if (Array.isArray(parsed.Apprentice) && Array.isArray(parsed.Journeyman) && 
-                            Array.isArray(parsed.Senior) && Array.isArray(parsed.Master)) {
-                            log("Valid lesson plan structure found");
-                            return parsed;
-                        } else {
-                            logError("Lesson plan has invalid array structure");
-                            return null;
-                        }
-                    }
-                    
-                    return parsed;
-                } 
-                
-                logError(`No valid JSON found in response:`, response.substring(0, 200) + "...");
-                return null; 
-            } catch (error) { 
-                logError(`Failed to parse JSON:`, error.message, `Raw response: "${response.substring(0, 200)}..."`); 
-                return null; 
-            } 
-        }
+        parseJSONResponse(response) { if (!response) return null; try { let cleanedResponse = response.trim().replace(/```json\s*/g, '').replace(/```\s*/g, ''); const jsonMatch = cleanedResponse.match(/(\{[\s\S]*\}|\[[\s\S]*\])/); if (jsonMatch) { return JSON.parse(jsonMatch[0]); } logError(`No valid JSON found in response:`, response); return null; } catch (error) { logError(`Failed to parse JSON:`, error, `Raw response: "${response}"`); return null; } }
         async generateLessonPlan(topic) {
             log("GEMINI: Generating lesson plan...");
-            const prompt = `Create a comprehensive learning plan for "${topic}". 
-
-IMPORTANT: Return ONLY valid JSON in this exact format:
-{
-  "Apprentice": [
-    "topic 1",
-    "topic 2", 
-    "topic 3"
-  ],
-  "Journeyman": [
-    "topic 1",
-    "topic 2",
-    "topic 3",
-    "topic 4",
-    "topic 5"
-  ],
-  "Senior": [
-    "topic 1",
-    "topic 2",
-    "topic 3",
-    "topic 4",
-    "topic 5",
-    "topic 6",
-    "topic 7"
-  ],
-  "Master": [
-    "topic 1",
-    "topic 2",
-    "topic 3",
-    "topic 4",
-    "topic 5",
-    "topic 6",
-    "topic 7",
-    "topic 8",
-    "topic 9"
-  ]
-}
-
-Requirements:
-- Apprentice level: 3 basic foundational topics
-- Journeyman level: 5 intermediate topics building on basics
-- Senior level: 7 advanced topics with deeper understanding
-- Master level: 9 expert-level topics with cutting-edge concepts
-- Each topic should be concise (3-8 words) and educational
-- Topics should progress logically from basic to advanced
-- NO markdown formatting, NO explanatory text, ONLY the JSON object`;
-            const response = await this.makeRequest(prompt, { temperature: 0.3 });
+            const prompt = `Create a learning plan for "${topic}".
+- Create 4 levels: Apprentice, Journeyman, Senior, Master.
+- Set the number of learning points for each level: Apprentice (3), Journeyman (5), Senior (7), Master (9).
+- Keep topics concise and educational.
+- Return ONLY the valid JSON, no other text.`;
+            const response = await this.makeRequest(prompt);
             return this.parseJSONResponse(response);
         }
         async generateSearchQueries(learningPoint) {
@@ -266,56 +185,20 @@ Requirements:
             this.youtubePlayer = null;
         }
 
-        // --- FIX: Improved error handling to be more specific ---
         async start(topic) {
             setView('loading');
-            ui.loadingMessage.textContent = "Generating your personalized lesson plan...";
-            
-            try {
-                const rawPlan = await this.gemini.generateLessonPlan(topic);
+            const rawPlan = await this.gemini.generateLessonPlan(topic);
 
-                if (rawPlan && rawPlan.Apprentice && rawPlan.Journeyman && rawPlan.Senior && rawPlan.Master) {
-                    // Validate that each level has the correct number of topics
-                    if (rawPlan.Apprentice.length >= 3 && rawPlan.Journeyman.length >= 5 && 
-                        rawPlan.Senior.length >= 7 && rawPlan.Master.length >= 9) {
-                        currentLessonPlan = rawPlan;
-                        currentLessonPlan.topic = topic;
-                        log("Successfully generated lesson plan:", rawPlan);
-                        displayLevelSelection();
-                        setView('level-selection');
-                        return; // Success path, exit early
-                    } else {
-                        logError("Lesson plan has incorrect topic counts:", rawPlan);
-                        displayError("Generated lesson plan is incomplete. Please try again or use a different topic.");
-                    }
-                } else {
-                    logError("Gemini returned an invalid or empty lesson plan:", rawPlan);
-                    displayError("Failed to generate a valid lesson plan. Please try a different topic or check your internet connection.");
-                }
-            } catch (error) {
-                logError("Failed to generate lesson plan due to an API error:", error);
-                let errorMessage = "AI service temporarily unavailable. Please try again.";
-                
-                if (error.message.includes("quota")) {
-                    errorMessage = "API quota exceeded. Please try again later.";
-                } else if (error.message.includes("blocked")) {
-                    errorMessage = "Content was blocked by safety filters. Try a different topic.";
-                } else if (error.message.includes("network") || error.message.includes("fetch")) {
-                    errorMessage = "Network error. Check your internet connection and try again.";
-                }
-                
-                displayError(errorMessage);
+            if (rawPlan && rawPlan.Apprentice) {
+                currentLessonPlan = rawPlan;
+                currentLessonPlan.topic = topic;
+                displayLevelSelection();
+                setView('level-selection');
+            } else {
+                displayError("Failed to generate a valid lesson plan. Please try a different topic.");
+                setView('input');
+                ui.curateButton.disabled = false;
             }
-            
-            // Reset UI state on any error
-            this.resetToInput();
-        }
-
-        resetToInput() {
-            setView('input');
-            ui.curateButton.disabled = false;
-            ui.headerDescription.classList.remove('hidden');
-            updateStatus('idle');
         }
 
         startLevel(level) {
@@ -611,6 +494,7 @@ Requirements:
         updatePlayPauseIcon();
     }
 
+    // --- FIX: Correctly working view management function ---
     function setView(viewName) {
         const views = {
             'input': ui.inputSection,
@@ -696,7 +580,7 @@ Requirements:
         ui.canvas.style.opacity = visible ? '1' : '0';
         ui.canvas.style.pointerEvents = visible ? 'auto' : 'none';
         if (visible) {
-            if (ui.youtubePlayerContainer) ui.youtubePlayerContainer.innerHTML = '';
+            ui.youtubePlayerContainer.innerHTML = '';
         }
     }
 
@@ -805,16 +689,18 @@ Requirements:
         ui.lessonProgressContainer.classList.add('hidden');
         ui.progressSpacer.classList.add('hidden');
         ui.viewContainer.classList.remove('hidden');
-        
-        currentLessonPlan = null;
-        learningPipeline.resetToInput();
-        
+        setView('input');
+
         if (fullReset) {
             ui.headerDescription.classList.remove('hidden');
         }
+
+        ui.curateButton.disabled = false;
+        currentLessonPlan = null;
+        updateStatus('idle');
     }
 
-    function displayError(message) { logError(message); ui.errorMessage.textContent = message; ui.errorDisplay.classList.remove('hidden'); setTimeout(() => { if(ui.errorDisplay) ui.errorDisplay.classList.add('hidden') }, 5000); }
+    function displayError(message) { logError(message); ui.errorMessage.textContent = message; ui.errorDisplay.classList.remove('hidden'); setTimeout(() => ui.errorDisplay.classList.add('hidden'), 5000); }
 
     initializeUI();
 });
