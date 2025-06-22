@@ -652,6 +652,12 @@ Return ONLY the valid JSON, no other text.`;
     function setCanvasVisible(visible) {
         ui.canvas.style.opacity = visible ? '1' : '0';
         ui.canvas.style.pointerEvents = visible ? 'auto' : 'none';
+        
+        // Ensure canvas dimensions are set when making visible
+        if (visible) {
+            ui.canvas.width = ui.canvas.clientWidth;
+            ui.canvas.height = ui.canvas.clientHeight;
+        }
     }
 
     function updateCanvasVisuals(mainText, subText = '') {
@@ -690,38 +696,77 @@ Return ONLY the valid JSON, no other text.`;
 
     function updateTeleprompter(fullText, progress) {
         if (!ui.canvas) return;
-        setCanvasVisible(true);
+        
+        // Ensure canvas is visible and accessible
+        ui.canvas.style.opacity = '1';
+        ui.canvas.style.pointerEvents = 'auto';
         ui.youtubePlayerContainer.innerHTML = '';
+        
+        // Set canvas dimensions
+        ui.canvas.width = ui.canvas.clientWidth;
+        ui.canvas.height = ui.canvas.clientHeight;
+        
         const ctx = ui.canvas.getContext('2d');
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
+        
+        // Create background gradient
         const gradient = ctx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
         gradient.addColorStop(0, '#1a1a2e');
         gradient.addColorStop(1, '#16213e');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
 
-        const maxWidth = ui.canvas.width * 0.9;
-        const fontSize = Math.max(24, Math.min(ui.canvas.width / 30, 36)); // Slightly larger font for teleprompter
-        const lineHeight = fontSize * 1.5;
-        ctx.font = `400 ${fontSize}px Inter, sans-serif`;
+        // Calculate responsive font size
+        const maxWidth = ui.canvas.width * 0.85;
+        const fontSize = Math.max(28, Math.min(ui.canvas.width / 25, 42)); // Larger, more readable font
+        const lineHeight = fontSize * 1.6;
+        
+        // Set text properties with better contrast
+        ctx.font = `500 ${fontSize}px Inter, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'; // Higher opacity for better visibility
+        
+        // Add text shadow for better readability
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
 
         const lines = wrapText(fullText, maxWidth, ctx);
-        const totalContentHeight = (lines.length) * lineHeight;
+        const totalContentHeight = lines.length * lineHeight;
 
-        // The text starts centered and scrolls up
-        const startY = ui.canvas.height / 2;
-        const yOffset = startY - (totalContentHeight * progress);
+        // Center the text vertically and apply scroll based on progress
+        const centerY = ui.canvas.height / 2;
+        const startY = centerY - (totalContentHeight / 2);
+        
+        // Create a smooth scrolling effect
+        const scrollOffset = progress * totalContentHeight * 0.3; // Reduced scroll speed for better readability
 
-        ctx.save();
-        ctx.translate(ui.canvas.width / 2, yOffset);
-        lines.forEach((line, index) => { 
-            // Draw each line relative to the new (0,0) after translation
-            ctx.fillText(line, 0, index * lineHeight); 
+        lines.forEach((line, index) => {
+            const y = startY + (index * lineHeight) - scrollOffset;
+            
+            // Only draw lines that are visible on screen
+            if (y > -lineHeight && y < ui.canvas.height + lineHeight) {
+                // Calculate fade effect for lines going off screen
+                let alpha = 1;
+                if (y < lineHeight) {
+                    alpha = Math.max(0, y / lineHeight);
+                } else if (y > ui.canvas.height - lineHeight) {
+                    alpha = Math.max(0, (ui.canvas.height - y) / lineHeight);
+                }
+                
+                ctx.globalAlpha = alpha;
+                ctx.fillText(line, ui.canvas.width / 2, y);
+                ctx.globalAlpha = 1;
+            }
         });
-        ctx.restore();
+        
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
     }
 
     function wrapText(text, maxWidth, ctx) {
