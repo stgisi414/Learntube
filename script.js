@@ -359,11 +359,9 @@ Return ONLY the valid JSON, no other text.`;
         createYouTubePlayer(videoInfo) {
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch (e) {} this.youtubePlayer = null; }
 
-            // --- FIX: Hide canvas and show video player area ---
-            ui.canvas.style.opacity = '0';
-            ui.canvas.style.pointerEvents = 'none'; // Prevent clicks on invisible canvas
+            // Hide teleprompter and show video player area
+            hideTeleprompter();
             ui.skipVideoButton.style.display = 'block';
-            ui.youtubePlayerContainer.innerHTML = ''; // Clear any previous content
 
             log(`Creating player for video: ${videoInfo.youtubeId}`);
             if (!videoInfo || !videoInfo.youtubeId || videoInfo.youtubeId.length !== 11) {
@@ -464,9 +462,8 @@ Return ONLY the valid JSON, no other text.`;
         handleVideoEnd() {
             log('Video playback finished');
             ui.skipVideoButton.style.display = 'none';
-            // --- FIX: Show canvas again ---
-            ui.canvas.style.opacity = '1';
-            ui.canvas.style.pointerEvents = 'auto';
+            // Show teleprompter for concluding narration
+            showTeleprompter();
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} this.youtubePlayer = null; }
             ui.youtubePlayerContainer.innerHTML = '';
 
@@ -477,9 +474,8 @@ Return ONLY the valid JSON, no other text.`;
         handleVideoError() {
             logError('Handling video error. Creating fallback content.');
             ui.skipVideoButton.style.display = 'none';
-            // --- FIX: Show canvas again ---
-            ui.canvas.style.opacity = '1';
-            ui.canvas.style.pointerEvents = 'auto';
+            // Show teleprompter for fallback content
+            showTeleprompter();
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} }
             ui.youtubePlayerContainer.innerHTML = '';
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
@@ -492,9 +488,8 @@ Return ONLY the valid JSON, no other text.`;
             updateStatus('quiz');
             ui.lessonControls.style.display = 'none';
 
-            // --- FIX: Ensure canvas is hidden ---
-            ui.canvas.style.opacity = '0';
-            ui.canvas.style.pointerEvents = 'none';
+            // Hide teleprompter for quiz
+            hideTeleprompter();
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             const quiz = await this.gemini.generateQuiz(learningPoint);
@@ -554,9 +549,8 @@ Return ONLY the valid JSON, no other text.`;
             log("FLOW: Step 10 - Show lesson summary");
             updateStatus('summary');
             ui.lessonControls.style.display = 'none';
-            // --- FIX: Ensure canvas is hidden ---
-            ui.canvas.style.opacity = '0';
-            ui.canvas.style.pointerEvents = 'none';
+            // Hide teleprompter for summary
+            hideTeleprompter();
 
             const topic = currentLessonPlan.topic;
             const learningPoints = currentLessonPlan[currentLearningPath];
@@ -650,113 +644,227 @@ Return ONLY the valid JSON, no other text.`;
     }
 
     function setCanvasVisible(visible) {
-        ui.canvas.style.opacity = visible ? '1' : '0';
-        ui.canvas.style.pointerEvents = visible ? 'auto' : 'none';
-    }
-
-    function updateCanvasVisuals(mainText, subText = '') {
-        setCanvasVisible(true);
-        ui.youtubePlayerContainer.innerHTML = '';
-        ui.canvas.width = ui.canvas.clientWidth;
-        ui.canvas.height = ui.canvas.clientHeight;
-        const gradient = canvasCtx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
-        gradient.addColorStop(0, '#1a1a2e');
-        gradient.addColorStop(1, '#16213e');
-        canvasCtx.fillStyle = gradient;
-        canvasCtx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
-        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        canvasCtx.textAlign = 'center';
-        canvasCtx.textBaseline = 'middle';
-
-        const maxWidth = ui.canvas.width * 0.85;
-        let fontSize = Math.max(22, Math.min(ui.canvas.width / 25, 36));
-        let lineHeight = fontSize * 1.4;
-        canvasCtx.font = `bold ${fontSize}px Inter, sans-serif`;
-
-        const lines = wrapText(mainText, maxWidth, canvasCtx);
-        let startY = ui.canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
-
-        lines.forEach((line, i) => canvasCtx.fillText(line, ui.canvas.width / 2, startY + (i * lineHeight)));
-
-        if (subText) { 
-            let subFontSize = Math.max(16, Math.min(ui.canvas.width / 40, 20)); 
-            let subLineHeight = subFontSize * 1.4;
-            canvasCtx.font = `${subFontSize}px Inter, sans-serif`; 
-            canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)'; 
-            const subLines = wrapText(subText, maxWidth, canvasCtx); 
-            subLines.forEach((line, i) => { canvasCtx.fillText(line, ui.canvas.width / 2, startY + (lines.length * lineHeight) - (lineHeight / 2) + 16 + (i * subLineHeight)); }); 
+        if (visible) {
+            showTeleprompter();
+        } else {
+            hideTeleprompter();
         }
     }
 
-    function updateTeleprompter(fullText, progress) {
+    function updateCanvasVisuals(mainText, subText = '') {
+        showTeleprompter();
+        
         if (!ui.canvas) return;
         
-        // Ensure canvas is visible for teleprompter
-        ui.canvas.style.opacity = '1';
-        ui.canvas.style.pointerEvents = 'auto';
-        ui.youtubePlayerContainer.innerHTML = '';
-        
-        // Set canvas dimensions explicitly
-        ui.canvas.width = ui.canvas.clientWidth;
-        ui.canvas.height = ui.canvas.clientHeight;
+        // Force proper canvas sizing
+        const containerRect = ui.canvas.parentElement.getBoundingClientRect();
+        ui.canvas.width = containerRect.width;
+        ui.canvas.height = containerRect.height;
         
         const ctx = ui.canvas.getContext('2d');
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
         
-        // Create background gradient
-        const gradient = ctx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
-        gradient.addColorStop(0, '#1a1a2e');
-        gradient.addColorStop(1, '#16213e');
+        // Dark background
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+        
+        // Gradient overlay
+        const gradient = ctx.createLinearGradient(0, 0, 0, ui.canvas.height);
+        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.1)');
+        gradient.addColorStop(1, 'rgba(139, 92, 246, 0.1)');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
 
-        // Configure text styling
+        // Text styling
+        const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
+        const fontSize = Math.max(26, Math.min(baseSize / 18, 48));
+        const lineHeight = fontSize * 1.4;
         const maxWidth = ui.canvas.width * 0.85;
-        const fontSize = Math.max(28, Math.min(ui.canvas.width / 25, 42));
-        const lineHeight = fontSize * 1.6;
         
-        ctx.font = `600 ${fontSize}px Inter, sans-serif`;
+        ctx.font = `bold ${fontSize}px Inter, sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
+        ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
         ctx.shadowBlur = 4;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
 
-        // Wrap text and calculate positions
-        const lines = wrapText(fullText, maxWidth, ctx);
-        const totalTextHeight = lines.length * lineHeight;
-        
-        // Start text in center, scroll up as progress increases
-        const centerY = (ui.canvas.height / 2) - (totalTextHeight / 2);
-        const scrollOffset = progress * totalTextHeight * 0.7; // Scroll speed
-        
-        // Draw each line
-        lines.forEach((line, index) => {
-            const y = centerY + (index * lineHeight) - scrollOffset;
-            
-            // Only draw lines that are visible on canvas
-            if (y > -lineHeight && y < ui.canvas.height + lineHeight) {
-                // Add fade effect for lines going off screen
-                let alpha = 1;
-                if (y < lineHeight) {
-                    alpha = Math.max(0, y / lineHeight);
-                } else if (y > ui.canvas.height - lineHeight) {
-                    alpha = Math.max(0, (ui.canvas.height - y) / lineHeight);
-                }
-                
-                ctx.globalAlpha = alpha;
-                ctx.fillText(line, ui.canvas.width / 2, y);
-                ctx.globalAlpha = 1;
-            }
+        // Main text
+        const lines = wrapText(mainText, maxWidth, ctx);
+        let startY = ui.canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
+
+        lines.forEach((line, i) => {
+            ctx.fillText(line, ui.canvas.width / 2, startY + (i * lineHeight));
         });
+
+        // Sub text
+        if (subText) { 
+            const subFontSize = Math.max(18, Math.min(baseSize / 30, 24)); 
+            const subLineHeight = subFontSize * 1.4;
+            ctx.font = `${subFontSize}px Inter, sans-serif`; 
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.9)'; 
+            
+            const subLines = wrapText(subText, maxWidth, ctx); 
+            const subStartY = startY + (lines.length * lineHeight) + 32;
+            
+            subLines.forEach((line, i) => {
+                ctx.fillText(line, ui.canvas.width / 2, subStartY + (i * subLineHeight));
+            }); 
+        }
         
         // Reset shadow
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
+        
+        log(`CANVAS: Updated visuals - "${mainText}"`);
+    }
+
+    function showTeleprompter() {
+        if (!ui.canvas) return;
+        
+        // Force canvas to be visible and interactive
+        ui.canvas.style.display = 'block';
+        ui.canvas.style.opacity = '1';
+        ui.canvas.style.pointerEvents = 'auto';
+        ui.canvas.style.zIndex = '25';
+        
+        // Hide YouTube player completely during teleprompter
+        ui.youtubePlayerContainer.style.display = 'none';
+        ui.youtubePlayerContainer.innerHTML = '';
+        
+        log('TELEPROMPTER: Canvas is now visible');
+    }
+
+    function hideTeleprompter() {
+        if (!ui.canvas) return;
+        
+        // Hide canvas
+        ui.canvas.style.opacity = '0';
+        ui.canvas.style.pointerEvents = 'none';
+        ui.canvas.style.zIndex = '20';
+        
+        // Show YouTube player area
+        ui.youtubePlayerContainer.style.display = 'block';
+        
+        log('TELEPROMPTER: Canvas is now hidden');
+    }
+
+    function updateTeleprompter(fullText, progress) {
+        if (!ui.canvas || !fullText) {
+            log('TELEPROMPTER: Missing canvas or text');
+            return;
+        }
+        
+        // Ensure teleprompter is visible
+        showTeleprompter();
+        
+        // Force canvas to proper size
+        const containerRect = ui.canvas.parentElement.getBoundingClientRect();
+        ui.canvas.width = containerRect.width;
+        ui.canvas.height = containerRect.height;
+        
+        const ctx = ui.canvas.getContext('2d');
+        
+        // Clear entire canvas
+        ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
+        
+        // Create dark background
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+        
+        // Add subtle gradient overlay
+        const gradient = ctx.createLinearGradient(0, 0, 0, ui.canvas.height);
+        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.1)');
+        gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.1)');
+        gradient.addColorStop(1, 'rgba(139, 92, 246, 0.1)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+        
+        // Configure text rendering
+        const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
+        const fontSize = Math.max(24, Math.min(baseSize / 20, 48));
+        const lineHeight = fontSize * 1.5;
+        const maxWidth = ui.canvas.width * 0.9;
+        
+        ctx.font = `bold ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // White text with strong shadow
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        
+        // Split text into lines that fit
+        const words = fullText.split(' ');
+        const lines = [];
+        let currentLine = '';
+        
+        for (let i = 0; i < words.length; i++) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+            const metrics = ctx.measureText(testLine);
+            
+            if (metrics.width > maxWidth && currentLine) {
+                lines.push(currentLine);
+                currentLine = words[i];
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        
+        // Calculate text positioning
+        const totalTextHeight = lines.length * lineHeight;
+        const startY = (ui.canvas.height / 2) - (totalTextHeight / 2);
+        
+        // Apply scroll effect based on progress
+        const scrollDistance = Math.max(0, totalTextHeight - ui.canvas.height + lineHeight * 2);
+        const currentScroll = progress * scrollDistance;
+        
+        // Draw each line with fade effects
+        lines.forEach((line, index) => {
+            const lineY = startY + (index * lineHeight) - currentScroll;
+            
+            // Only render visible lines
+            if (lineY > -lineHeight && lineY < ui.canvas.height + lineHeight) {
+                // Calculate opacity based on position
+                let opacity = 1;
+                const fadeZone = lineHeight;
+                
+                if (lineY < fadeZone) {
+                    opacity = Math.max(0.1, lineY / fadeZone);
+                } else if (lineY > ui.canvas.height - fadeZone) {
+                    opacity = Math.max(0.1, (ui.canvas.height - lineY) / fadeZone);
+                }
+                
+                // Highlight current text based on progress
+                const lineProgress = Math.max(0, Math.min(1, (progress * lines.length) - index));
+                if (lineProgress > 0 && lineProgress < 1) {
+                    ctx.fillStyle = `rgba(96, 165, 250, ${opacity})`;
+                } else if (lineProgress >= 1) {
+                    ctx.fillStyle = `rgba(156, 163, 175, ${opacity * 0.7})`;
+                } else {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+                }
+                
+                ctx.fillText(line, ui.canvas.width / 2, lineY);
+            }
+        });
+        
+        // Reset shadow settings
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        log(`TELEPROMPTER: Rendered text with progress ${(progress * 100).toFixed(1)}%`);
     }
 
     function wrapText(text, maxWidth, ctx) {
