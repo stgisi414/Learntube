@@ -283,17 +283,14 @@ Requirements:
                         log("Successfully generated lesson plan:", rawPlan);
                         displayLevelSelection();
                         setView('level-selection');
+                        return; // Success path, exit early
                     } else {
                         logError("Lesson plan has incorrect topic counts:", rawPlan);
                         displayError("Generated lesson plan is incomplete. Please try again or use a different topic.");
-                        setView('input');
-                        ui.curateButton.disabled = false;
                     }
                 } else {
                     logError("Gemini returned an invalid or empty lesson plan:", rawPlan);
                     displayError("Failed to generate a valid lesson plan. Please try a different topic or check your internet connection.");
-                    setView('input');
-                    ui.curateButton.disabled = false;
                 }
             } catch (error) {
                 logError("Failed to generate lesson plan due to an API error:", error);
@@ -308,9 +305,17 @@ Requirements:
                 }
                 
                 displayError(errorMessage);
-                setView('input');
-                ui.curateButton.disabled = false;
             }
+            
+            // Reset UI state on any error
+            this.resetToInput();
+        }
+
+        resetToInput() {
+            setView('input');
+            ui.curateButton.disabled = false;
+            ui.headerDescription.classList.remove('hidden');
+            updateStatus('idle');
         }
 
         startLevel(level) {
@@ -800,15 +805,13 @@ Requirements:
         ui.lessonProgressContainer.classList.add('hidden');
         ui.progressSpacer.classList.add('hidden');
         ui.viewContainer.classList.remove('hidden');
-        setView('input');
-
+        
+        currentLessonPlan = null;
+        learningPipeline.resetToInput();
+        
         if (fullReset) {
             ui.headerDescription.classList.remove('hidden');
         }
-
-        ui.curateButton.disabled = false;
-        currentLessonPlan = null;
-        updateStatus('idle');
     }
 
     function displayError(message) { logError(message); ui.errorMessage.textContent = message; ui.errorDisplay.classList.remove('hidden'); setTimeout(() => { if(ui.errorDisplay) ui.errorDisplay.classList.add('hidden') }, 5000); }
