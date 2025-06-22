@@ -205,6 +205,7 @@ Return ONLY the valid JSON, no other text.`;
             this.isPaused = false;
             this.isPlaying = true;
             
+            const startTime = Date.now(); // Track start time for fallback calculations
             log('SPEECH: State set - isPlaying: true, isPaused: false');
 
             const maxRetries = 2;
@@ -320,17 +321,39 @@ Return ONLY the valid JSON, no other text.`;
                 };
                 
                 this.audioElement.onerror = (e) => {
+                    clearTimeout(audioTimeout);
                     logError(`Audio element error, falling back to timer`, e);
                     this.isPlaying = false;
                     this.isPaused = false;
-                    // Call onComplete after a delay to simulate speech completion
+                    
+                    // Estimate speech duration based on text length (more realistic timing)
+                    const estimatedDuration = Math.max(3000, Math.min(text.length * 80, 15000));
+                    log(`SPEECH: Using fallback timer for ${estimatedDuration}ms`);
+                    
+                    // Simulate progress updates during fallback
+                    if (this.onProgressCallback) {
+                        const progressInterval = setInterval(() => {
+                            const elapsed = Date.now() - startTime;
+                            const progress = Math.min(elapsed / estimatedDuration, 1);
+                            this.onProgressCallback(progress);
+                            
+                            if (progress >= 1) {
+                                clearInterval(progressInterval);
+                            }
+                        }, 100);
+                        
+                        // Clean up interval when done
+                        setTimeout(() => clearInterval(progressInterval), estimatedDuration + 100);
+                    }
+                    
+                    // Call onComplete after the estimated duration
                     if (this.onCompleteCallback) {
                         setTimeout(() => {
                             if (this.onCompleteCallback) {
-                                log('SPEECH: Using fallback timer due to audio error');
+                                log('SPEECH: Fallback timer completed');
                                 this.onCompleteCallback();
                             }
-                        }, Math.max(2000, text.length * 50)); // Estimate speech duration
+                        }, estimatedDuration);
                     }
                 };
 
@@ -508,7 +531,10 @@ Return ONLY the valid JSON, no other text.`;
                     return;
                 }
                 
+                // Ensure text display is visible and force display the content
+                showTextDisplay();
                 displayTextContent(narrationText);
+                log("CONCLUDING NARRATION: Text content displayed on teleprompter");
                 
                 // Create a promise that resolves only when speech completes
                 await new Promise((resolve) => {
@@ -522,12 +548,13 @@ Return ONLY the valid JSON, no other text.`;
                             this.speechEngine.stop();
                             resolve();
                         }
-                    }, 15000); // 15 second timeout
+                    }, 20000); // Increased timeout for concluding narration
                     
                     this.speechEngine.play(narrationText, {
                         onProgress: (progress) => {
                             if (lessonState === 'narrating') {
                                 animateTextProgress(narrationText, progress);
+                                log(`CONCLUDING NARRATION: Progress ${(progress * 100).toFixed(1)}%`);
                             }
                         },
                         onComplete: () => {
@@ -749,11 +776,14 @@ Return ONLY the valid JSON, no other text.`;
         async handleVideoEnd() {
             log('Video playbook finished');
             ui.skipVideoButton.style.display = 'none';
-            // Show text display for concluding narration
-            showTextDisplay();
+            
+            // Cleanup video player first
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} this.youtubePlayer = null; }
             ui.youtubePlayerContainer.innerHTML = '';
-
+            
+            // Force show text display for concluding narration
+            showTextDisplay();
+            
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             
             // Show the teleprompter with concluding narration
@@ -766,6 +796,9 @@ Return ONLY the valid JSON, no other text.`;
                     isPaused: this.speechEngine.isPaused
                 }
             });
+            
+            // Show initial text while generating narration
+            displayStatusMessage('🎯 Wrapping up...', `Summarizing: "${learningPoint}"`);
             
             // Wait for concluding narration to complete before showing quiz
             await this.playConcludingNarration(learningPoint);
