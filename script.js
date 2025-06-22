@@ -566,6 +566,19 @@ Return ONLY the valid JSON, no other text.`;
             ui.youtubePlayerContainer.innerHTML = '';
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
+            
+            // DEBUG: Stop lesson flow here to investigate concluding narration issue
+            log('DEBUG: About to start concluding narration for:', learningPoint);
+            displayStatusMessage('🛠️ DEBUG MODE', 'Lesson flow stopped for debugging. Check console.');
+            console.log('DEBUG: Lesson flow halted at concluding narration phase');
+            console.log('DEBUG: Learning point:', learningPoint);
+            console.log('DEBUG: Current lesson state:', lessonState);
+            console.log('DEBUG: Speech engine state:', {
+                isPlaying: this.speechEngine.isPlaying,
+                isPaused: this.speechEngine.isPaused
+            });
+            return; // Stop execution here for debugging
+            
             // Wait for concluding narration to complete before showing quiz
             await this.playConcludingNarration(learningPoint);
             this.showQuiz();
