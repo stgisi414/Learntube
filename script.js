@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // =================================================================================
     // --- CORE STATE & UI REFERENCES ---
@@ -60,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 maxOutputTokens: 2048, 
                 ...options 
             }; 
-            
+
             const requestBody = {
                 contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: defaultConfig,
@@ -83,30 +82,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 ]
             };
-            
+
             const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify(requestBody)
             }); 
-            
+
             if (!response.ok) { 
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(`Gemini API failed: ${response.status} ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`); 
             } 
-            
+
             const data = await response.json(); 
             const content = data.candidates?.[0]?.content?.parts?.[0]?.text; 
-            
+
             if (!content) { 
                 log('Gemini response data:', data);
                 throw new Error('No content in Gemini response - content may have been blocked by safety filters'); 
             } 
-            
+
             return content.trim(); 
         }
         parseJSONResponse(response) { if(!response) return null; try { let cleanedResponse = response.trim().replace(/```json\s*/g, '').replace(/```\s*/g, ''); const jsonMatch = cleanedResponse.match(/(\{[\s\S]*\}|\[[\s\S]*\])/); if (jsonMatch) { return JSON.parse(jsonMatch[0]); } logError(`No valid JSON found in response:`, response); return null; } catch (error) { logError(`Failed to parse JSON:`, error, `Raw response: "${response}"`); return null; } }
-        
+
         async generateLessonPlan(topic) {
             log("GEMINI: Generating lesson plan...");
             const prompt = `Create a simple learning plan for "${topic}". Make exactly 4 levels: Apprentice, Journeyman, Senior, Master. Each level needs exactly 3 learning points (not 5). Keep topics simple and educational.
@@ -147,7 +146,7 @@ Return ONLY the JSON, no other text.`;
         async findVideoSegments(videoTitle, youtubeUrl, learningPoint) {
             log(`SEGMENTER: Analyzing YouTube video for "${learningPoint}"`);
             log(`SEGMENTER: Video URL: ${youtubeUrl}`);
-            
+
             // Try video understanding first, fallback to URL-based analysis
             const videoId = this.extractVideoId(youtubeUrl);
             if (videoId) {
@@ -156,7 +155,7 @@ Return ONLY the JSON, no other text.`;
                     return videoSegments;
                 }
             }
-            
+
             // Fallback to URL-based analysis
             try {
                 const prompt = `You are an expert video analyst. I need you to analyze this YouTube video and identify the most relevant segments for learning about: "${learningPoint}"
@@ -188,26 +187,26 @@ If you cannot determine good segments from the context, return a single comprehe
 
                 const response = await this.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 1024 });
                 log(`SEGMENTER: Raw AI response:`, response);
-                
+
                 const segments = this.parseJSONResponse(response);
                 log(`SEGMENTER: Parsed segments:`, segments);
-                
+
                 if (Array.isArray(segments) && segments.length > 0) {
                     // Validate segment format
                     const validSegments = segments.filter(seg => 
                         seg && typeof seg.startTime === 'number' && typeof seg.endTime === 'number' && 
                         seg.startTime < seg.endTime && seg.startTime >= 0
                     );
-                    
+
                     if (validSegments.length > 0) {
                         log(`SEGMENTER: Found ${validSegments.length} valid segments.`);
                         return validSegments;
                     }
                 }
-                
+
                 log("SEGMENTER WARN: AI response invalid or empty. Using fallback.");
                 return this.createFallbackSegments();
-                
+
             } catch (error) {
                 logError("SEGMENTER ERROR:", error);
                 return this.createFallbackSegments();
@@ -224,7 +223,7 @@ If you cannot determine good segments from the context, return a single comprehe
             log(`VIDEO ANALYSIS: Skipping Gemini 2.0 video analysis - using fallback approach`);
             return null;
         }
-        
+
         createFallbackSegments() {
             // Smart fallback based on typical educational video structure
             return [{ startTime: 30, endTime: 180, reason: "Main educational content (fallback)" }];
@@ -232,7 +231,7 @@ If you cannot determine good segments from the context, return a single comprehe
 
         async findVideoSegmentsWithTranscript(videoTitle, youtubeUrl, learningPoint, transcript) {
             log(`TRANSCRIPT SEGMENTER: Analyzing transcript for "${learningPoint}"`);
-            
+
             try {
                 const prompt = `You are an expert video analyst with access to the full transcript. Analyze this educational video transcript and identify the most relevant segments for learning about: "${learningPoint}"
 
@@ -267,25 +266,25 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
                 const response = await this.makeRequest(prompt, { temperature: 0.2, maxOutputTokens: 1024 });
                 log(`TRANSCRIPT SEGMENTER: Raw AI response:`, response);
-                
+
                 const segments = this.parseJSONResponse(response);
                 log(`TRANSCRIPT SEGMENTER: Parsed segments:`, segments);
-                
+
                 if (Array.isArray(segments) && segments.length > 0) {
                     const validSegments = segments.filter(seg => 
                         seg && typeof seg.startTime === 'number' && typeof seg.endTime === 'number' && 
                         seg.startTime < seg.endTime && seg.startTime >= 0
                     );
-                    
+
                     if (validSegments.length > 0) {
                         log(`TRANSCRIPT SEGMENTER: Found ${validSegments.length} valid segments.`);
                         return validSegments;
                     }
                 }
-                
+
                 log("TRANSCRIPT SEGMENTER WARN: AI response invalid or empty. Using fallback.");
                 return this.createFallbackSegments();
-                
+
             } catch (error) {
                 logError("TRANSCRIPT SEGMENTER ERROR:", error);
                 return this.createFallbackSegments();
@@ -312,14 +311,14 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
         async searchYouTube(query) {
             log(`SEARCH: Searching for educational content: "${query}"`);
-            
+
             // Go directly to Custom Search API for better results
             return this.fallbackSearch(query);
         }
 
         async fallbackSearch(query) {
             log(`SEARCH: Using Custom Search for: "${query}"`);
-            
+
             const searchParams = new URLSearchParams({
                 key: YOUTUBE_API_KEY,
                 cx: CSE_ID,
@@ -329,7 +328,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
             try {
                 const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
-                
+
                 if (!response.ok) {
                     log(`SEARCH: API error ${response.status}, trying broader search`);
                     // Try without site restriction
@@ -344,10 +343,10 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                     const broadData = await broadResponse.json();
                     return this.processSearchResults(broadData, query);
                 }
-                
+
                 const data = await response.json();
                 return this.processSearchResults(data, query);
-                
+
             } catch (error) {
                 logError(`SEARCH: Error for "${query}":`, error);
                 return [];
@@ -362,22 +361,22 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
             const results = data.items.map(item => {
                 let videoId = null;
-                
+
                 if (item.link) {
                     const match = item.link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
                     videoId = match ? match[1] : null;
                 }
-                
+
                 if (videoId && videoId.length === 11) {
                     let score = 1;
                     const title = (item.title || '').toLowerCase();
                     const snippet = (item.snippet || '').toLowerCase();
-                    
+
                     if (title.includes('tutorial') || title.includes('explained') || title.includes('how to')) score += 3;
                     if (title.includes('course') || title.includes('lesson') || title.includes('learn')) score += 2;
                     if (title.includes('university') || title.includes('lecture')) score += 2;
                     if (snippet.includes('educational')) score += 1;
-                    
+
                     return {
                         youtubeId: videoId,
                         title: item.title || 'Untitled',
@@ -401,12 +400,12 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 const response = await fetch(`https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`, {
                     headers: { 'x-api-key': SUPADATA_API_KEY }
                 });
-                
+
                 if (response.status === 429) {
                     log(`TRANSCRIPT CHECK: Rate limited for ${videoId}, skipping`);
                     return false;
                 }
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     return data && data.transcript && data.transcript.length > 0;
@@ -424,9 +423,9 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 const response = await fetch(`https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`, {
                     headers: { 'x-api-key': SUPADATA_API_KEY }
                 });
-                
+
                 if (!response.ok) throw new Error(`Supadata API failed: ${response.status}`);
-                
+
                 const data = await response.json();
                 if (data && data.transcript) {
                     // Handle both string and array formats
@@ -456,7 +455,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             this.isPaused = false;
             this.isPlaying = false;
         }
-        
+
         async play(text, { onProgress = null, onComplete = null } = {}) { 
             this.stop(); 
             if (!text) { 
@@ -467,7 +466,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             this.onCompleteCallback = onComplete; 
             this.isPaused = false;
             this.isPlaying = true;
-            
+
             try { 
                 const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, { 
                     method: 'POST', 
@@ -485,13 +484,13 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 const data = await response.json(); 
                 const audioBlob = this.base64ToBlob(data.audioContent, 'audio/mpeg'); 
                 this.audioElement.src = URL.createObjectURL(audioBlob); 
-                
+
                 this.audioElement.onloadeddata = () => {
                     if (this.isPlaying && !this.isPaused) {
                         this.audioElement.play().catch(e => log(`Audio play error: ${e}`));
                     }
                 };
-                
+
                 this.audioElement.ontimeupdate = () => { 
                     if (this.onProgressCallback && this.audioElement.duration) { 
                         this.onProgressCallback(this.audioElement.currentTime / this.audioElement.duration); 
@@ -519,7 +518,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 if (this.onCompleteCallback) this.onCompleteCallback(); 
             } 
         }
-        
+
         pause() { 
             if (this.isPlaying && !this.isPaused) {
                 this.audioElement.pause(); 
@@ -527,7 +526,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 log('Speech paused');
             }
         }
-        
+
         resume() { 
             if (this.isPaused && this.isPlaying) {
                 this.audioElement.play().catch(e => log(`Resume error: ${e}`)); 
@@ -535,7 +534,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 log('Speech resumed');
             }
         }
-        
+
         stop() { 
             this.audioElement.pause(); 
             this.isPlaying = false;
@@ -547,7 +546,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             }
             log('Speech stopped');
         }
-        
+
         base64ToBlob(base64) { 
             const byteCharacters = atob(base64); 
             const byteArrays = []; 
@@ -590,7 +589,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
         parseLessonPlan(rawPlan) {
             if (!rawPlan) return null;
-            
+
             // Handle simple format
             const findSimplePlan = (obj) => {
                 if (!obj || typeof obj !== 'object') return null;
@@ -638,7 +637,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         async processNextLearningPoint() {
             currentSegmentIndex++;
             const learningPoints = currentLessonPlan[currentLearningPath];
-            
+
             if (currentSegmentIndex >= learningPoints.length) {
                 this.showFinalQuiz();
                 return;
@@ -646,10 +645,10 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
             const learningPoint = learningPoints[currentSegmentIndex];
             const previousPoint = currentSegmentIndex > 0 ? learningPoints[currentSegmentIndex - 1] : null;
-            
+
             updateSegmentProgress();
             ui.currentTopicDisplay.textContent = learningPoint;
-            
+
             // FLOW: play narration -> search videos -> choose video -> check transcript -> load transcript -> generate segments -> play segments -> repeat
             await this.playNarration(learningPoint, previousPoint);
         }
@@ -662,7 +661,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             ui.nextSegmentButton.disabled = true;
 
             const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint, `a video about ${learningPoint}`);
-            
+
             await this.speechEngine.play(narrationText, {
                 onProgress: (progress) => updateTeleprompter(narrationText, progress),
                 onComplete: () => {
@@ -682,9 +681,9 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             try {
                 const searchQueries = await this.gemini.generateSearchQueries(learningPoint, currentLessonPlan.topic);
                 log(`Generated search queries:`, searchQueries);
-                
+
                 let allVideos = [];
-                
+
                 if (searchQueries && Array.isArray(searchQueries)) {
                     for (const query of searchQueries.slice(0, 3)) { // Limit to 3 queries
                         updateCanvasVisuals('🔎 Searching educational videos...', `Query: "${query}"`);
@@ -735,7 +734,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
                 log(`FLOW: Found ${currentVideoChoices.length} educational videos`);
                 this.autoSelectBestVideo(learningPoint);
-                
+
             } catch (error) {
                 logError('Video search failed:', error);
                 updateCanvasVisuals('❌ Search failed', 'Creating educational content...');
@@ -747,18 +746,18 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         autoSelectBestVideo(learningPoint) {
             log("FLOW: Step 4 - Auto-selecting best educational video");
             updateStatus('choosing_video');
-            
+
             if (!currentVideoChoices || currentVideoChoices.length === 0) {
                 logError('No video choices available, falling back to content creation');
                 this.createFallbackContent(learningPoint);
                 return;
             }
-            
+
             // Sort by educational score and automatically pick the best one
             const bestVideo = currentVideoChoices[0];
             log(`FLOW: Selected best video: ${bestVideo.title} (ID: ${bestVideo.youtubeId})`);
             updateCanvasVisuals('✅ Video selected!', `"${bestVideo.title}"`);
-            
+
             // Automatically proceed with the best video
             log('FLOW: Will proceed to video selection in 1.5 seconds');
             setTimeout(() => {
@@ -775,7 +774,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
             // Generate a comprehensive explanation
             const explanation = await this.gemini.generateDetailedExplanation(learningPoint);
-            
+
             if (explanation) {
                 // Play the explanation as narration
                 updateCanvasVisuals('📚 Learning segment', `Topic: "${learningPoint}"`);
@@ -812,11 +811,11 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             try {
                 const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
                 const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
-                
+
                 // Try to get transcript for better analysis
                 updateCanvasVisuals('📝 Analyzing transcript...', 'Getting video content...');
                 const transcript = await this.videoSourcer.getTranscript(video.youtubeId);
-                
+
                 if (transcript) {
                     log('Using transcript-based segment analysis');
                     currentSegments = await this.gemini.findVideoSegmentsWithTranscript(video.title, youtubeUrl, learningPoint, transcript);
@@ -824,21 +823,21 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                     log('No transcript available, using URL-based analysis');
                     currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint);
                 }
-                
+
                 if (!currentSegments || currentSegments.length === 0) {
                     log('No segments generated, creating default segment');
                     currentSegments = [{ startTime: 30, endTime: 180, reason: "Default educational segment" }];
                 }
-                
+
                 log(`Generated ${currentSegments.length} segments:`, currentSegments);
                 currentSegmentPlayIndex = 0;
 
                 updateCanvasVisuals('🎬 Starting video playback...', 'Loading player...');
-                
+
                 // Ensure we actually play the segments
                 log('FLOW: About to call playSegments with video:', video.youtubeId);
                 this.playSegments(video);
-                
+
             } catch (error) {
                 logError('Failed to generate segments:', error);
                 // Fallback to default segment and still play video
@@ -866,34 +865,34 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 }
                 this.youtubePlayer = null;
             }
-            
+
             ui.skipVideoButton.style.display = 'block';
             ui.canvas.style.opacity = '0';
-            
+
             log(`Creating YouTube player for video: ${videoInfo.youtubeId}`);
             log(`Available segments: ${currentSegments.length}`);
-            
+
             // Validate video info
             if (!videoInfo || !videoInfo.youtubeId || videoInfo.youtubeId.length < 10) {
                 logError('Invalid video info:', videoInfo);
                 this.handleVideoError();
                 return;
             }
-            
+
             if (!currentSegments || currentSegments.length === 0) {
                 log('No segments available, creating default segment');
                 currentSegments = [{ startTime: 30, endTime: 180, reason: "Default video segment" }];
             }
-            
+
             currentSegmentPlayIndex = 0;
-            
+
             // Check if YouTube API is loaded
             if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
                 log('YouTube API not loaded, waiting...');
                 setTimeout(() => this.createYouTubePlayer(videoInfo), 2000);
                 return;
             }
-            
+
             // Store video info and start playing
             this.currentVideoInfo = videoInfo;
             this.playCurrentSegment();
@@ -908,7 +907,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
             const segment = currentSegments[currentSegmentPlayIndex];
             log(`Playing segment ${currentSegmentPlayIndex + 1}/${currentSegments.length}: ${segment.startTime}s - ${segment.endTime}s`);
-            
+
             // Use stored video info
             const videoInfo = this.currentVideoInfo;
             if (!videoInfo || !videoInfo.youtubeId) {
@@ -916,7 +915,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 this.showQuiz();
                 return;
             }
-            
+
             // Destroy existing player with timeout protection
             if (this.youtubePlayer) { 
                 try {
@@ -926,13 +925,13 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 }
                 this.youtubePlayer = null;
             }
-            
+
             // Clean up any existing segment timer
             if (this.segmentTimer) {
                 clearInterval(this.segmentTimer);
                 this.segmentTimer = null;
             }
-            
+
             // Get container and validate
             const container = document.getElementById('youtube-player-container');
             if (!container) {
@@ -940,18 +939,18 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 this.showQuiz();
                 return;
             }
-            
+
             // Clear container and create new player div
             container.innerHTML = '';
             const playerDiv = document.createElement('div');
             playerDiv.id = 'youtube-player-' + Date.now();
             playerDiv.style.cssText = 'width: 100%; height: 100%; background: #000;';
             container.appendChild(playerDiv);
-            
+
             // Validate and adjust segment times for better compatibility
             let startTime = Math.max(0, Math.floor(segment.startTime || 30));
             let endTime = Math.floor(segment.endTime || startTime + 120);
-            
+
             // Ensure reasonable segment length (30s minimum, 300s maximum)
             if (endTime - startTime < 30) {
                 endTime = startTime + 60;
@@ -959,22 +958,22 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             if (endTime - startTime > 300) {
                 endTime = startTime + 300;
             }
-            
+
             log(`Creating player for video: ${videoInfo.youtubeId}`);
             log(`Adjusted segment times: ${startTime}s to ${endTime}s`);
-            
+
             // Set timeout for video loading failure
             const videoTimeout = setTimeout(() => {
                 logError('Video loading timeout, proceeding to next segment or quiz');
                 this.handleVideoTimeout();
             }, 15000); // 15 second timeout
-            
+
             // Create player with enhanced error handling
             try {
                 // Store segment end time for manual monitoring
                 this.currentSegmentEndTime = endTime;
                 this.segmentTimer = null;
-                
+
                 this.youtubePlayer = new YT.Player(playerDiv.id, {
                     height: '100%', 
                     width: '100%', 
@@ -1048,17 +1047,17 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 this.tryNextSegmentOrQuiz();
             }
         }
-        
+
         handleVideoTimeout() {
             log('Video loading timeout reached');
             this.tryNextSegmentOrQuiz();
         }
-        
+
         startSegmentTimer() {
             if (this.segmentTimer) {
                 clearInterval(this.segmentTimer);
             }
-            
+
             this.segmentTimer = setInterval(() => {
                 if (this.youtubePlayer && this.youtubePlayer.getCurrentTime) {
                     try {
@@ -1073,24 +1072,24 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 }
             }, 1000); // Check every second
         }
-        
+
         endCurrentSegment() {
             if (this.segmentTimer) {
                 clearInterval(this.segmentTimer);
                 this.segmentTimer = null;
             }
-            
+
             log('Ending current segment, moving to next');
             currentSegmentPlayIndex++;
             setTimeout(() => this.playCurrentSegment(), 1500);
         }
-        
+
         tryNextSegmentOrQuiz() {
             if (this.segmentTimer) {
                 clearInterval(this.segmentTimer);
                 this.segmentTimer = null;
             }
-            
+
             currentSegmentPlayIndex++;
             if (currentSegmentPlayIndex >= currentSegments.length) {
                 log('No more segments available, showing quiz');
@@ -1100,12 +1099,12 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 setTimeout(() => this.playCurrentSegment(), 2000);
             }
         }
-        
+
         handleVideoError() {
             logError('Handling video error - cleaning up and proceeding');
             ui.skipVideoButton.style.display = 'none';
             ui.canvas.style.opacity = '1';
-            
+
             if (this.youtubePlayer) {
                 try {
                     this.youtubePlayer.destroy();
@@ -1114,13 +1113,13 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 }
                 this.youtubePlayer = null;
             }
-            
+
             // Clear the player container
             const container = document.getElementById('youtube-player-container');
             if (container) {
                 container.innerHTML = '';
             }
-            
+
             // Try to proceed with educational content instead
             log('Video playback failed, creating educational content');
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
@@ -1138,15 +1137,15 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             ui.canvas.style.opacity = '1';
             ui.nextSegmentButton.disabled = false;
             updatePlayPauseIcon();
-            
+
             if (this.youtubePlayer) { 
                 this.youtubePlayer.destroy(); 
                 this.youtubePlayer = null;
             }
-            
+
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             const quiz = await this.gemini.generateQuiz(learningPoint, null);
-            
+
             if (quiz) {
                 this.displayQuiz(quiz);
             } else {
@@ -1183,16 +1182,16 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 option.addEventListener('click', () => {
                     const selectedIndex = parseInt(option.dataset.index);
                     const isCorrect = selectedIndex === quiz.correct;
-                    
+
                     options.forEach(opt => opt.disabled = true);
                     option.classList.add(isCorrect ? 'bg-green-600' : 'bg-red-600');
                     options[quiz.correct].classList.add('bg-green-600');
-                    
+
                     const resultDiv = document.getElementById('quiz-result');
                     const explanationP = document.getElementById('quiz-explanation');
                     explanationP.textContent = quiz.explanation;
                     resultDiv.classList.remove('hidden');
-                    
+
                     document.getElementById('continue-button').addEventListener('click', () => {
                         this.processNextLearningPoint();
                     });
@@ -1250,7 +1249,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
     function playPauseLesson() {
         log(`Play/Pause clicked - Current state: ${lessonState}`);
-        
+
         switch (lessonState) {
             case 'narrating': 
                 learningPipeline.speechEngine.pause(); 
@@ -1295,6 +1294,13 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         localStorage.setItem('lastTopic', topic);
         resetUIState();
         ui.curateButton.disabled = true;
+
+        // Hide header description elements to make more room
+        const headerDescription = document.querySelector('.header-description');
+        const headerFeatures = document.querySelector('.header-features');
+        if (headerDescription) headerDescription.classList.add('hidden');
+        if (headerFeatures) headerFeatures.classList.add('hidden');
+
         await learningPipeline.start(topic);
     }
 
@@ -1302,11 +1308,11 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         ui.inputSection.classList.add('hidden');
         ui.levelButtonsContainer.innerHTML = '';
         const levels = Object.keys(currentLessonPlan).filter(k => k !== 'topic');
-        
+
         levels.forEach(level => {
             const button = document.createElement('button');
             button.className = 'w-full p-6 rounded-xl transition-all transform hover:scale-105 shadow-lg bg-blue-600 hover:bg-blue-700 text-white';
-            
+
             const segmentCount = Array.isArray(currentLessonPlan[level]) ? currentLessonPlan[level].length : 'N/A';
             button.innerHTML = `<div class="text-2xl font-bold">${level}</div><div class="text-sm opacity-75">${segmentCount} segments</div>`;
             button.onclick = () => learningPipeline.startLevel(level);
@@ -1314,9 +1320,9 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         });
         ui.levelSelection.classList.remove('hidden');
     }
-    
+
     // Video choice display removed - now auto-selecting best educational videos
-    
+
     function updateSegmentProgress() {
         const learningPoints = currentLessonPlan[currentLearningPath];
         if (!learningPoints) return;
@@ -1403,9 +1409,9 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         ui.loadingMessage.textContent = message; 
         ui.loadingIndicator.classList.remove('hidden'); 
     }
-    
+
     function hideLoading() { ui.loadingIndicator.classList.add('hidden'); }
-    
+
     function resetUIState() { 
         ui.levelSelection.classList.add('hidden'); 
         ui.learningCanvasContainer.classList.add('hidden'); 
@@ -1419,7 +1425,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             learningPipeline.speechEngine.stop();
         } 
     }
-    
+
     function displayError(message) { 
         logError(message); 
         ui.errorMessage.textContent = message; 
@@ -1429,13 +1435,13 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
 
     // Initialize
     initializeUI();
-    
+
     // Ensure YouTube API is properly loaded
     window.onYouTubeIframeAPIReady = () => {
         log("YouTube API ready");
         window.youtubeAPIReady = true;
     };
-    
+
     // Fallback to load YouTube API if not already loaded
     if (!window.YT && !document.querySelector('script[src*="youtube.com/iframe_api"]')) {
         const tag = document.createElement('script');
