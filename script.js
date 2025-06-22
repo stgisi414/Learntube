@@ -243,25 +243,58 @@ Return ONLY the valid JSON, no other text.`;
         }
 
         async playNarration(learningPoint, previousPoint, onComplete) {
-            log("FLOW: Play intro narration");
+            log(`FLOW: Play intro narration for: "${learningPoint}"`);
             updateStatus('narrating');
             updatePlayPauseIcon();
             ui.nextSegmentButton.disabled = true;
-            const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
-            await this.speechEngine.play(narrationText, {
-                onProgress: (progress) => updateTeleprompter(narrationText, progress),
-                onComplete: () => { if (lessonState === 'narrating') onComplete(); }
-            });
+            
+            try {
+                const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
+                log(`FLOW: Generated intro narration: "${narrationText.substring(0, 50)}..."`);
+                
+                await this.speechEngine.play(narrationText, {
+                    onProgress: (progress) => {
+                        updateTeleprompter(narrationText, progress);
+                    },
+                    onComplete: () => { 
+                        log('FLOW: Intro narration completed');
+                        if (lessonState === 'narrating') onComplete(); 
+                    }
+                });
+            } catch (error) {
+                logError('Failed to play intro narration:', error);
+                // Continue to next step even if narration fails
+                setTimeout(onComplete, 1000);
+            }
         }
 
         async playConcludingNarration(learningPoint, onComplete) {
-            log("FLOW: Play concluding narration");
+            log(`FLOW: Play concluding narration for: "${learningPoint}"`);
             updateStatus('narrating');
-            const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
-            await this.speechEngine.play(narrationText, {
-                onProgress: (progress) => updateTeleprompter(narrationText, progress),
-                onComplete
-            });
+            updatePlayPauseIcon();
+            ui.nextSegmentButton.disabled = true;
+            
+            try {
+                const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
+                log(`FLOW: Generated concluding narration: "${narrationText.substring(0, 50)}..."`);
+                
+                await this.speechEngine.play(narrationText, {
+                    onProgress: (progress) => {
+                        log(`Concluding narration progress: ${Math.round(progress * 100)}%`);
+                        updateTeleprompter(narrationText, progress);
+                    },
+                    onComplete: () => {
+                        log('FLOW: Concluding narration completed');
+                        if (lessonState === 'narrating') {
+                            onComplete();
+                        }
+                    }
+                });
+            } catch (error) {
+                logError('Failed to play concluding narration:', error);
+                // Continue to next step even if narration fails
+                setTimeout(onComplete, 1000);
+            }
         }
 
         async searchVideos(learningPoint) {
@@ -315,14 +348,27 @@ Return ONLY the valid JSON, no other text.`;
             log("FLOW: Step 4B - Creating fallback content");
             updateStatus('generating_segments');
             updateCanvasVisuals('🤖 Creating custom content...', 'No suitable videos found. Generating text explanation...');
-            const explanation = await this.gemini.generateDetailedExplanation(learningPoint);
-            if (explanation) {
-                updateCanvasVisuals('📚 Learning segment', `Topic: "${learningPoint}"`);
-                await this.speechEngine.play(explanation, {
-                    onProgress: (progress) => updateTeleprompter(explanation, progress),
-                    onComplete: () => { if (lessonState === 'generating_segments') this.showQuiz(); }
-                });
-            } else {
+            
+            try {
+                const explanation = await this.gemini.generateDetailedExplanation(learningPoint);
+                if (explanation) {
+                    log('FLOW: Playing fallback explanation narration');
+                    updateCanvasVisuals('📚 Learning segment', `Topic: "${learningPoint}"`);
+                    await this.speechEngine.play(explanation, {
+                        onProgress: (progress) => updateTeleprompter(explanation, progress),
+                        onComplete: () => { 
+                            if (lessonState === 'generating_segments') {
+                                log('FLOW: Fallback explanation finished, playing concluding narration');
+                                this.playConcludingNarration(learningPoint, () => this.showQuiz());
+                            }
+                        }
+                    });
+                } else {
+                    updateCanvasVisuals('⏭️ Skipping segment', 'Could not generate content. Moving on...');
+                    setTimeout(() => this.processNextLearningPoint(), 2000);
+                }
+            } catch (error) {
+                logError('Failed to create fallback content:', error);
                 updateCanvasVisuals('⏭️ Skipping segment', 'Could not generate content. Moving on...');
                 setTimeout(() => this.processNextLearningPoint(), 2000);
             }
@@ -471,7 +517,11 @@ Return ONLY the valid JSON, no other text.`;
             ui.youtubePlayerContainer.innerHTML = '';
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-            this.playConcludingNarration(learningPoint, () => this.showQuiz());
+            log('FLOW: Playing concluding narration for:', learningPoint);
+            this.playConcludingNarration(learningPoint, () => {
+                log('FLOW: Concluding narration finished, showing quiz');
+                this.showQuiz();
+            });
         }
 
         handleVideoError() {
