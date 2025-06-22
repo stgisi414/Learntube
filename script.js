@@ -690,8 +690,12 @@ Return ONLY the valid JSON, no other text.`;
 
     function updateTeleprompter(fullText, progress) {
         if (!ui.canvas) return;
-        setCanvasVisible(true);
+        
+        // Ensure canvas is visible for teleprompter
+        ui.canvas.style.opacity = '1';
+        ui.canvas.style.pointerEvents = 'auto';
         ui.youtubePlayerContainer.innerHTML = '';
+        
         const ctx = ui.canvas.getContext('2d');
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
         const gradient = ctx.createLinearGradient(0, 0, ui.canvas.width, ui.canvas.height);
