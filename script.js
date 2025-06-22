@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         levelSelection: document.getElementById('level-selection'),
         levelButtonsContainer: document.getElementById('level-buttons-container'),
         learningCanvasContainer: document.getElementById('learning-canvas-container'),
+        lessonProgressContainer: document.getElementById('lesson-progress-container'),
         canvas: document.getElementById('lessonCanvas'),
         playPauseButton: document.getElementById('play-pause-button'),
         lessonControls: document.getElementById('lesson-controls'),
