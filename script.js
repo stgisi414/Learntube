@@ -358,8 +358,13 @@ Return ONLY the valid JSON, no other text.`;
 
         createYouTubePlayer(videoInfo) {
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch (e) {} this.youtubePlayer = null; }
-            ui.skipVideoButton.style.display = 'block';
+
+            // --- FIX: Hide canvas and show video player area ---
             ui.canvas.style.opacity = '0';
+            ui.canvas.style.pointerEvents = 'none'; // Prevent clicks on invisible canvas
+            ui.skipVideoButton.style.display = 'block';
+            ui.youtubePlayerContainer.innerHTML = ''; // Clear any previous content
+
             log(`Creating player for video: ${videoInfo.youtubeId}`);
             if (!videoInfo || !videoInfo.youtubeId || videoInfo.youtubeId.length !== 11) {
                 logError('Invalid video info provided to player:', videoInfo);
@@ -386,10 +391,8 @@ Return ONLY the valid JSON, no other text.`;
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch (e) {} }
             if (this.segmentTimer) clearInterval(this.segmentTimer);
 
-            const playerDiv = document.createElement('div');
-            playerDiv.id = 'youtube-player-' + Date.now();
-            ui.youtubePlayerContainer.innerHTML = '';
-            ui.youtubePlayerContainer.appendChild(playerDiv);
+            const playerDivId = 'youtube-player-' + Date.now();
+            ui.youtubePlayerContainer.innerHTML = `<div id="${playerDivId}" class="w-full h-full"></div>`;
 
             let startTime = Math.max(0, segment.startTime || 30);
             this.currentSegmentEndTime = segment.endTime || (startTime + 120);
@@ -397,7 +400,7 @@ Return ONLY the valid JSON, no other text.`;
             const playerTimeout = setTimeout(() => { logError('Video loading timeout'); this.tryNextSegmentOrQuiz(); }, 12000);
 
             try {
-                this.youtubePlayer = new YT.Player(playerDiv.id, {
+                this.youtubePlayer = new YT.Player(playerDivId, {
                     height: '100%', width: '100%', videoId: this.currentVideoInfo.youtubeId,
                     playerVars: { autoplay: 1, controls: 1, rel: 0, start: startTime, modestbranding: 1, iv_load_policy: 3, enablejsapi: 1, origin: window.location.origin, fs: 0 },
                     events: {
@@ -461,7 +464,9 @@ Return ONLY the valid JSON, no other text.`;
         handleVideoEnd() {
             log('Video playback finished');
             ui.skipVideoButton.style.display = 'none';
+            // --- FIX: Show canvas again ---
             ui.canvas.style.opacity = '1';
+            ui.canvas.style.pointerEvents = 'auto';
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} this.youtubePlayer = null; }
             ui.youtubePlayerContainer.innerHTML = '';
 
@@ -472,7 +477,9 @@ Return ONLY the valid JSON, no other text.`;
         handleVideoError() {
             logError('Handling video error. Creating fallback content.');
             ui.skipVideoButton.style.display = 'none';
+            // --- FIX: Show canvas again ---
             ui.canvas.style.opacity = '1';
+            ui.canvas.style.pointerEvents = 'auto';
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} }
             ui.youtubePlayerContainer.innerHTML = '';
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
@@ -484,7 +491,10 @@ Return ONLY the valid JSON, no other text.`;
             log("FLOW: Step 9 - Show quiz");
             updateStatus('quiz');
             ui.lessonControls.style.display = 'none';
-            updateCanvasVisuals('🧠 Quiz Time!', 'Let\'s check your understanding.');
+
+            // --- FIX: Ensure canvas is hidden ---
+            ui.canvas.style.opacity = '0';
+            ui.canvas.style.pointerEvents = 'none';
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             const quiz = await this.gemini.generateQuiz(learningPoint);
@@ -499,10 +509,10 @@ Return ONLY the valid JSON, no other text.`;
 
         displayQuiz(quiz) {
             ui.youtubePlayerContainer.innerHTML = `
-                <div class="p-6 text-white h-full flex flex-col justify-start overflow-y-auto" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+                <div class="p-6 md:p-8 text-white h-full flex flex-col justify-start">
                     <div class="flex-grow flex flex-col justify-center max-w-3xl mx-auto w-full">
                         <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6 border border-white/20">
-                            <p class="text-xl leading-relaxed">${quiz.question}</p>
+                            <p class="text-xl lg:text-2xl leading-relaxed">${quiz.question}</p>
                         </div>
                         <div class="space-y-4 mb-6">
                             ${quiz.options.map((option, index) => `<button class="quiz-option w-full text-left p-4 bg-blue-600 hover:bg-blue-700 rounded-xl transition-all" data-index="${index}"><span>${String.fromCharCode(65 + index)})</span> <span class="ml-3">${option}</span></button>`).join('')}
@@ -543,14 +553,18 @@ Return ONLY the valid JSON, no other text.`;
         async showLessonSummary() {
             log("FLOW: Step 10 - Show lesson summary");
             updateStatus('summary');
+            ui.lessonControls.style.display = 'none';
+            // --- FIX: Ensure canvas is hidden ---
+            ui.canvas.style.opacity = '0';
+            ui.canvas.style.pointerEvents = 'none';
+
             const topic = currentLessonPlan.topic;
             const learningPoints = currentLessonPlan[currentLearningPath];
-            updateCanvasVisuals('🎉 Level Complete!', 'Generating your lesson summary...');
 
             const summary = await this.gemini.generateLessonSummary(topic, learningPoints);
 
             ui.youtubePlayerContainer.innerHTML = `
-                <div class="p-8 text-white h-full flex flex-col justify-center items-center overflow-y-auto" style="background: linear-gradient(135deg, #16213e 0%, #0f172a 100%);">
+                <div class="p-8 text-white h-full flex flex-col justify-center items-center" style="background: linear-gradient(135deg, #16213e 0%, #0f172a 100%);">
                     <h2 class="text-4xl font-bold mb-4 text-purple-300">Congratulations!</h2>
                     <p class="text-xl mb-8">You've completed the ${currentLearningPath} level for "${topic}".</p>
                     <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-8 border border-white/20 max-w-2xl w-full text-left">
@@ -576,8 +590,11 @@ Return ONLY the valid JSON, no other text.`;
         ui.curateButton.addEventListener('click', handleCurateClick);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
         ui.nextSegmentButton.addEventListener('click', () => { if (!ui.nextSegmentButton.disabled) { ui.nextSegmentButton.disabled = true; learningPipeline.processNextLearningPoint(); } });
-        ui.skipVideoButton.addEventListener('click', () => { if (lessonState === 'playing_video') { if (learningPipeline.segmentTimer) clearInterval(learningPipeline.segmentTimer); learningPipeline.handleVideoEnd(); } });
-        window.onYouTubeIframeAPIReady = () => log("YouTube API ready");
+        ui.skipVideoButton.addEventListener('click', () => { if (lessonState === 'playing_video' || lessonState === 'paused') { if (learningPipeline.segmentTimer) clearInterval(learningPipeline.segmentTimer); learningPipeline.handleVideoEnd(); } });
+        // The official YT API script will call this function globally
+        window.onYouTubeIframeAPIReady = () => {
+            log("YouTube IFrame API is ready.");
+        };
     }
 
     function playPauseLesson() {
@@ -632,8 +649,13 @@ Return ONLY the valid JSON, no other text.`;
         ui.segmentProgressText.textContent = `${current}/${total}`;
     }
 
+    function setCanvasVisible(visible) {
+        ui.canvas.style.opacity = visible ? '1' : '0';
+        ui.canvas.style.pointerEvents = visible ? 'auto' : 'none';
+    }
+
     function updateCanvasVisuals(mainText, subText = '') {
-        ui.canvas.style.opacity = '1';
+        setCanvasVisible(true);
         ui.youtubePlayerContainer.innerHTML = '';
         ui.canvas.width = ui.canvas.clientWidth;
         ui.canvas.height = ui.canvas.clientHeight;
@@ -645,24 +667,30 @@ Return ONLY the valid JSON, no other text.`;
         canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         canvasCtx.textAlign = 'center';
         canvasCtx.textBaseline = 'middle';
+
         const maxWidth = ui.canvas.width * 0.85;
         let fontSize = Math.max(22, Math.min(ui.canvas.width / 25, 36));
+        let lineHeight = fontSize * 1.4;
         canvasCtx.font = `bold ${fontSize}px Inter, sans-serif`;
+
         const lines = wrapText(mainText, maxWidth, canvasCtx);
-        let startY = ui.canvas.height / 2 - ((lines.length - 1) * (fontSize + 8)) / 2;
-        lines.forEach((line, i) => canvasCtx.fillText(line, ui.canvas.width / 2, startY + (i * (fontSize + 8))));
+        let startY = ui.canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
+
+        lines.forEach((line, i) => canvasCtx.fillText(line, ui.canvas.width / 2, startY + (i * lineHeight)));
+
         if (subText) { 
             let subFontSize = Math.max(16, Math.min(ui.canvas.width / 40, 20)); 
+            let subLineHeight = subFontSize * 1.4;
             canvasCtx.font = `${subFontSize}px Inter, sans-serif`; 
             canvasCtx.fillStyle = 'rgba(200, 200, 200, 0.8)'; 
             const subLines = wrapText(subText, maxWidth, canvasCtx); 
-            subLines.forEach((line, i) => { canvasCtx.fillText(line, ui.canvas.width / 2, startY + (lines.length * (fontSize + 8)) + 16 + (i * (subFontSize + 6))); }); 
+            subLines.forEach((line, i) => { canvasCtx.fillText(line, ui.canvas.width / 2, startY + (lines.length * lineHeight) - (lineHeight / 2) + 16 + (i * subLineHeight)); }); 
         }
     }
 
     function updateTeleprompter(fullText, progress) {
         if (!ui.canvas) return;
-        ui.canvas.style.opacity = '1';
+        setCanvasVisible(true);
         ui.youtubePlayerContainer.innerHTML = '';
         const ctx = ui.canvas.getContext('2d');
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
@@ -671,32 +699,48 @@ Return ONLY the valid JSON, no other text.`;
         gradient.addColorStop(1, '#16213e');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+
         const maxWidth = ui.canvas.width * 0.9;
-        const fontSize = Math.max(24, Math.min(ui.canvas.width / 25, 32));
-        const lineHeight = fontSize + 12;
+        const fontSize = Math.max(24, Math.min(ui.canvas.width / 30, 36)); // Slightly larger font for teleprompter
+        const lineHeight = fontSize * 1.5;
         ctx.font = `400 ${fontSize}px Inter, sans-serif`;
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+
         const lines = wrapText(fullText, maxWidth, ctx);
         const totalContentHeight = (lines.length) * lineHeight;
+
+        // The text starts centered and scrolls up
         const startY = ui.canvas.height / 2;
         const yOffset = startY - (totalContentHeight * progress);
+
         ctx.save();
         ctx.translate(ui.canvas.width / 2, yOffset);
-        lines.forEach((line, index) => { ctx.fillText(line, 0, index * lineHeight); });
+        lines.forEach((line, index) => { 
+            // Draw each line relative to the new (0,0) after translation
+            ctx.fillText(line, 0, index * lineHeight); 
+        });
         ctx.restore();
     }
 
     function wrapText(text, maxWidth, ctx) {
-        const words = text.split(' '); let line = ''; let lines = [];
-        for (let i = 0; i < words.length; i++) {
-            const testLine = line + words[i] + ' ';
-            if (ctx.measureText(testLine).width > maxWidth && i > 0) {
+        const words = text.split(' ');
+        let line = '';
+        let lines = [];
+        for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = ctx.measureText(testLine);
+            const testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
                 lines.push(line.trim());
-                line = words[i] + ' ';
-            } else { line = testLine; }
+                line = words[n] + ' ';
+            } else {
+                line = testLine;
+            }
         }
-        lines.push(line.trim()); return lines;
+        lines.push(line.trim());
+        return lines;
     }
 
     function showLoading(message) { ui.inputSection.classList.add('hidden'); ui.levelSelection.classList.add('hidden'); ui.loadingMessage.textContent = message; ui.loadingIndicator.classList.remove('hidden'); }

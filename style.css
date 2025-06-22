@@ -5,6 +5,28 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* --- FIXES & ENHANCEMENTS START --- */
+
+/* 1. Fix Stacking Order & Scrolling */
+#youtube-player-container {
+    z-index: 20; /* Places video/quiz ABOVE the canvas */
+    background: #000;
+    overflow-y: auto; /* Allows the quiz content to scroll vertically */
+}
+
+#lessonCanvas {
+    z-index: 10; /* Places canvas BELOW the video/quiz container */
+}
+
+/* 2. Improve Heading Readability */
+h1 {
+    letter-spacing: -0.025em; /* Was -0.075em, this is a bit looser and easier to read */
+    font-weight: 800;
+}
+
+/* --- FIXES & ENHANCEMENTS END --- */
+
+
 /* Enhanced loader animation */
 .loader {
     border-top-color: #3b82f6;
@@ -62,11 +84,6 @@ input:focus, button:focus {
 }
 
 /* Typography enhancements */
-h1 {
-    letter-spacing: -0.075em;
-    font-weight: 800;
-}
-
 h2 {
     letter-spacing: -0.05em;
     font-weight: 700;
@@ -161,29 +178,26 @@ button:disabled, #next-segment-button:disabled {
     /* Mobile lesson container optimization */
     #learning-canvas-container .relative {
         padding-bottom: 0 !important;
-        height: 70vh !important;
-        min-height: 500px !important;
+        height: auto !important; /* Let height grow with content */
+        min-height: 85vh !important;
+        display: flex; /* Use flexbox for better layout control */
+        flex-direction: column;
     }
 
     #lessonCanvas,
     #youtube-player-container {
-        position: relative !important;
+        position: relative !important; /* Change to relative for flexbox flow */
         height: 100% !important;
         width: 100% !important;
-        overflow-y: auto !important;
-    }
-
-    /* Ensure quiz content is fully visible on mobile */
-    #youtube-player-container .p-6,
-    #youtube-player-container .p-8 {
-        padding-bottom: 6rem !important;
+        flex-grow: 1; /* Allow container to fill space */
     }
 
     /* Adjust control bar for mobile */
     #control-bar {
         padding: 0.75rem;
+        flex-shrink: 0; /* Prevent control bar from shrinking */
     }
-    
+
     /* Reduce footer margin on mobile */
     footer {
         margin-top: 2rem !important;
@@ -191,15 +205,9 @@ button:disabled, #next-segment-button:disabled {
 
     /* Make lesson controls more accessible on mobile */
     #lesson-controls {
-        bottom: 0.5rem;
+        bottom: 1rem;
         left: 1rem;
         right: 1rem;
-        z-index: 50;
-        pointer-events: none;
-    }
-
-    #lesson-controls > div {
-        pointer-events: auto;
     }
 
     #lesson-controls .bg-black\/70 {
