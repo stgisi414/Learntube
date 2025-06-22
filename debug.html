@@ -371,11 +371,14 @@
             // Wrap text and calculate positioning
             const lines = wrapTextDebug(fullText, maxWidth, debugCtx);
             const totalContentHeight = lines.length * lineHeight;
-            const centerY = debugCanvas.height / 2;
-            const startY = centerY - (totalContentHeight / 2);
-
-            // Apply gentle scroll effect
-            const scrollOffset = progress * Math.min(totalContentHeight * 0.2, 100);
+            
+            // Calculate scroll range - only scroll if content is taller than canvas
+            const maxScrollDistance = Math.max(0, totalContentHeight - debugCanvas.height + lineHeight);
+            const scrollOffset = progress * maxScrollDistance;
+            
+            // Start from top with padding, adjusted by scroll
+            const topPadding = Math.min(lineHeight, debugCanvas.height * 0.1);
+            const startY = topPadding + lineHeight - scrollOffset;
 
             // Draw each line
             lines.forEach((line, index) => {
