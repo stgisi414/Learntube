@@ -819,9 +819,16 @@ If you cannot determine good segments from the context, return a single comprehe
             log(`Creating YouTube player for video: ${videoInfo.youtubeId}`);
             log(`Available segments: ${currentSegments.length}`);
             
+            // Validate video info
+            if (!videoInfo || !videoInfo.youtubeId || videoInfo.youtubeId.length < 10) {
+                logError('Invalid video info:', videoInfo);
+                this.handleVideoError();
+                return;
+            }
+            
             if (!currentSegments || currentSegments.length === 0) {
                 log('No segments available, creating default segment');
-                currentSegments = [{ startTime: 0, endTime: 180, reason: "Full video segment" }];
+                currentSegments = [{ startTime: 30, endTime: 180, reason: "Default video segment" }];
             }
             
             currentSegmentPlayIndex = 0;
@@ -833,10 +840,12 @@ If you cannot determine good segments from the context, return a single comprehe
                 return;
             }
             
-            this.playCurrentSegment(videoInfo);
+            // Store video info for later use
+            this.currentVideoInfo = videoInfo;
+            this.playCurrentSegment();
         }
 
-        playCurrentSegment(videoInfo) {
+        playCurrentSegment() {
             if (currentSegmentPlayIndex >= currentSegments.length) {
                 log('FLOW: All segments complete, showing quiz');
                 this.showQuiz();
@@ -845,6 +854,14 @@ If you cannot determine good segments from the context, return a single comprehe
 
             const segment = currentSegments[currentSegmentPlayIndex];
             log(`Playing segment ${currentSegmentPlayIndex + 1}/${currentSegments.length}: ${segment.startTime}s - ${segment.endTime}s`);
+            
+            // Use stored video info
+            const videoInfo = this.currentVideoInfo;
+            if (!videoInfo) {
+                logError('No video info available');
+                this.handleVideoError();
+                return;
+            }
             
             if (this.youtubePlayer) { 
                 try {
@@ -857,6 +874,12 @@ If you cannot determine good segments from the context, return a single comprehe
             
             // Clear the container and create a unique div for the player
             const container = document.getElementById('youtube-player-container');
+            if (!container) {
+                logError('YouTube player container not found');
+                this.handleVideoError();
+                return;
+            }
+            
             container.innerHTML = '';
             const playerDiv = document.createElement('div');
             playerDiv.id = 'youtube-player-' + Date.now();
@@ -867,14 +890,14 @@ If you cannot determine good segments from the context, return a single comprehe
             // Validate video ID
             if (!videoInfo.youtubeId || videoInfo.youtubeId.length < 10) {
                 logError('Invalid YouTube video ID:', videoInfo.youtubeId);
-                displayError("Invalid video ID. Moving to next segment.");
-                currentSegmentPlayIndex++;
-                this.playCurrentSegment(videoInfo);
+                this.handleVideoError();
                 return;
             }
             
             try {
                 log(`Creating player for video: ${videoInfo.youtubeId}`);
+                log(`Segment: ${segment.startTime}s to ${segment.endTime}s`);
+                
                 this.youtubePlayer = new YT.Player(playerDiv.id, {
                     height: '100%', 
                     width: '100%', 
@@ -909,7 +932,7 @@ If you cannot determine good segments from the context, return a single comprehe
                             if (event.data === YT.PlayerState.ENDED) {
                                 log('Video segment ended, moving to next');
                                 currentSegmentPlayIndex++;
-                                setTimeout(() => this.playCurrentSegment(videoInfo), 500);
+                                setTimeout(() => this.playCurrentSegment(), 500);
                             } else if (event.data === YT.PlayerState.PLAYING) {
                                 updateStatus('playing_video');
                                 updatePlayPauseIcon();
@@ -920,7 +943,19 @@ If you cannot determine good segments from the context, return a single comprehe
                         },
                         'onError': (event) => { 
                             logError(`YouTube player error: ${event.data}`);
-                            this.handleVideoError();
+                            // Error codes: 2 = Invalid parameter, 5 = HTML5 player error, 
+                            // 100 = Video not found, 101/150 = Embedding not allowed
+                            if (event.data === 100 || event.data === 101 || event.data === 150) {
+                                log('Video not available, trying next segment or quiz');
+                                currentSegmentPlayIndex++;
+                                if (currentSegmentPlayIndex >= currentSegments.length) {
+                                    this.showQuiz();
+                                } else {
+                                    setTimeout(() => this.playCurrentSegment(), 1000);
+                                }
+                            } else {
+                                this.handleVideoError();
+                            }
                         }
                     }
                 });
@@ -931,12 +966,28 @@ If you cannot determine good segments from the context, return a single comprehe
         }
         
         handleVideoError() {
-            displayError("Video playback error. Moving to next segment.");
+            logError('Handling video error');
+            ui.skipVideoButton.style.display = 'none';
+            ui.canvas.style.opacity = '1';
+            
+            if (this.youtubePlayer) {
+                try {
+                    this.youtubePlayer.destroy();
+                } catch (e) {
+                    log('Error destroying failed player:', e);
+                }
+                this.youtubePlayer = null;
+            }
+            
+            // Try next segment or move to quiz
             currentSegmentPlayIndex++;
             if (currentSegmentPlayIndex >= currentSegments.length) {
+                log('No more segments, showing quiz');
                 this.showQuiz();
             } else {
-                setTimeout(() => this.playCurrentSegment(currentVideoChoices[0]), 1000);
+                log('Trying next segment after error');
+                updateCanvasVisuals('⚠️ Video error, trying next segment...', 'Loading...');
+                setTimeout(() => this.playCurrentSegment(), 2000);
             }
         }
 
