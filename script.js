@@ -295,6 +295,7 @@ Return ONLY the valid JSON, no other text.`;
             log("FLOW: Play concluding narration");
             updateStatus('narrating');
             updatePlayPauseIcon();
+            ui.nextSegmentButton.disabled = true;
             
             try {
                 const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
@@ -312,12 +313,17 @@ Return ONLY the valid JSON, no other text.`;
                         onProgress: (progress) => animateTextProgress(narrationText, progress),
                         onComplete: () => {
                             log("CONCLUDING NARRATION: Completed successfully");
-                            resolve();
+                            if (lessonState === 'narrating') {
+                                resolve();
+                            }
                         }
                     });
                 });
                 
-                onComplete();
+                // Only proceed if still in narrating state
+                if (lessonState === 'narrating') {
+                    onComplete();
+                }
             } catch (error) {
                 logError("CONCLUDING NARRATION: Error during playback", error);
                 onComplete();
