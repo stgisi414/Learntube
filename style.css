@@ -157,6 +157,41 @@ button:disabled, #next-segment-button:disabled {
     .text-3xl {
         font-size: 1.875rem;
     }
+
+    /* Mobile lesson container optimization */
+    #learning-canvas-container .relative {
+        padding-bottom: 0 !important;
+        height: 70vh !important;
+        min-height: 400px !important;
+    }
+
+    #lessonCanvas,
+    #youtube-player-container {
+        position: relative !important;
+        height: 100% !important;
+        width: 100% !important;
+    }
+
+    /* Adjust control bar for mobile */
+    #control-bar {
+        padding: 1rem 0.75rem;
+    }
+
+    /* Make lesson controls more accessible on mobile */
+    #lesson-controls {
+        bottom: 1rem;
+        left: 1rem;
+        right: 1rem;
+    }
+
+    #lesson-controls .bg-black\/70 {
+        padding: 0.75rem 1rem;
+    }
+
+    #lesson-controls button {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+    }
 }
 
 @media (max-width: 640px) {
