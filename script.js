@@ -268,13 +268,31 @@ Return ONLY the valid JSON, no other text.`;
                 
                 displayTextContent(narrationText);
                 
-                // Ensure we wait for narration to complete
+                // Create a promise that resolves only when speech completes
                 await new Promise((resolve) => {
+                    let speechCompleted = false;
+                    
+                    // Set up a timeout as safety net
+                    const timeoutId = setTimeout(() => {
+                        if (!speechCompleted) {
+                            speechCompleted = true;
+                            log("NARRATION: Timeout reached, forcing completion");
+                            this.speechEngine.stop();
+                            resolve();
+                        }
+                    }, 15000); // 15 second timeout
+                    
                     this.speechEngine.play(narrationText, {
-                        onProgress: (progress) => animateTextProgress(narrationText, progress),
-                        onComplete: () => {
-                            log("NARRATION: Completed successfully");
+                        onProgress: (progress) => {
                             if (lessonState === 'narrating') {
+                                animateTextProgress(narrationText, progress);
+                            }
+                        },
+                        onComplete: () => {
+                            if (!speechCompleted && lessonState === 'narrating') {
+                                speechCompleted = true;
+                                clearTimeout(timeoutId);
+                                log("NARRATION: Speech completed successfully");
                                 resolve();
                             }
                         }
@@ -291,7 +309,7 @@ Return ONLY the valid JSON, no other text.`;
             }
         }
 
-        async playConcludingNarration(learningPoint, onComplete) {
+        async playConcludingNarration(learningPoint) {
             log("FLOW: Play concluding narration");
             updateStatus('narrating');
             updatePlayPauseIcon();
@@ -300,33 +318,46 @@ Return ONLY the valid JSON, no other text.`;
             try {
                 const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
                 if (!narrationText) {
-                    log("CONCLUDING NARRATION: No text generated, proceeding to next step");
-                    onComplete();
+                    log("CONCLUDING NARRATION: No text generated, skipping narration");
                     return;
                 }
                 
                 displayTextContent(narrationText);
                 
-                // Ensure we wait for concluding narration to complete
-                await new Promise((resolve) => {
+                // Create a promise that resolves only when speech completes
+                await new Promise((resolve, reject) => {
+                    let speechCompleted = false;
+                    
+                    // Set up a timeout as safety net
+                    const timeoutId = setTimeout(() => {
+                        if (!speechCompleted) {
+                            speechCompleted = true;
+                            log("CONCLUDING NARRATION: Timeout reached, forcing completion");
+                            this.speechEngine.stop();
+                            resolve();
+                        }
+                    }, 15000); // 15 second timeout
+                    
                     this.speechEngine.play(narrationText, {
-                        onProgress: (progress) => animateTextProgress(narrationText, progress),
-                        onComplete: () => {
-                            log("CONCLUDING NARRATION: Completed successfully");
+                        onProgress: (progress) => {
                             if (lessonState === 'narrating') {
+                                animateTextProgress(narrationText, progress);
+                            }
+                        },
+                        onComplete: () => {
+                            if (!speechCompleted && lessonState === 'narrating') {
+                                speechCompleted = true;
+                                clearTimeout(timeoutId);
+                                log("CONCLUDING NARRATION: Speech completed successfully");
                                 resolve();
                             }
                         }
                     });
                 });
                 
-                // Only proceed if still in narrating state
-                if (lessonState === 'narrating') {
-                    onComplete();
-                }
+                log("CONCLUDING NARRATION: Promise resolved, proceeding");
             } catch (error) {
                 logError("CONCLUDING NARRATION: Error during playback", error);
-                onComplete();
             }
         }
 
@@ -526,8 +557,8 @@ Return ONLY the valid JSON, no other text.`;
             }
         }
 
-        handleVideoEnd() {
-            log('Video playback finished');
+        async handleVideoEnd() {
+            log('Video playbook finished');
             ui.skipVideoButton.style.display = 'none';
             // Show text display for concluding narration
             showTextDisplay();
@@ -535,7 +566,9 @@ Return ONLY the valid JSON, no other text.`;
             ui.youtubePlayerContainer.innerHTML = '';
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-            this.playConcludingNarration(learningPoint, () => this.showQuiz());
+            // Wait for concluding narration to complete before showing quiz
+            await this.playConcludingNarration(learningPoint);
+            this.showQuiz();
         }
 
         handleVideoError() {
