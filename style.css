@@ -1,3 +1,4 @@
+
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
@@ -5,137 +6,445 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- FIXES & ENHANCEMENTS START --- */
+/* --- CONDENSED & FLUID DESIGN IMPROVEMENTS --- */
 
-/* 1. Fix Stacking Order & Scrolling */
-#youtube-player-container {
-    z-index: 20; /* Places video/quiz ABOVE the canvas */
-    background: #000;
-    overflow-y: auto; /* Allows the quiz content to scroll vertically */
+/* 1. Condensed Header Design */
+header {
+    margin-bottom: 2rem !important; /* Reduced from mb-12 */
+    padding-top: 1rem;
+    padding-bottom: 1rem;
 }
 
-#lessonCanvas {
-    z-index: 10; /* Places canvas BELOW the video/quiz container */
+header .w-16.h-16 {
+    width: 3rem !important;
+    height: 3rem !important;
+    margin-bottom: 0.75rem !important;
 }
 
-/* 2. Improve Heading Readability */
-h1 {
-    letter-spacing: -0.025em; /* Was -0.075em, this is a bit looser and easier to read */
+header h1 {
+    font-size: 3.5rem !important; /* Reduced from text-6xl */
+    margin-bottom: 1rem !important;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
     font-weight: 800;
 }
 
-/* --- FIXES & ENHANCEMENTS END --- */
+header .text-xl {
+    font-size: 1.125rem !important;
+    margin-bottom: 1rem !important;
+    max-width: 40rem !important;
+    line-height: 1.4;
+}
 
+header .header-features {
+    margin-top: 1rem !important;
+    gap: 1rem !important;
+}
 
-/* Enhanced loader animation */
+/* 2. More Compact Input Section */
+#input-section {
+    padding: 2rem !important;
+    margin-bottom: 2rem;
+    border-radius: 1.5rem !important;
+    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+#input-section h2 {
+    font-size: 2rem !important;
+    margin-bottom: 1.5rem !important;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+#input-section .max-w-2xl {
+    max-width: 48rem !important;
+}
+
+#topic-input {
+    padding: 0.875rem 1rem !important;
+    font-size: 1rem !important;
+    border-radius: 0.875rem !important;
+    background: rgba(17, 24, 39, 0.7) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(75, 85, 99, 0.4) !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#topic-input:focus {
+    background: rgba(17, 24, 39, 0.85) !important;
+    border-color: rgba(59, 130, 246, 0.6) !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+#curate-button {
+    padding: 0.875rem 1.5rem !important;
+    border-radius: 0.875rem !important;
+    font-size: 1rem !important;
+    font-weight: 600;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%) !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+#curate-button:hover:not(:disabled) {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+/* 3. Streamlined Level Selection */
+#level-selection {
+    margin: 2rem 0 !important;
+}
+
+#level-selection h2 {
+    font-size: 2.5rem !important;
+    margin-bottom: 0.75rem !important;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+#level-selection p {
+    font-size: 1.125rem !important;
+    margin-bottom: 2rem !important;
+}
+
+#level-buttons-container {
+    gap: 1rem !important;
+}
+
+#level-buttons-container button {
+    padding: 1.25rem !important;
+    border-radius: 1rem !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+}
+
+#level-buttons-container button:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 12px 25px rgba(59, 130, 246, 0.35);
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
+}
+
+/* 4. Sleeker Progress Bar */
+#lesson-progress-container {
+    top: 1rem !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    z-index: 50;
+}
+
+#lesson-progress-container .bg-black\/80 {
+    background: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(16px);
+    padding: 1rem 1.5rem !important;
+    border-radius: 1.25rem !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+#lesson-progress-container .text-sm {
+    font-size: 0.875rem !important;
+    margin-bottom: 0.75rem !important;
+    font-weight: 500;
+}
+
+#lesson-progress-container .bg-gray-700\/50 {
+    background: rgba(55, 65, 81, 0.4) !important;
+    height: 0.5rem !important;
+    border-radius: 0.375rem !important;
+}
+
+#segment-progress {
+    height: 0.5rem !important;
+    border-radius: 0.375rem !important;
+    background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%) !important;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+/* 5. Optimized Learning Canvas */
+#learning-canvas-container {
+    border-radius: 1.5rem !important;
+    background: rgba(0, 0, 0, 0.85) !important;
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+#learning-canvas-container .relative {
+    padding-bottom: 52% !important; /* More condensed aspect ratio */
+}
+
+#lessonCanvas {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 6. Streamlined Control Bar */
+#control-bar {
+    background: rgba(31, 41, 55, 0.6) !important;
+    backdrop-filter: blur(16px);
+    padding: 1.25rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#control-bar .text-sm {
+    font-size: 0.8rem !important;
+    margin-bottom: 0.25rem !important;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+#control-bar .text-lg {
+    font-size: 1.125rem !important;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* 7. Refined Lesson Controls */
+#lesson-controls {
+    bottom: 1rem !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    z-index: 30;
+}
+
+#lesson-controls .bg-black\/70 {
+    background: rgba(0, 0, 0, 0.75) !important;
+    backdrop-filter: blur(20px);
+    border-radius: 2rem !important;
+    padding: 0.75rem 1rem !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+#lesson-controls button {
+    padding: 0.75rem !important;
+    border-radius: 1.5rem !important;
+    font-weight: 600;
+    font-size: 0.875rem !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#play-pause-button {
+    background: rgba(255, 255, 255, 0.15) !important;
+    width: 3rem !important;
+    height: 3rem !important;
+    padding: 0.75rem !important;
+}
+
+#play-pause-button:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+    transform: scale(1.05);
+}
+
+#skip-video-button {
+    background: rgba(249, 115, 22, 0.8) !important;
+    padding: 0.625rem 1rem !important;
+}
+
+#skip-video-button:hover {
+    background: rgba(234, 88, 12, 0.9) !important;
+    transform: translateY(-1px);
+}
+
+#next-segment-button {
+    background: rgba(37, 99, 235, 0.8) !important;
+    padding: 0.625rem 1.25rem !important;
+}
+
+#next-segment-button:hover:not(:disabled) {
+    background: rgba(29, 78, 216, 0.9) !important;
+    transform: translateY(-1px);
+}
+
+/* 8. Fluid Loading Indicator */
+#loading-indicator {
+    padding: 2rem !important;
+    margin: 1.5rem 0 !important;
+}
+
 .loader {
     border-top-color: #3b82f6;
-    animation: spin 1s linear infinite;
+    animation: spin 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    border-width: 3px !important;
+    height: 3rem !important;
+    width: 3rem !important;
+    margin-bottom: 1.5rem !important;
 }
+
+#loading-message {
+    font-size: 1.25rem !important;
+    margin-bottom: 0.5rem !important;
+    font-weight: 600;
+}
+
+/* 9. Enhanced Error Display */
+#error-display {
+    margin-top: 1.5rem !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 1rem !important;
+    background: rgba(239, 68, 68, 0.15) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    animation: slideInError 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 10. Better YouTube Player Integration */
+#youtube-player-container {
+    z-index: 20;
+    background: #000;
+    overflow-y: auto;
+    border-radius: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.5) rgba(0, 0, 0, 0.1);
+}
+
+/* 11. Improved Footer */
+footer {
+    margin-top: 3rem !important;
+    text-align: center;
+    font-size: 0.8rem !important;
+    opacity: 0.6;
+    font-weight: 400;
+}
+
+/* --- ENHANCED ANIMATIONS & TRANSITIONS --- */
 
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
 
-/* Pulse animation for loading states */
+@keyframes slideInError {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 @keyframes pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    50% { opacity: 0.7; }
 }
 
-.animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
 }
 
-/* Smooth transitions for all interactive elements */
-* {
-    transition: all 0.2s ease-in-out;
+/* --- RESPONSIVE DESIGN IMPROVEMENTS --- */
+
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 2.5rem !important;
+    }
+    
+    header .text-xl {
+        font-size: 1rem !important;
+    }
+    
+    #input-section {
+        padding: 1.5rem !important;
+        margin-bottom: 1.5rem;
+    }
+    
+    #input-section h2 {
+        font-size: 1.5rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    #level-selection h2 {
+        font-size: 2rem !important;
+    }
+    
+    #level-buttons-container {
+        grid-template-columns: 1fr;
+        gap: 0.75rem !important;
+    }
+    
+    #level-buttons-container button {
+        padding: 1rem !important;
+    }
+    
+    #lesson-progress-container {
+        top: 0.5rem !important;
+        left: 0.5rem !important;
+        right: 0.5rem !important;
+    }
+    
+    #lesson-progress-container .bg-black\/80 {
+        padding: 0.75rem 1rem !important;
+    }
+    
+    #learning-canvas-container .relative {
+        padding-bottom: 60% !important;
+    }
+    
+    #control-bar {
+        padding: 1rem !important;
+    }
+    
+    #lesson-controls {
+        bottom: 0.5rem !important;
+        left: 0.5rem !important;
+        right: 0.5rem !important;
+    }
+    
+    #lesson-controls .bg-black\/70 {
+        padding: 0.5rem 0.75rem !important;
+    }
+    
+    #lesson-controls button {
+        padding: 0.5rem !important;
+        font-size: 0.8rem !important;
+    }
+    
+    #play-pause-button {
+        width: 2.5rem !important;
+        height: 2.5rem !important;
+        padding: 0.5rem !important;
+    }
+    
+    footer {
+        margin-top: 2rem !important;
+    }
 }
 
-/* Custom focus styles */
-input:focus, button:focus {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
+@media (max-width: 640px) {
+    #control-bar {
+        padding: 0.75rem !important;
+    }
+    
+    #input-section .flex-col.sm\\:flex-row {
+        gap: 0.75rem !important;
+    }
+    
+    #curate-button {
+        padding: 0.75rem 1.25rem !important;
+    }
 }
 
-/* Enhanced gradient backgrounds */
-.bg-gradient-to-br {
-    background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
-}
+/* --- EXISTING FEATURES PRESERVATION --- */
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(59, 130, 246, 0.5);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(59, 130, 246, 0.7);
-}
-
-/* Typography enhancements */
-h2 {
-    letter-spacing: -0.05em;
-    font-weight: 700;
-}
-
-/* Button hover effects */
-button:not(:disabled):hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-}
-
-button:not(:disabled):active {
-    transform: translateY(0);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-}
-
-/* Input enhancements */
-input[type="text"] {
-    background: rgba(17, 24, 39, 0.8);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(75, 85, 99, 0.5);
-    transition: all 0.3s ease;
-}
-
-input[type="text"]:focus {
-    background: rgba(17, 24, 39, 0.9);
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-/* Custom slider styles */
-.slider {
-    -webkit-appearance: none;
-    appearance: none;
-}
-
-.slider::-webkit-slider-thumb {
-    appearance: none;
-    height: 16px;
-    width: 16px;
-    border-radius: 50%;
-    background: #3b82f6;
-    cursor: pointer;
-}
-
-/* Header description hiding */
+/* Header description hiding (preserve existing functionality) */
 .header-description.hidden,
 .header-features.hidden {
     display: none !important;
 }
 
-/* Ensure proper button cursor behavior */
+/* Ensure proper button cursor behavior (preserve existing) */
 button, #next-segment-button, #skip-video-button, #play-pause-button {
     cursor: pointer !important;
     user-select: none;
@@ -143,95 +452,86 @@ button, #next-segment-button, #skip-video-button, #play-pause-button {
 
 button:disabled, #next-segment-button:disabled {
     cursor: not-allowed !important;
+    opacity: 0.5;
 }
 
-
-/* Canvas enhancements */
-#lessonCanvas {
-    border-radius: 0;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+/* Custom focus styles (enhanced but preserved) */
+input:focus, button:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
 }
 
-/* Progress bar animations */
-#progress-bar, #segment-progress {
-    transition: width 0.3s ease;
+button:focus-visible, input:focus-visible {
+    outline: 3px solid #fbbf24;
+    outline-offset: 2px;
 }
 
-/* Responsive design improvements */
-@media (max-width: 768px) {
-    h1 {
-        font-size: 3rem;
-    }
+/* Custom scrollbar (preserved and enhanced) */
+::-webkit-scrollbar {
+    width: 6px;
+}
 
-    .text-6xl {
-        font-size: 3rem;
-    }
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
 
-    .text-4xl {
-        font-size: 2.25rem;
-    }
+::-webkit-scrollbar-thumb {
+    background: rgba(59, 130, 246, 0.5);
+    border-radius: 3px;
+}
 
-    .text-3xl {
-        font-size: 1.875rem;
-    }
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(59, 130, 246, 0.7);
+}
 
-    /* Mobile lesson container optimization */
-    #learning-canvas-container .relative {
-        padding-bottom: 0 !important;
-        height: auto !important; /* Let height grow with content */
-        min-height: 85vh !important;
-        display: flex; /* Use flexbox for better layout control */
-        flex-direction: column;
-    }
+/* Performance optimizations (preserved) */
+.will-change-transform {
+    will-change: transform;
+}
 
-    #lessonCanvas,
-    #youtube-player-container {
-        position: relative !important; /* Change to relative for flexbox flow */
-        height: 100% !important;
-        width: 100% !important;
-        flex-grow: 1; /* Allow container to fill space */
-    }
+.gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+}
 
-    /* Adjust control bar for mobile */
-    #control-bar {
-        padding: 0.75rem;
-        flex-shrink: 0; /* Prevent control bar from shrinking */
-    }
-
-    /* Reduce footer margin on mobile */
-    footer {
-        margin-top: 2rem !important;
-    }
-
-    /* Make lesson controls more accessible on mobile */
-    #lesson-controls {
-        bottom: 1rem;
-        left: 1rem;
-        right: 1rem;
-    }
-
-    #lesson-controls .bg-black\/70 {
-        padding: 0.75rem 1rem;
-    }
-
-    #lesson-controls button {
-        padding: 0.75rem 1rem;
-        font-size: 0.875rem;
+/* Accessibility improvements (preserved) */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }
 
-@media (max-width: 640px) {
-    #control-bar {
-        padding: 1rem;
+@media (prefers-contrast: high) {
+    .bg-gray-800 {
+        background-color: #000000;
     }
-
-    #level-buttons-container {
-        grid-template-columns: 1fr;
-        gap: 1rem;
+    
+    .text-gray-400 {
+        color: #ffffff;
+    }
+    
+    .border-gray-600 {
+        border-color: #ffffff;
     }
 }
 
-/* Loading states */
+/* Print styles (preserved) */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    body {
+        background: white !important;
+        color: black !important;
+    }
+}
+
+/* Loading states (preserved and enhanced) */
 .loading-shimmer {
     background: linear-gradient(90deg, 
         rgba(255, 255, 255, 0.1) 25%, 
@@ -241,58 +541,11 @@ button:disabled, #next-segment-button:disabled {
     animation: shimmer 2s infinite;
 }
 
-@keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Error message styling */
-#error-display {
-    animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Accessibility improvements */
-@media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .bg-gray-800 {
-        background-color: #000000;
-    }
-
-    .text-gray-400 {
-        color: #ffffff;
-    }
-
-    .border-gray-600 {
-        border-color: #ffffff;
-    }
-}
-
-/* Keyboard navigation indicators */
-button:focus-visible, input:focus-visible {
-    outline: 3px solid #fbbf24;
-    outline-offset: 2px;
-}
-
-/* Glass morphism effects */
+/* Glass morphism effects (enhanced) */
 .backdrop-blur-sm {
     backdrop-filter: blur(4px);
 }
@@ -305,37 +558,17 @@ button:focus-visible, input:focus-visible {
     border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Custom kbd styling */
-kbd {
-    background-color: #374151;
-    border: 1px solid #4b5563;
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-family: monospace;
-    font-size: 0.75rem;
-    color: #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+/* Enhanced gradient backgrounds */
+.bg-gradient-to-br {
+    background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
 }
 
-/* Performance optimizations */
-.will-change-transform {
-    will-change: transform;
+/* Smooth transitions for all interactive elements (enhanced) */
+* {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.gpu-accelerated {
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    perspective: 1000px;
-}
-
-/* Print styles */
-@media print {
-    .no-print {
-        display: none !important;
-    }
-
-    body {
-        background: white !important;
-        color: black !important;
-    }
+/* Enhanced input styling */
+input[type="text"] {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
