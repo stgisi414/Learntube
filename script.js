@@ -587,12 +587,27 @@ Return ONLY the valid JSON, no other text.`;
     function updateStatus(state) { lessonState = state; log(`STATE: ${state}`); }
 
     function initializeUI() {
-        ui.curateButton.addEventListener('click', handleCurateClick);
+        log('Initializing UI...');
+        
+        // Check if button exists
+        if (!ui.curateButton) {
+            logError('Curate button not found in DOM!');
+            return;
+        }
+        
+        log('Adding event listeners...');
+        ui.curateButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            log('Button click event triggered');
+            handleCurateClick();
+        });
         
         // Add Enter key support for topic input
         ui.topicInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !ui.curateButton.disabled) {
                 e.preventDefault();
+                log('Enter key pressed in topic input');
                 handleCurateClick();
             }
         });
@@ -606,8 +621,12 @@ Return ONLY the valid JSON, no other text.`;
             log("YouTube IFrame API is ready.");
         };
         
-        // Ensure button is enabled on page load
+        // Ensure button is enabled and properly set up on page load
         ui.curateButton.disabled = false;
+        ui.curateButton.textContent = 'Curate Lesson';
+        ui.curateButton.classList.remove('opacity-75');
+        
+        log('UI initialization complete');
     }
 
     function playPauseLesson() {
@@ -630,8 +649,13 @@ Return ONLY the valid JSON, no other text.`;
     }
 
     async function handleCurateClick() {
+        log('Curate button clicked');
+        
         const topic = ui.topicInput.value.trim();
+        log(`Topic input value: "${topic}"`);
+        
         if (!topic) {
+            log('No topic entered');
             ui.topicInput.focus();
             ui.topicInput.style.borderColor = '#ef4444';
             setTimeout(() => {
@@ -641,11 +665,20 @@ Return ONLY the valid JSON, no other text.`;
         }
         
         // Prevent multiple clicks
-        if (ui.curateButton.disabled) return;
+        if (ui.curateButton.disabled) {
+            log('Button already disabled, ignoring click');
+            return;
+        }
         
+        log('Starting lesson curation process');
         localStorage.setItem('lastTopic', topic);
-        resetUIState(false); // Don't reset to initial view yet
+        
+        // Immediately disable button and show visual feedback
         ui.curateButton.disabled = true;
+        ui.curateButton.textContent = 'Creating Lesson...';
+        ui.curateButton.classList.add('opacity-75');
+        
+        resetUIState(false); // Don't reset to initial view yet
         ui.headerDescription.classList.add('hidden');
         ui.headerFeatures.classList.add('hidden');
         
@@ -654,7 +687,11 @@ Return ONLY the valid JSON, no other text.`;
         } catch (error) {
             logError('Failed to start lesson:', error);
             displayError('Failed to start lesson. Please try again.');
+            
+            // Re-enable button on error
             ui.curateButton.disabled = false;
+            ui.curateButton.textContent = 'Curate Lesson';
+            ui.curateButton.classList.remove('opacity-75');
         }
     }
 
@@ -788,7 +825,11 @@ Return ONLY the valid JSON, no other text.`;
         ui.levelSelection.classList.add('hidden');
         document.getElementById('progress-spacer').classList.add('hidden');
         ui.inputSection.classList.remove('hidden');
+        
+        // Properly restore button state
         ui.curateButton.disabled = false;
+        ui.curateButton.textContent = 'Curate Lesson';
+        ui.curateButton.classList.remove('opacity-75');
 
         if (fullReset) {
             ui.headerDescription.classList.remove('hidden');
