@@ -161,8 +161,8 @@ button:disabled, #next-segment-button:disabled {
     /* Mobile lesson container optimization */
     #learning-canvas-container .relative {
         padding-bottom: 0 !important;
-        height: 65vh !important;
-        min-height: 400px !important;
+        height: 70vh !important;
+        min-height: 500px !important;
     }
 
     #lessonCanvas,
@@ -170,6 +170,13 @@ button:disabled, #next-segment-button:disabled {
         position: relative !important;
         height: 100% !important;
         width: 100% !important;
+        overflow-y: auto !important;
+    }
+
+    /* Ensure quiz content is fully visible on mobile */
+    #youtube-player-container .p-6,
+    #youtube-player-container .p-8 {
+        padding-bottom: 6rem !important;
     }
 
     /* Adjust control bar for mobile */
@@ -184,9 +191,15 @@ button:disabled, #next-segment-button:disabled {
 
     /* Make lesson controls more accessible on mobile */
     #lesson-controls {
-        bottom: 1rem;
+        bottom: 0.5rem;
         left: 1rem;
         right: 1rem;
+        z-index: 50;
+        pointer-events: none;
+    }
+
+    #lesson-controls > div {
+        pointer-events: auto;
     }
 
     #lesson-controls .bg-black\/70 {
