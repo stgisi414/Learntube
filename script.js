@@ -587,46 +587,14 @@ Return ONLY the valid JSON, no other text.`;
     function updateStatus(state) { lessonState = state; log(`STATE: ${state}`); }
 
     function initializeUI() {
-        log('Initializing UI...');
-        
-        // Check if button exists
-        if (!ui.curateButton) {
-            logError('Curate button not found in DOM!');
-            return;
-        }
-        
-        log('Adding event listeners...');
-        ui.curateButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            log('Button click event triggered');
-            handleCurateClick();
-        });
-        
-        // Add Enter key support for topic input
-        ui.topicInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !ui.curateButton.disabled) {
-                e.preventDefault();
-                log('Enter key pressed in topic input');
-                handleCurateClick();
-            }
-        });
-        
+        ui.curateButton.addEventListener('click', handleCurateClick);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
         ui.nextSegmentButton.addEventListener('click', () => { if (!ui.nextSegmentButton.disabled) { ui.nextSegmentButton.disabled = true; learningPipeline.processNextLearningPoint(); } });
         ui.skipVideoButton.addEventListener('click', () => { if (lessonState === 'playing_video' || lessonState === 'paused') { if (learningPipeline.segmentTimer) clearInterval(learningPipeline.segmentTimer); learningPipeline.handleVideoEnd(); } });
-        
         // The official YT API script will call this function globally
         window.onYouTubeIframeAPIReady = () => {
             log("YouTube IFrame API is ready.");
         };
-        
-        // Ensure button is enabled and properly set up on page load
-        ui.curateButton.disabled = false;
-        ui.curateButton.textContent = 'Curate Lesson';
-        ui.curateButton.classList.remove('opacity-75');
-        
-        log('UI initialization complete');
     }
 
     function playPauseLesson() {
@@ -649,50 +617,14 @@ Return ONLY the valid JSON, no other text.`;
     }
 
     async function handleCurateClick() {
-        log('Curate button clicked');
-        
         const topic = ui.topicInput.value.trim();
-        log(`Topic input value: "${topic}"`);
-        
-        if (!topic) {
-            log('No topic entered');
-            ui.topicInput.focus();
-            ui.topicInput.style.borderColor = '#ef4444';
-            setTimeout(() => {
-                ui.topicInput.style.borderColor = '';
-            }, 2000);
-            return;
-        }
-        
-        // Prevent multiple clicks
-        if (ui.curateButton.disabled) {
-            log('Button already disabled, ignoring click');
-            return;
-        }
-        
-        log('Starting lesson curation process');
+        if (!topic) return;
         localStorage.setItem('lastTopic', topic);
-        
-        // Immediately disable button and show visual feedback
-        ui.curateButton.disabled = true;
-        ui.curateButton.textContent = 'Creating Lesson...';
-        ui.curateButton.classList.add('opacity-75');
-        
         resetUIState(false); // Don't reset to initial view yet
-        if (ui.headerDescription) ui.headerDescription.classList.add('hidden');
-        if (ui.headerFeatures) ui.headerFeatures.classList.add('hidden');
-        
-        try {
-            await learningPipeline.start(topic);
-        } catch (error) {
-            logError('Failed to start lesson:', error);
-            displayError('Failed to start lesson. Please try again.');
-            
-            // Re-enable button on error
-            ui.curateButton.disabled = false;
-            ui.curateButton.textContent = 'Curate Lesson';
-            ui.curateButton.classList.remove('opacity-75');
-        }
+        ui.curateButton.disabled = true;
+        ui.headerDescription.classList.add('hidden');
+        ui.headerFeatures.classList.add('hidden');
+        await learningPipeline.start(topic);
     }
 
     function displayLevelSelection() {
@@ -825,15 +757,11 @@ Return ONLY the valid JSON, no other text.`;
         ui.levelSelection.classList.add('hidden');
         document.getElementById('progress-spacer').classList.add('hidden');
         ui.inputSection.classList.remove('hidden');
-        
-        // Properly restore button state
         ui.curateButton.disabled = false;
-        ui.curateButton.textContent = 'Curate Lesson';
-        ui.curateButton.classList.remove('opacity-75');
 
         if (fullReset) {
-            if (ui.headerDescription) ui.headerDescription.classList.remove('hidden');
-            if (ui.headerFeatures) ui.headerFeatures.classList.remove('hidden');
+            ui.headerDescription.classList.remove('hidden');
+            ui.headerFeatures.classList.remove('hidden');
         }
 
         currentLessonPlan = null;
