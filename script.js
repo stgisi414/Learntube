@@ -708,18 +708,22 @@ If you cannot determine good segments from the context, return a single comprehe
             updateStatus('choosing_video');
             
             if (!currentVideoChoices || currentVideoChoices.length === 0) {
-                logError('No video choices available');
+                logError('No video choices available, falling back to content creation');
                 this.createFallbackContent(learningPoint);
                 return;
             }
             
             // Sort by educational score and automatically pick the best one
             const bestVideo = currentVideoChoices[0];
-            log(`Selected best video: ${bestVideo.title} (ID: ${bestVideo.youtubeId})`);
+            log(`FLOW: Selected best video: ${bestVideo.title} (ID: ${bestVideo.youtubeId})`);
             updateCanvasVisuals('✅ Video selected!', `"${bestVideo.title}"`);
             
             // Automatically proceed with the best video
-            setTimeout(() => this.handleVideoSelection(bestVideo), 1500);
+            log('FLOW: Will proceed to video selection in 1.5 seconds');
+            setTimeout(() => {
+                log('FLOW: Timeout completed, calling handleVideoSelection');
+                this.handleVideoSelection(bestVideo);
+            }, 1500);
         }
 
         // STEP 4B: Fallback content when no transcripts available
@@ -755,7 +759,7 @@ If you cannot determine good segments from the context, return a single comprehe
             updateCanvasVisuals('🎯 Analyzing video for learning segments...', `"${video.title}"`);
 
             // Skip transcript loading entirely and use URL context
-            this.generateSegments(video);
+            await this.generateSegments(video);
         }
 
         // STEP 7: Generate segments from video URL
@@ -781,16 +785,16 @@ If you cannot determine good segments from the context, return a single comprehe
 
                 updateCanvasVisuals('🎬 Starting video playback...', 'Loading player...');
                 
-                // Add a small delay to show the transition message
-                setTimeout(() => {
-                    this.playSegments(video);
-                }, 1000);
+                // Ensure we actually play the segments
+                log('FLOW: About to call playSegments with video:', video.youtubeId);
+                this.playSegments(video);
                 
             } catch (error) {
                 logError('Failed to generate segments:', error);
-                // Fallback to default segment
+                // Fallback to default segment and still play video
                 currentSegments = [{ startTime: 30, endTime: 180, reason: "Fallback segment due to error" }];
                 currentSegmentPlayIndex = 0;
+                log('FLOW: Error occurred, but still attempting to play video');
                 this.playSegments(video);
             }
         }
