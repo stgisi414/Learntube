@@ -40,8 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const GEMINI_API_KEY = "AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA";
     const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
     const CSE_ID = '534de8daaf2cb449d';
-    const TRANSCRIPT_API_URL = "https://transcript-scraper-stefdgisi.replit.app";
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    const SUPADATA_API_KEY = "sd_1d4e0e4e3d5aecda115fc39d1d47a33b";
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
     const log = (message, ...args) => console.log(`[${new Date().toLocaleTimeString()}] ${message}`, ...args);
     const logError = (message, ...args) => console.error(`[${new Date().toLocaleTimeString()}] ERROR: ${message}`, ...args);
@@ -220,81 +220,9 @@ If you cannot determine good segments from the context, return a single comprehe
         }
 
         async analyzeVideoWithGemini(videoId, learningPoint) {
-            log(`VIDEO ANALYSIS: Analyzing video ${videoId} with Gemini 2.0 YouTube URL feature`);
-            
-            try {
-                // Use Gemini 2.0's direct YouTube URL support
-                const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                const requestBody = {
-                    contents: [{
-                        parts: [
-                            {
-                                text: `Analyze this educational YouTube video and identify the most relevant segments for learning about "${learningPoint}". 
-
-Watch the video carefully and find 1-3 key segments where this topic is explained most clearly. Each segment should be 30-120 seconds long.
-
-Provide timestamps based on what you observe in the video content.
-
-Return ONLY a JSON array with this format:
-[
-  {"startTime": 45, "endTime": 135, "reason": "Main explanation of core concepts"},
-  {"startTime": 180, "endTime": 240, "reason": "Practical examples"}
-]
-
-Focus on educational content that directly relates to "${learningPoint}".`
-                            },
-                            {
-                                file_data: {
-                                    file_uri: youtubeUrl
-                                }
-                            }
-                        ]
-                    }],
-                    generationConfig: {
-                        temperature: 0.3,
-                        maxOutputTokens: 1024
-                    }
-                };
-
-                log(`VIDEO ANALYSIS: Sending request to Gemini 2.0 for ${youtubeUrl}`);
-                const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    log(`VIDEO ANALYSIS: Gemini 2.0 API failed: ${response.status} - ${errorText}`);
-                    return null;
-                }
-
-                const data = await response.json();
-                const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                
-                if (!content) {
-                    log('VIDEO ANALYSIS: No content in Gemini 2.0 video analysis response');
-                    log('VIDEO ANALYSIS: Response data:', data);
-                    return null;
-                }
-
-                log(`VIDEO ANALYSIS: Gemini 2.0 response:`, content);
-                const segments = this.parseJSONResponse(content);
-                if (Array.isArray(segments) && segments.length > 0) {
-                    log(`VIDEO ANALYSIS: Successfully analyzed video with Gemini 2.0, found ${segments.length} segments`);
-                    return segments.filter(seg => 
-                        seg && typeof seg.startTime === 'number' && typeof seg.endTime === 'number' && 
-                        seg.startTime < seg.endTime && seg.startTime >= 0
-                    );
-                }
-
-                log('VIDEO ANALYSIS: No valid segments parsed from Gemini 2.0 response');
-                return null;
-                
-            } catch (error) {
-                log(`VIDEO ANALYSIS: Error analyzing video with Gemini 2.0:`, error);
-                return null;
-            }
+            // Gemini 2.0 YouTube URL feature is not working reliably, skip this approach
+            log(`VIDEO ANALYSIS: Skipping Gemini 2.0 video analysis - using fallback approach`);
+            return null;
         }
         
         createFallbackSegments() {
@@ -383,62 +311,10 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         constructor() {}
 
         async searchYouTube(query) {
-            log(`SEARCH: Searching for educational content with captions: "${query}"`);
+            log(`SEARCH: Searching for educational content: "${query}"`);
             
-            try {
-                // Use the transcript API to search for videos with captions
-                const response = await fetch(`${TRANSCRIPT_API_URL}/captions-search?q=${encodeURIComponent(query)}&max_results=15&use_ai=true`);
-                
-                if (!response.ok) {
-                    log(`SEARCH: Transcript API failed: ${response.status}`);
-                    return this.fallbackSearch(query);
-                }
-                
-                const data = await response.json();
-                log(`SEARCH: Transcript API response:`, data);
-                
-                if (!data || !data.videos || data.videos.length === 0) {
-                    log(`SEARCH: No videos found via transcript API`);
-                    return this.fallbackSearch(query);
-                }
-
-                const results = data.videos.map(video => {
-                    // Score videos based on educational indicators
-                    let score = 0;
-                    const title = (video.title || '').toLowerCase();
-                    const description = (video.description || '').toLowerCase();
-                    
-                    // Boost educational keywords
-                    if (title.includes('tutorial') || title.includes('how to') || title.includes('explained')) score += 3;
-                    if (title.includes('course') || title.includes('lesson') || title.includes('learn')) score += 2;
-                    if (title.includes('university') || title.includes('lecture') || title.includes('professor')) score += 2;
-                    if (description.includes('educational') || description.includes('teaching')) score += 1;
-                    
-                    // Penalize non-educational content
-                    if (title.includes('reaction') || title.includes('funny') || title.includes('prank')) score -= 2;
-                    if (title.includes('compilation') || title.includes('fails') || title.includes('meme')) score -= 2;
-
-                    // Boost videos that have captions (main advantage of this API)
-                    if (video.has_captions) score += 5;
-
-                    return {
-                        youtubeId: video.video_id,
-                        title: video.title || 'Untitled',
-                        description: video.description || '',
-                        thumbnail: video.thumbnail || '',
-                        educationalScore: score,
-                        hasTranscript: video.has_captions
-                    };
-                }).filter(video => video.hasTranscript) // Only return videos with captions
-                  .sort((a, b) => b.educationalScore - a.educationalScore);
-
-                log(`SEARCH: Found ${results.length} educational videos with captions`);
-                return results;
-
-            } catch (error) {
-                log(`SEARCH: Transcript API error:`, error);
-                return this.fallbackSearch(query);
-            }
+            // Go directly to Custom Search API for better results
+            return this.fallbackSearch(query);
         }
 
         async fallbackSearch(query) {
@@ -474,25 +350,39 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                         let videoId = null;
                         
                         if (item.link) {
-                            try {
-                                const url = new URL(item.link);
-                                videoId = url.searchParams.get('v') || 
-                                         url.pathname.split('/').pop() ||
-                                         (item.link.match(/[?&]v=([^&]+)/) || [])[1];
-                            } catch (e) {
-                                const match = item.link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
-                                videoId = match ? match[1] : null;
+                            // More robust video ID extraction
+                            const match = item.link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+                            videoId = match ? match[1] : null;
+                            
+                            // Fallback: check if it's already a video ID format
+                            if (!videoId && /^[a-zA-Z0-9_-]{11}$/.test(item.link)) {
+                                videoId = item.link;
                             }
                         }
                         
-                        if (videoId) {
+                        if (videoId && videoId.length === 11) {
+                            // Score videos based on educational indicators
+                            let score = 1;
+                            const title = (item.title || '').toLowerCase();
+                            const snippet = (item.snippet || '').toLowerCase();
+                            
+                            // Boost educational keywords
+                            if (title.includes('tutorial') || title.includes('how to') || title.includes('explained')) score += 3;
+                            if (title.includes('course') || title.includes('lesson') || title.includes('learn')) score += 2;
+                            if (title.includes('university') || title.includes('lecture') || title.includes('professor')) score += 2;
+                            if (snippet.includes('educational') || snippet.includes('teaching')) score += 1;
+                            
+                            // Penalize non-educational content
+                            if (title.includes('reaction') || title.includes('funny') || title.includes('prank')) score -= 2;
+                            if (title.includes('compilation') || title.includes('fails') || title.includes('meme')) score -= 2;
+                            
                             return {
                                 youtubeId: videoId,
                                 title: item.title || 'Untitled',
                                 description: item.snippet || '',
                                 thumbnail: item.pagemap?.cse_thumbnail?.[0]?.src || '',
-                                educationalScore: 1, // Low score for fallback
-                                hasTranscript: false // Unknown, will check later
+                                educationalScore: score,
+                                hasTranscript: false // Will check later
                             };
                         }
                         return null;
@@ -517,7 +407,9 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         async checkTranscriptAvailable(videoId) {
             log(`TRANSCRIPT CHECK: Checking availability for ${videoId}`);
             try {
-                const response = await fetch(`${TRANSCRIPT_API_URL}/captions-search?q=${encodeURIComponent(videoId)}&max_results=1`);
+                const response = await fetch(`https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`, {
+                    headers: { 'x-api-key': SUPADATA_API_KEY }
+                });
                 
                 if (response.status === 429) {
                     log(`TRANSCRIPT CHECK: Rate limited for ${videoId}, skipping`);
@@ -526,9 +418,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 
                 if (response.ok) {
                     const data = await response.json();
-                    // Check if we found videos with captions
-                    return data && data.videos && data.videos.length > 0 && 
-                           data.videos.some(video => video.video_id === videoId && video.has_captions);
+                    return data && data.transcript && data.transcript.length > 0;
                 }
                 return false;
             } catch (error) {
@@ -540,9 +430,11 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         async getTranscript(videoId) {
             log(`TRANSCRIPT: Fetching for ${videoId}`);
             try {
-                const response = await fetch(`${TRANSCRIPT_API_URL}/transcript/${videoId}`);
+                const response = await fetch(`https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`, {
+                    headers: { 'x-api-key': SUPADATA_API_KEY }
+                });
                 
-                if (!response.ok) throw new Error(`Transcript API failed: ${response.status}`);
+                if (!response.ok) throw new Error(`Supadata API failed: ${response.status}`);
                 
                 const data = await response.json();
                 if (data && data.transcript) {
