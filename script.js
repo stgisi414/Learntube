@@ -193,15 +193,94 @@ Return ONLY the valid JSON, no other text.`;
 
     class SpeechEngine {
         constructor() { this.apiKey = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8"; this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize'; this.audioElement = new Audio(); this.onCompleteCallback = null; this.onProgressCallback = null; this.isPaused = false; this.isPlaying = false; }
-        async play(text, { onProgress = null, onComplete = null } = {}) { this.stop(); if (!text) { if (onComplete) onComplete(); return; } this.onProgressCallback = onProgress; this.onCompleteCallback = onComplete; this.isPaused = false; this.isPlaying = true; try { const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: { text }, voice: { languageCode: 'en-US', name: 'en-US-Standard-C' }, audioConfig: { audioEncoding: 'MP3' } }) }); if (!response.ok) { throw new Error((await response.json()).error?.message || 'Speech API error'); } const data = await response.json(); const audioBlob = this.base64ToBlob(data.audioContent); this.audioElement.src = URL.createObjectURL(audioBlob); this.audioElement.onloadeddata = () => { if (this.isPlaying && !this.isPaused) this.audioElement.play().catch(e => log(`Audio play error: ${e}`)); }; this.audioElement.ontimeupdate = () => { if (this.onProgressCallback && this.audioElement.duration) this.onProgressCallback(this.audioElement.currentTime / this.audioElement.duration); }; this.audioElement.onended = () => { this.isPlaying = false; this.isPaused = false; if (this.onProgressCallback) this.onProgressCallback(1); if (this.onCompleteCallback) this.onCompleteCallback(); }; this.audioElement.onerror = (e) => { logError(`Audio error, skipping speech`, e); this.isPlaying = false; this.isPaused = false; if (this.onCompleteCallback) setTimeout(this.onCompleteCallback, 500); }; } catch (error) { logError(`Speech Error: ${error}`); this.isPlaying = false; this.isPaused = false; if (this.onCompleteCallback) setTimeout(this.onCompleteCallback, 500); } }
-        pause() { if (this.isPlaying && !this.isPaused) { this.audioElement.pause(); this.isPaused = true; log('Speech paused'); } }
-        resume() { if (this.isPaused && this.isPlaying) { this.audioElement.play().catch(e => logError(`Resume error: ${e}`)); this.isPaused = false; log('Speech resumed'); } }
-        stop() { this.audioElement.pause(); this.isPlaying = false; this.isPaused = false; if (this.audioElement.src) { this.audioElement.currentTime = 0; URL.revokeObjectURL(this.audioElement.src); this.audioElement.src = ''; } log('Speech stopped'); }
-        base64ToBlob(base64) { const byteCharacters = atob(base64); const byteArrays = []; for (let offset = 0; offset < byteCharacters.length; offset += 512) { const slice = byteCharacters.slice(offset, offset + 512); const byteNumbers = new Array(slice.length); for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i); byteArrays.push(new Uint8Array(byteNumbers)); } return new Blob(byteArrays, { type: 'audio/mpeg' }); }
+        async play(text, { onProgress = null, onComplete = null } = {}) {
+            this.stop();
+            if (!text) {
+                if (onComplete) onComplete();
+                return;
+            }
+            this.onProgressCallback = onProgress;
+            this.onCompleteCallback = onComplete;
+            this.isPaused = false;
+            this.isPlaying = true;
+
+            const maxRetries = 1;
+            let currentRetry = 0;
+
+            try {
+                let response;
+                while (currentRetry <= maxRetries) {
+                    response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            input: { text },
+                            voice: { languageCode: 'en-US', name: 'en-US-Standard-C' },
+                            audioConfig: { audioEncoding: 'MP3' }
+                        })
+                    });
+
+                    // If the response is OK, break the retry loop and proceed.
+                    if (response.ok) {
+                        break;
+                    }
+
+                    // If we get a rate limit error and have retries left, wait and try again.
+                    if (response.status === 429 && currentRetry < maxRetries) {
+                        log(`SPEECH API: Rate limited. Retrying in 1 second...`);
+                        currentRetry++;
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+                    } else {
+                        // For other errors or if retries are exhausted, throw an error to be caught below.
+                        throw new Error(`Speech API failed with status ${response.status}: ${(await response.json()).error?.message || 'Unknown API error'}`);
+                    }
+                }
+
+                const data = await response.json();
+                const audioBlob = this.base64ToBlob(data.audioContent);
+                this.audioElement.src = URL.createObjectURL(audioBlob);
+
+                this.audioElement.onloadeddata = () => {
+                    if (this.isPlaying && !this.isPaused) this.audioElement.play().catch(e => log(`Audio play error: ${e}`));
+                };
+
+                this.audioElement.ontimeupdate = () => {
+                    if (this.onProgressCallback && this.audioElement.duration) this.onProgressCallback(this.audioElement.currentTime / this.audioElement.duration);
+                };
+
+                this.audioElement.onended = () => {
+                    this.isPlaying = false;
+                    this.isPaused = false;
+                    if (this.onProgressCallback) this.onProgressCallback(1);
+                    if (this.onCompleteCallback) this.onCompleteCallback();
+                };
+
+                this.audioElement.onerror = (e) => {
+                    logError(`Audio element error, skipping speech`, e);
+                    this.isPlaying = false;
+                    this.isPaused = false;
+                    // onComplete is deliberately not called to allow timeout fallback.
+                };
+
+            } catch (error) {
+                logError(`Speech Error: ${error}`);
+                this.isPlaying = false;
+                this.isPaused = false;
+                // onComplete is deliberately not called to allow timeout fallback.
+            }
+        }
+        pause() { 
+            if (this.isPlaying && !this.isPaused) { this.audioElement.pause(); this.isPaused = true; log('Speech paused'); } }
+        resume() { 
+            if (this.isPaused && this.isPlaying) { this.audioElement.play().catch(e => logError(`Resume error: ${e}`)); this.isPaused = false; log('Speech resumed'); } }
+        stop() { 
+            this.audioElement.pause(); this.isPlaying = false; this.isPaused = false; if (this.audioElement.src) { this.audioElement.currentTime = 0; URL.revokeObjectURL(this.audioElement.src); this.audioElement.src = ''; } log('Speech stopped'); }
+        base64ToBlob(base64) { 
+            const byteCharacters = atob(base64); const byteArrays = []; for (let offset = 0; offset < byteCharacters.length; offset += 512) { const slice = byteCharacters.slice(offset, offset + 512); const byteNumbers = new Array(slice.length); for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i); byteArrays.push(new Uint8Array(byteNumbers)); } return new Blob(byteArrays, { type: 'audio/mpeg' }); }
     }
 
     class LearningPipeline {
-        constructor() { this.gemini = new GeminiOrchestrator(); this.videoSourcer = new VideoSourcer(); this.speechEngine = new SpeechEngine(); this.youtubePlayer = null; }
+        constructor() { this.gemini = new GeminiOrchestrator(); this.videoSourcer = new VideoSourcer(); this.speechEngine = new SpeechEngine(); this.youtubePlayer = null;      this.concludingNarrationText = null; }
 
         async start(topic) {
             log("FLOW: Step 1 - Generate lesson plan");
