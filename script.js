@@ -225,8 +225,16 @@ Return ONLY the valid JSON, no other text.`;
             ui.levelSelection.classList.add('hidden');
             ui.lessonProgressContainer.classList.remove('hidden');
             ui.learningCanvasContainer.classList.remove('hidden');
-            // Remove progress spacer to eliminate unnecessary spacing
+            
+            // Completely remove all potential spacing elements
             document.getElementById('progress-spacer').classList.add('hidden');
+            ui.inputSection.classList.add('hidden');
+            ui.loadingIndicator.classList.add('hidden');
+            
+            // Force compact header layout
+            document.querySelector('header').style.marginBottom = '0.5rem';
+            document.querySelector('header').style.paddingBottom = '0.25rem';
+            
             this.processNextLearningPoint();
         }
 
@@ -249,23 +257,71 @@ Return ONLY the valid JSON, no other text.`;
             updateStatus('narrating');
             updatePlayPauseIcon();
             ui.nextSegmentButton.disabled = true;
-            const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
-            displayTextContent(narrationText);
-            await this.speechEngine.play(narrationText, {
-                onProgress: (progress) => animateTextProgress(narrationText, progress),
-                onComplete: () => { if (lessonState === 'narrating') onComplete(); }
-            });
+            
+            try {
+                const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
+                if (!narrationText) {
+                    log("NARRATION: No text generated, skipping to next step");
+                    onComplete();
+                    return;
+                }
+                
+                displayTextContent(narrationText);
+                
+                // Ensure we wait for narration to complete
+                await new Promise((resolve) => {
+                    this.speechEngine.play(narrationText, {
+                        onProgress: (progress) => animateTextProgress(narrationText, progress),
+                        onComplete: () => {
+                            log("NARRATION: Completed successfully");
+                            if (lessonState === 'narrating') {
+                                resolve();
+                            }
+                        }
+                    });
+                });
+                
+                // Only proceed if still in narrating state
+                if (lessonState === 'narrating') {
+                    onComplete();
+                }
+            } catch (error) {
+                logError("NARRATION: Error during playback", error);
+                onComplete();
+            }
         }
 
         async playConcludingNarration(learningPoint, onComplete) {
             log("FLOW: Play concluding narration");
             updateStatus('narrating');
-            const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
-            displayTextContent(narrationText);
-            await this.speechEngine.play(narrationText, {
-                onProgress: (progress) => animateTextProgress(narrationText, progress),
-                onComplete
-            });
+            updatePlayPauseIcon();
+            
+            try {
+                const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
+                if (!narrationText) {
+                    log("CONCLUDING NARRATION: No text generated, proceeding to next step");
+                    onComplete();
+                    return;
+                }
+                
+                displayTextContent(narrationText);
+                
+                // Ensure we wait for concluding narration to complete
+                await new Promise((resolve) => {
+                    this.speechEngine.play(narrationText, {
+                        onProgress: (progress) => animateTextProgress(narrationText, progress),
+                        onComplete: () => {
+                            log("CONCLUDING NARRATION: Completed successfully");
+                            resolve();
+                        }
+                    });
+                });
+                
+                onComplete();
+            } catch (error) {
+                logError("CONCLUDING NARRATION: Error during playback", error);
+                onComplete();
+            }
         }
 
         async searchVideos(learningPoint) {

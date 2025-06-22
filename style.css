@@ -619,6 +619,7 @@ header:has(.header-description.hidden) {
 
 /* Ensure progress spacer doesn't add unnecessary height when canvas is visible */
 #progress-spacer.hidden {
+    display: none !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -637,6 +638,28 @@ header:has(.header-description.hidden) {
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+}
+
+/* Ensure no phantom spacing from any hidden elements */
+.hidden {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+/* Compact header when content is active */
+#learning-canvas-container:not(.hidden) ~ header,
+body:has(#learning-canvas-container:not(.hidden)) header {
+    margin-bottom: 0.5rem !important;
+    padding-bottom: 0.25rem !important;
+}
+
+/* Remove any spacing between progress bar and canvas */
+#lesson-progress-container + #main-content {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
 }
 
 /* Ensure proper button cursor behavior (preserve existing) */
