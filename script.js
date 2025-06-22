@@ -185,17 +185,27 @@ document.addEventListener('DOMContentLoaded', () => {
             this.youtubePlayer = null;
         }
 
+        // --- FIX: Improved error handling to be more specific ---
         async start(topic) {
             setView('loading');
-            const rawPlan = await this.gemini.generateLessonPlan(topic);
+            try {
+                const rawPlan = await this.gemini.generateLessonPlan(topic);
 
-            if (rawPlan && rawPlan.Apprentice) {
-                currentLessonPlan = rawPlan;
-                currentLessonPlan.topic = topic;
-                displayLevelSelection();
-                setView('level-selection');
-            } else {
-                displayError("Failed to generate a valid lesson plan. Please try a different topic.");
+                if (rawPlan && rawPlan.Apprentice) {
+                    currentLessonPlan = rawPlan;
+                    currentLessonPlan.topic = topic;
+                    displayLevelSelection();
+                    setView('level-selection');
+                } else {
+                    logError("Gemini returned an invalid or empty lesson plan.", rawPlan);
+                    displayError("The AI returned an invalid lesson plan. Please try a more specific topic.");
+                    setView('input');
+                    ui.curateButton.disabled = false;
+                }
+            } catch (error) {
+                logError("Failed to generate lesson plan due to an API error.", error);
+                // Display a more helpful error to the user
+                displayError(`AI Service Error: ${error.message}. Please check API key and network status.`);
                 setView('input');
                 ui.curateButton.disabled = false;
             }
@@ -494,7 +504,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePlayPauseIcon();
     }
 
-    // --- FIX: Correctly working view management function ---
     function setView(viewName) {
         const views = {
             'input': ui.inputSection,
@@ -580,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.canvas.style.opacity = visible ? '1' : '0';
         ui.canvas.style.pointerEvents = visible ? 'auto' : 'none';
         if (visible) {
-            ui.youtubePlayerContainer.innerHTML = '';
+            if (ui.youtubePlayerContainer) ui.youtubePlayerContainer.innerHTML = '';
         }
     }
 
@@ -700,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus('idle');
     }
 
-    function displayError(message) { logError(message); ui.errorMessage.textContent = message; ui.errorDisplay.classList.remove('hidden'); setTimeout(() => ui.errorDisplay.classList.add('hidden'), 5000); }
+    function displayError(message) { logError(message); ui.errorMessage.textContent = message; ui.errorDisplay.classList.remove('hidden'); setTimeout(() => { if(ui.errorDisplay) ui.errorDisplay.classList.add('hidden') }, 5000); }
 
     initializeUI();
 });
