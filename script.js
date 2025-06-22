@@ -316,14 +316,19 @@ Return ONLY the valid JSON, no other text.`;
             ui.nextSegmentButton.disabled = true;
             
             try {
+                console.log('DEBUG NARRATION: Generating text for:', learningPoint);
                 const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
+                console.log('DEBUG NARRATION: Generated text:', narrationText);
+                
                 if (!narrationText) {
                     log("CONCLUDING NARRATION: No text generated, skipping narration");
                     return;
                 }
                 
+                console.log('DEBUG NARRATION: Displaying text on teleprompter');
                 displayTextContent(narrationText);
                 
+                console.log('DEBUG NARRATION: Starting speech synthesis');
                 // Create a promise that resolves only when speech completes
                 await new Promise((resolve, reject) => {
                     let speechCompleted = false;
@@ -332,7 +337,7 @@ Return ONLY the valid JSON, no other text.`;
                     const timeoutId = setTimeout(() => {
                         if (!speechCompleted) {
                             speechCompleted = true;
-                            log("CONCLUDING NARRATION: Timeout reached, forcing completion");
+                            console.log("DEBUG NARRATION: Timeout reached after 15 seconds");
                             this.speechEngine.stop();
                             resolve();
                         }
@@ -340,11 +345,13 @@ Return ONLY the valid JSON, no other text.`;
                     
                     this.speechEngine.play(narrationText, {
                         onProgress: (progress) => {
+                            console.log('DEBUG NARRATION: Speech progress:', progress);
                             if (lessonState === 'narrating') {
                                 animateTextProgress(narrationText, progress);
                             }
                         },
                         onComplete: () => {
+                            console.log('DEBUG NARRATION: Speech onComplete called, speechCompleted:', speechCompleted, 'lessonState:', lessonState);
                             if (!speechCompleted && lessonState === 'narrating') {
                                 speechCompleted = true;
                                 clearTimeout(timeoutId);
@@ -353,11 +360,14 @@ Return ONLY the valid JSON, no other text.`;
                             }
                         }
                     });
+                    
+                    console.log('DEBUG NARRATION: Speech play() method called');
                 });
                 
-                log("CONCLUDING NARRATION: Promise resolved, proceeding");
+                console.log("DEBUG NARRATION: Promise resolved, proceeding to quiz");
             } catch (error) {
                 logError("CONCLUDING NARRATION: Error during playback", error);
+                console.log('DEBUG NARRATION: Error details:', error);
             }
         }
 
@@ -567,20 +577,28 @@ Return ONLY the valid JSON, no other text.`;
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             
-            // DEBUG: Stop lesson flow here to investigate concluding narration issue
-            log('DEBUG: About to start concluding narration for:', learningPoint);
-            displayStatusMessage('🛠️ DEBUG MODE', 'Lesson flow stopped for debugging. Check console.');
-            console.log('DEBUG: Lesson flow halted at concluding narration phase');
-            console.log('DEBUG: Learning point:', learningPoint);
-            console.log('DEBUG: Current lesson state:', lessonState);
-            console.log('DEBUG: Speech engine state:', {
-                isPlaying: this.speechEngine.isPlaying,
-                isPaused: this.speechEngine.isPaused
+            // Show the teleprompter with concluding narration
+            log('FLOW: Starting concluding narration sequence for:', learningPoint);
+            console.log('DEBUG: Pre-narration state check:', {
+                learningPoint,
+                lessonState,
+                speechEngineState: {
+                    isPlaying: this.speechEngine.isPlaying,
+                    isPaused: this.speechEngine.isPaused
+                }
             });
-            return; // Stop execution here for debugging
             
             // Wait for concluding narration to complete before showing quiz
             await this.playConcludingNarration(learningPoint);
+            
+            console.log('DEBUG: Post-narration state check:', {
+                lessonState,
+                speechEngineState: {
+                    isPlaying: this.speechEngine.isPlaying,
+                    isPaused: this.speechEngine.isPaused
+                }
+            });
+            
             this.showQuiz();
         }
 
