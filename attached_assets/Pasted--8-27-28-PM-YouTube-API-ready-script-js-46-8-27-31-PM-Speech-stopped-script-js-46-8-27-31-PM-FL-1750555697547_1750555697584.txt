@@ -1,0 +1,36 @@
+[8:27:28 PM] YouTube API ready
+script.js:46 [8:27:31 PM] Speech stopped
+script.js:46 [8:27:31 PM] FLOW: Step 1 - Generate lesson plan
+script.js:46 [8:27:31 PM] GEMINI: Generating lesson plan...
+script.js:46 [8:27:36 PM] FLOW: Starting level Apprentice
+script.js:46 [8:27:36 PM] FLOW: Step 3 - Play narration
+script.js:46 [8:27:36 PM] STATE: narrating
+script.js:46 [8:27:36 PM] Icon updated - Playing: true, State: narrating
+script.js:46 [8:27:36 PM] GEMINI: Generating narration for "Chemical structure of THC"
+script.js:46 [8:27:38 PM] Speech stopped
+script.js:46 [8:27:49 PM] FLOW: Step 2 - Search educational videos
+script.js:46 [8:27:49 PM] STATE: searching_videos
+script.js:46 [8:27:50 PM] GEMINI: Generating search queries for "Chemical structure of THC"
+script.js:46 [8:27:51 PM] Generated search queries: (3) ['THC structure', 'THC molecule', 'THC chemical']
+script.js:46 [8:27:51 PM] SEARCH: Searching for educational content: "THC structure"
+script.js:46 [8:27:51 PM] SEARCH: Using fallback Custom Search for: "THC structure"
+script.js:46 [8:27:52 PM] SEARCH: Fallback found 0 videos
+script.js:46 [8:27:52 PM] Search results for "THC structure": 0
+script.js:46 [8:27:52 PM] SEARCH: Searching for educational content: "THC molecule"
+script.js:46 [8:27:52 PM] SEARCH: Using fallback Custom Search for: "THC molecule"
+script.js:46 [8:27:52 PM] SEARCH: Fallback found 0 videos
+script.js:46 [8:27:52 PM] Search results for "THC molecule": 0
+script.js:46 [8:27:52 PM] SEARCH: Searching for educational content: "THC chemical"
+script.js:46 [8:27:52 PM] SEARCH: Using fallback Custom Search for: "THC chemical"
+script.js:46 [8:27:53 PM] SEARCH: Fallback found 0 videos
+script.js:46 [8:27:53 PM] Search results for "THC chemical": 0
+script.js:46 [8:27:53 PM] Total videos found: 0
+script.js:46 [8:27:53 PM] FLOW: Step 4B - Creating fallback educational content
+script.js:46 [8:27:53 PM] STATE: generating_segments
+script.js:46 [8:27:53 PM] GEMINI: Generating detailed explanation for "Chemical structure of THC"
+script.js:46 [8:27:56 PM] Speech stopped
+script.js:46 [8:27:56 PM] Audio element error: [object Event]
+script.js:46 [8:27:56 PM] FLOW: Step 9 - Show quiz
+script.js:46 [8:27:56 PM] STATE: quiz
+script.js:46 [8:27:56 PM] Icon updated - Playing: false, State: quiz
+script.js:46 [8:27:56 PM] GEMINI: Generating quiz for "Chemical structure of 
