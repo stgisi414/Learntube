@@ -633,6 +633,9 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             ui.levelSelection.classList.add('hidden');
             ui.lessonProgressContainer.classList.remove('hidden');
             ui.learningCanvasContainer.classList.remove('hidden');
+            // Show spacer for fixed progress bar
+            const progressSpacer = document.getElementById('progress-spacer');
+            if (progressSpacer) progressSpacer.classList.remove('hidden');
             this.processNextLearningPoint();
         }
 
@@ -1420,6 +1423,9 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         ui.lessonProgressContainer.classList.add('hidden');
         ui.inputSection.classList.remove('hidden'); 
         ui.curateButton.disabled = false; 
+        // Hide progress spacer
+        const progressSpacer = document.getElementById('progress-spacer');
+        if (progressSpacer) progressSpacer.classList.add('hidden');
         currentLessonPlan = null; 
         currentLearningPath = null; 
         currentSegmentIndex = -1; 
