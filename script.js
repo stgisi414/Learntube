@@ -927,6 +927,12 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                 this.youtubePlayer = null;
             }
             
+            // Clean up any existing segment timer
+            if (this.segmentTimer) {
+                clearInterval(this.segmentTimer);
+                this.segmentTimer = null;
+            }
+            
             // Get container and validate
             const container = document.getElementById('youtube-player-container');
             if (!container) {
@@ -965,6 +971,10 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             
             // Create player with enhanced error handling
             try {
+                // Store segment end time for manual monitoring
+                this.currentSegmentEndTime = endTime;
+                this.segmentTimer = null;
+                
                 this.youtubePlayer = new YT.Player(playerDiv.id, {
                     height: '100%', 
                     width: '100%', 
@@ -973,8 +983,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                         autoplay: 1, 
                         controls: 1, 
                         rel: 0, 
-                        start: startTime, 
-                        end: endTime,
+                        start: startTime,
                         modestbranding: 1,
                         iv_load_policy: 3,
                         enablejsapi: 1,
@@ -994,6 +1003,8 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                                         this.youtubePlayer.playVideo();
                                         updateStatus('playing_video');
                                         updatePlayPauseIcon();
+                                        // Start monitoring segment end time
+                                        this.startSegmentTimer();
                                     }
                                 } catch (e) {
                                     logError('Error starting video:', e);
@@ -1043,7 +1054,43 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             this.tryNextSegmentOrQuiz();
         }
         
+        startSegmentTimer() {
+            if (this.segmentTimer) {
+                clearInterval(this.segmentTimer);
+            }
+            
+            this.segmentTimer = setInterval(() => {
+                if (this.youtubePlayer && this.youtubePlayer.getCurrentTime) {
+                    try {
+                        const currentTime = this.youtubePlayer.getCurrentTime();
+                        if (currentTime >= this.currentSegmentEndTime) {
+                            log(`Segment end time reached: ${currentTime}s >= ${this.currentSegmentEndTime}s`);
+                            this.endCurrentSegment();
+                        }
+                    } catch (e) {
+                        // Ignore errors from getCurrentTime
+                    }
+                }
+            }, 1000); // Check every second
+        }
+        
+        endCurrentSegment() {
+            if (this.segmentTimer) {
+                clearInterval(this.segmentTimer);
+                this.segmentTimer = null;
+            }
+            
+            log('Ending current segment, moving to next');
+            currentSegmentPlayIndex++;
+            setTimeout(() => this.playCurrentSegment(), 1500);
+        }
+        
         tryNextSegmentOrQuiz() {
+            if (this.segmentTimer) {
+                clearInterval(this.segmentTimer);
+                this.segmentTimer = null;
+            }
+            
             currentSegmentPlayIndex++;
             if (currentSegmentPlayIndex >= currentSegments.length) {
                 log('No more segments available, showing quiz');
