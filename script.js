@@ -395,28 +395,23 @@ Return ONLY the valid JSON, no other text.`;
             ui.nextSegmentButton.disabled = true;
             
             try {
-                console.log('DEBUG NARRATION: Generating text for:', learningPoint);
                 const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
-                console.log('DEBUG NARRATION: Generated text:', narrationText);
-                
                 if (!narrationText) {
-                    log("CONCLUDING NARRATION: No text generated, skipping narration");
+                    log("CONCLUDING NARRATION: No text generated, skipping to next step");
                     return;
                 }
                 
-                console.log('DEBUG NARRATION: Displaying text on teleprompter');
                 displayTextContent(narrationText);
                 
-                console.log('DEBUG NARRATION: Starting speech synthesis');
                 // Create a promise that resolves only when speech completes
-                await new Promise((resolve, reject) => {
+                await new Promise((resolve) => {
                     let speechCompleted = false;
                     
                     // Set up a timeout as safety net
                     const timeoutId = setTimeout(() => {
                         if (!speechCompleted) {
                             speechCompleted = true;
-                            console.log("DEBUG NARRATION: Timeout reached after 15 seconds");
+                            log("CONCLUDING NARRATION: Timeout reached, forcing completion");
                             this.speechEngine.stop();
                             resolve();
                         }
@@ -424,13 +419,11 @@ Return ONLY the valid JSON, no other text.`;
                     
                     this.speechEngine.play(narrationText, {
                         onProgress: (progress) => {
-                            console.log('DEBUG NARRATION: Speech progress:', progress);
                             if (lessonState === 'narrating') {
                                 animateTextProgress(narrationText, progress);
                             }
                         },
                         onComplete: () => {
-                            console.log('DEBUG NARRATION: Speech onComplete called, speechCompleted:', speechCompleted, 'lessonState:', lessonState);
                             if (!speechCompleted && lessonState === 'narrating') {
                                 speechCompleted = true;
                                 clearTimeout(timeoutId);
@@ -439,14 +432,14 @@ Return ONLY the valid JSON, no other text.`;
                             }
                         }
                     });
-                    
-                    console.log('DEBUG NARRATION: Speech play() method called');
                 });
                 
-                console.log("DEBUG NARRATION: Promise resolved, proceeding to quiz");
+                // Only proceed if still in narrating state
+                if (lessonState === 'narrating') {
+                    log("CONCLUDING NARRATION: Completed successfully");
+                }
             } catch (error) {
                 logError("CONCLUDING NARRATION: Error during playback", error);
-                console.log('DEBUG NARRATION: Error details:', error);
             }
         }
 
