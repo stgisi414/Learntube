@@ -248,9 +248,19 @@ Return ONLY the valid JSON, no other text.`;
             updatePlayPauseIcon();
             ui.nextSegmentButton.disabled = true;
             
+            // Ensure canvas is ready for teleprompter
+            setCanvasVisible(true);
+            updateCanvasVisuals('🗣️ Getting started...', `Introduction: "${learningPoint}"`);
+            
             try {
                 const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
-                log(`FLOW: Generated intro narration: "${narrationText.substring(0, 50)}..."`);
+                log(`FLOW: Generated intro narration: "${narrationText}"`);
+                
+                if (!narrationText || narrationText.trim().length === 0) {
+                    log('WARN: Empty intro narration generated, skipping');
+                    setTimeout(onComplete, 500);
+                    return;
+                }
                 
                 await this.speechEngine.play(narrationText, {
                     onProgress: (progress) => {
@@ -258,13 +268,17 @@ Return ONLY the valid JSON, no other text.`;
                     },
                     onComplete: () => { 
                         log('FLOW: Intro narration completed');
-                        if (lessonState === 'narrating') onComplete(); 
+                        // Small delay to ensure teleprompter shows completion
+                        setTimeout(() => {
+                            if (lessonState === 'narrating') onComplete();
+                        }, 500);
                     }
                 });
             } catch (error) {
                 logError('Failed to play intro narration:', error);
-                // Continue to next step even if narration fails
-                setTimeout(onComplete, 1000);
+                // Show error message on canvas before continuing
+                updateCanvasVisuals('⚠️ Narration unavailable', 'Continuing to video search...');
+                setTimeout(onComplete, 2000);
             }
         }
 
@@ -274,9 +288,19 @@ Return ONLY the valid JSON, no other text.`;
             updatePlayPauseIcon();
             ui.nextSegmentButton.disabled = true;
             
+            // Ensure canvas is ready for teleprompter
+            setCanvasVisible(true);
+            updateCanvasVisuals('🗣️ Wrapping up...', `Concluding: "${learningPoint}"`);
+            
             try {
                 const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
-                log(`FLOW: Generated concluding narration: "${narrationText.substring(0, 50)}..."`);
+                log(`FLOW: Generated concluding narration: "${narrationText}"`);
+                
+                if (!narrationText || narrationText.trim().length === 0) {
+                    log('WARN: Empty concluding narration generated, skipping');
+                    setTimeout(onComplete, 500);
+                    return;
+                }
                 
                 await this.speechEngine.play(narrationText, {
                     onProgress: (progress) => {
@@ -285,15 +309,19 @@ Return ONLY the valid JSON, no other text.`;
                     },
                     onComplete: () => {
                         log('FLOW: Concluding narration completed');
-                        if (lessonState === 'narrating') {
-                            onComplete();
-                        }
+                        // Small delay to ensure teleprompter shows completion
+                        setTimeout(() => {
+                            if (lessonState === 'narrating') {
+                                onComplete();
+                            }
+                        }, 500);
                     }
                 });
             } catch (error) {
                 logError('Failed to play concluding narration:', error);
-                // Continue to next step even if narration fails
-                setTimeout(onComplete, 1000);
+                // Show error message on canvas before continuing
+                updateCanvasVisuals('⚠️ Narration unavailable', 'Continuing to next section...');
+                setTimeout(onComplete, 2000);
             }
         }
 
@@ -511,13 +539,17 @@ Return ONLY the valid JSON, no other text.`;
             log('Video playback finished');
             ui.skipVideoButton.style.display = 'none';
             // --- FIX: Show canvas again ---
-            ui.canvas.style.opacity = '1';
-            ui.canvas.style.pointerEvents = 'auto';
+            setCanvasVisible(true);
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} this.youtubePlayer = null; }
             ui.youtubePlayerContainer.innerHTML = '';
 
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             log('FLOW: Playing concluding narration for:', learningPoint);
+            
+            // Ensure canvas is visible and properly sized for narration
+            ui.canvas.width = ui.canvas.clientWidth;
+            ui.canvas.height = ui.canvas.clientHeight;
+            
             this.playConcludingNarration(learningPoint, () => {
                 log('FLOW: Concluding narration finished, showing quiz');
                 this.showQuiz();
@@ -745,16 +777,27 @@ Return ONLY the valid JSON, no other text.`;
     }
 
     function updateTeleprompter(fullText, progress) {
-        if (!ui.canvas) return;
+        if (!ui.canvas) {
+            logError('Canvas element not found for teleprompter');
+            return;
+        }
         
         // Ensure canvas is visible and accessible
-        ui.canvas.style.opacity = '1';
-        ui.canvas.style.pointerEvents = 'auto';
+        setCanvasVisible(true);
         ui.youtubePlayerContainer.innerHTML = '';
         
-        // Set canvas dimensions
-        ui.canvas.width = ui.canvas.clientWidth;
-        ui.canvas.height = ui.canvas.clientHeight;
+        // Set canvas dimensions - ensure they're valid
+        const rect = ui.canvas.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            ui.canvas.width = rect.width;
+            ui.canvas.height = rect.height;
+        } else {
+            // Fallback dimensions if canvas isn't properly sized yet
+            ui.canvas.width = 800;
+            ui.canvas.height = 450;
+        }
+        
+        log(`Teleprompter canvas dimensions: ${ui.canvas.width}x${ui.canvas.height}`);
         
         const ctx = ui.canvas.getContext('2d');
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
