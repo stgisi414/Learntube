@@ -862,12 +862,12 @@ If you cannot determine good segments from the context, return a single comprehe
             // Use stored video info
             const videoInfo = this.currentVideoInfo;
             if (!videoInfo || !videoInfo.youtubeId) {
-                logError('No valid video info available');
-                this.handleVideoError();
+                logError('No valid video info available, proceeding to quiz');
+                this.showQuiz();
                 return;
             }
             
-            // Destroy existing player
+            // Destroy existing player with timeout protection
             if (this.youtubePlayer) { 
                 try {
                     this.youtubePlayer.destroy(); 
@@ -880,8 +880,8 @@ If you cannot determine good segments from the context, return a single comprehe
             // Get container and validate
             const container = document.getElementById('youtube-player-container');
             if (!container) {
-                logError('YouTube player container not found');
-                this.handleVideoError();
+                logError('YouTube player container not found, proceeding to quiz');
+                this.showQuiz();
                 return;
             }
             
@@ -892,14 +892,28 @@ If you cannot determine good segments from the context, return a single comprehe
             playerDiv.style.cssText = 'width: 100%; height: 100%; background: #000;';
             container.appendChild(playerDiv);
             
-            // Validate segment times
-            const startTime = Math.max(0, Math.floor(segment.startTime || 30));
-            const endTime = Math.floor(segment.endTime || startTime + 120);
+            // Validate and adjust segment times for better compatibility
+            let startTime = Math.max(0, Math.floor(segment.startTime || 30));
+            let endTime = Math.floor(segment.endTime || startTime + 120);
+            
+            // Ensure reasonable segment length (30s minimum, 300s maximum)
+            if (endTime - startTime < 30) {
+                endTime = startTime + 60;
+            }
+            if (endTime - startTime > 300) {
+                endTime = startTime + 300;
+            }
             
             log(`Creating player for video: ${videoInfo.youtubeId}`);
-            log(`Segment times: ${startTime}s to ${endTime}s`);
+            log(`Adjusted segment times: ${startTime}s to ${endTime}s`);
             
-            // Create player with error handling
+            // Set timeout for video loading failure
+            const videoTimeout = setTimeout(() => {
+                logError('Video loading timeout, proceeding to next segment or quiz');
+                this.handleVideoTimeout();
+            }, 15000); // 15 second timeout
+            
+            // Create player with enhanced error handling
             try {
                 this.youtubePlayer = new YT.Player(playerDiv.id, {
                     height: '100%', 
@@ -917,10 +931,12 @@ If you cannot determine good segments from the context, return a single comprehe
                         origin: window.location.origin,
                         fs: 0,
                         cc_load_policy: 1,
-                        playsinline: 1
+                        playsinline: 1,
+                        html5: 1
                     },
                     events: {
                         'onReady': (event) => {
+                            clearTimeout(videoTimeout);
                             log('YouTube player ready, starting playback');
                             setTimeout(() => {
                                 try {
@@ -931,41 +947,60 @@ If you cannot determine good segments from the context, return a single comprehe
                                     }
                                 } catch (e) {
                                     logError('Error starting video:', e);
-                                    this.handleVideoError();
+                                    this.tryNextSegmentOrQuiz();
                                 }
-                            }, 500);
+                            }, 1000);
                         },
                         'onStateChange': (event) => {
                             log(`YouTube player state: ${event.data}`);
                             if (event.data === YT.PlayerState.ENDED) {
+                                clearTimeout(videoTimeout);
                                 log('Video segment ended, moving to next');
                                 currentSegmentPlayIndex++;
-                                setTimeout(() => this.playCurrentSegment(), 1000);
+                                setTimeout(() => this.playCurrentSegment(), 1500);
                             } else if (event.data === YT.PlayerState.PLAYING) {
+                                clearTimeout(videoTimeout);
                                 updateStatus('playing_video');
                                 updatePlayPauseIcon();
                             } else if (event.data === YT.PlayerState.PAUSED) {
                                 updateStatus('paused');
                                 updatePlayPauseIcon();
+                            } else if (event.data === YT.PlayerState.CUED) {
+                                log('Video cued, attempting to play');
+                                setTimeout(() => {
+                                    if (this.youtubePlayer && this.youtubePlayer.playVideo) {
+                                        this.youtubePlayer.playVideo();
+                                    }
+                                }, 500);
                             }
                         },
                         'onError': (event) => { 
-                            logError(`YouTube player error: ${event.data}`);
-                            // Try next segment or fallback
-                            currentSegmentPlayIndex++;
-                            if (currentSegmentPlayIndex >= currentSegments.length) {
-                                log('No more segments available, showing quiz');
-                                this.showQuiz();
-                            } else {
-                                log('Trying next segment after error');
-                                setTimeout(() => this.playCurrentSegment(), 2000);
-                            }
+                            clearTimeout(videoTimeout);
+                            logError(`YouTube player error: ${event.data} (Video ID: ${videoInfo.youtubeId})`);
+                            this.tryNextSegmentOrQuiz();
                         }
                     }
                 });
             } catch (error) {
+                clearTimeout(videoTimeout);
                 logError('Failed to create YouTube player:', error);
-                this.handleVideoError();
+                this.tryNextSegmentOrQuiz();
+            }
+        }
+        
+        handleVideoTimeout() {
+            log('Video loading timeout reached');
+            this.tryNextSegmentOrQuiz();
+        }
+        
+        tryNextSegmentOrQuiz() {
+            currentSegmentPlayIndex++;
+            if (currentSegmentPlayIndex >= currentSegments.length) {
+                log('No more segments available, showing quiz');
+                this.showQuiz();
+            } else {
+                log('Trying next segment after error/timeout');
+                setTimeout(() => this.playCurrentSegment(), 2000);
             }
         }
         
@@ -989,10 +1024,13 @@ If you cannot determine good segments from the context, return a single comprehe
                 container.innerHTML = '';
             }
             
-            // Skip to quiz instead of trying more segments
-            log('Video playback failed, proceeding to quiz');
-            updateCanvasVisuals('📚 Video unavailable', 'Proceeding to learning assessment...');
-            setTimeout(() => this.showQuiz(), 2000);
+            // Try to proceed with educational content instead
+            log('Video playback failed, creating educational content');
+            const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
+            updateCanvasVisuals('📚 Video unavailable', 'Creating educational content...');
+            setTimeout(async () => {
+                await this.createFallbackContent(learningPoint);
+            }, 1500);
         }
 
         // STEP 9: Quiz
