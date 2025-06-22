@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         levelSelection: document.getElementById('level-selection'),
         levelButtonsContainer: document.getElementById('level-buttons-container'),
         learningCanvasContainer: document.getElementById('learning-canvas-container'),
+        lessonProgressContainer: document.getElementById('lesson-progress-container'),
         canvas: document.getElementById('lessonCanvas'),
         playPauseButton: document.getElementById('play-pause-button'),
         playIcon: document.getElementById('play-icon'),
@@ -630,6 +631,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
             currentLearningPath = level;
             currentSegmentIndex = -1;
             ui.levelSelection.classList.add('hidden');
+            ui.lessonProgressContainer.classList.remove('hidden');
             ui.learningCanvasContainer.classList.remove('hidden');
             this.processNextLearningPoint();
         }
@@ -1415,6 +1417,7 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
     function resetUIState() { 
         ui.levelSelection.classList.add('hidden'); 
         ui.learningCanvasContainer.classList.add('hidden'); 
+        ui.lessonProgressContainer.classList.add('hidden');
         ui.inputSection.classList.remove('hidden'); 
         ui.curateButton.disabled = false; 
         currentLessonPlan = null; 

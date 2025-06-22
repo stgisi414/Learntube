@@ -9,7 +9,8 @@ This document tracks the bugs and feature requests identified during the user fe
 
 ## UI/UX Enhancements
 
--   **Landing Page After Curation**: After the user clicks "Curate Lesson," the main content area should expand. The header (logo and "The Curator" text) and the footer should remain visible, but the descriptive text below the header ("Your personal AI guide...", "AI-Powered Content", etc.) should be removed to provide more space for the lesson input section.
+-   ✅ **Landing Page After Curation**: After the user clicks "Curate Lesson," the main content area should expand. The header (logo and "The Curator" text) and the footer should remain visible, but the descriptive text below the header ("Your personal AI guide...", "AI-Powered Content", etc.) should be removed to provide more space for the lesson input section. **[COMPLETED]**
+-   **Lesson Progress Bar Placement**: The lesson progress bar should be positioned above and outside the lesson container, not inside the container header. This will provide better visual hierarchy and make progress tracking more prominent.
 -   **Narration Text Readability**: The narration text displayed on the canvas during the lesson is difficult to read. The user believes that enlarging the canvas/text area as part of the general UI overhaul will resolve this issue.
 -   **Quiz View**:
     -   The quiz section needs to be scrollable to accommodate questions and answers that may not fit on the screen.
