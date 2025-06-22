@@ -1,0 +1,184 @@
+[8:22:02 PM] YouTube API ready
+script.js:46 [8:22:04 PM] Speech stopped
+script.js:46 [8:22:04 PM] FLOW: Step 1 - Generate lesson plan
+script.js:46 [8:22:04 PM] GEMINI: Generating lesson plan...
+script.js:46 [8:22:09 PM] FLOW: Starting level Apprentice
+script.js:46 [8:22:09 PM] FLOW: Step 3 - Play narration
+script.js:46 [8:22:09 PM] STATE: narrating
+script.js:46 [8:22:09 PM] Icon updated - Playing: true, State: narrating
+script.js:46 [8:22:09 PM] GEMINI: Generating narration for "What is THC and where does it come from?"
+script.js:46 [8:22:11 PM] Speech stopped
+script.js:46 [8:22:24 PM] FLOW: Step 2 - Search educational videos
+script.js:46 [8:22:24 PM] STATE: searching_videos
+script.js:46 [8:22:24 PM] GEMINI: Generating search queries for "What is THC and where does it come from?"
+script.js:46 [8:22:26 PM] Generated search queries: (3) ['THC explained', 'What is THC?', 'THC origin']
+script.js:46 [8:22:26 PM] SEARCH: Searching for educational content with captions: "THC explained"
+learntube.cc/:1 Access to fetch at 'https://transcript-scraper-stefdgisi.replit.app/captions-search?q=THC%20explained&max_results=15&use_ai=true' from origin 'https://learntube.cc' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+script.js:390 
+            
+            
+           GET https://transcript-scraper-stefdgisi.replit.app/captions-search?q=THC%20explained&max_results=15&use_ai=true net::ERR_FAILED 404 (Not Found)
+searchYouTube @ script.js:390
+searchVideos @ script.js:806
+await in searchVideos
+onComplete @ script.js:784
+audioElement.onended @ script.js:621Understand this error
+script.js:46 [8:22:26 PM] SEARCH: Transcript API error: TypeError: Failed to fetch
+    at VideoSourcer.searchYouTube (script.js:390:40)
+    at LearningPipeline.searchVideos (script.js:806:69)
+script.js:46 [8:22:26 PM] SEARCH: Using fallback Custom Search for: "THC explained"
+script.js:46 [8:22:27 PM] SEARCH: Fallback found 6 videos
+script.js:46 [8:22:27 PM] Search results for "THC explained": 6
+script.js:46 [8:22:27 PM] SEARCH: Searching for educational content with captions: "What is THC?"
+learntube.cc/:1 Access to fetch at 'https://transcript-scraper-stefdgisi.replit.app/captions-search?q=What%20is%20THC%3F&max_results=15&use_ai=true' from origin 'https://learntube.cc' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+script.js:390 
+            
+            
+           GET https://transcript-scraper-stefdgisi.replit.app/captions-search?q=What%20is%20THC%3F&max_results=15&use_ai=true net::ERR_FAILED 404 (Not Found)
+searchYouTube @ script.js:390
+searchVideos @ script.js:806
+await in searchVideos
+onComplete @ script.js:784
+audioElement.onended @ script.js:621Understand this error
+script.js:46 [8:22:27 PM] SEARCH: Transcript API error: TypeError: Failed to fetch
+    at VideoSourcer.searchYouTube (script.js:390:40)
+    at LearningPipeline.searchVideos (script.js:806:69)
+script.js:46 [8:22:27 PM] SEARCH: Using fallback Custom Search for: "What is THC?"
+script.js:46 [8:22:28 PM] SEARCH: Fallback found 5 videos
+script.js:46 [8:22:28 PM] Search results for "What is THC?": 5
+script.js:46 [8:22:28 PM] SEARCH: Searching for educational content with captions: "THC origin"
+learntube.cc/:1 Access to fetch at 'https://transcript-scraper-stefdgisi.replit.app/captions-search?q=THC%20origin&max_results=15&use_ai=true' from origin 'https://learntube.cc' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+script.js:390 
+            
+            
+           GET https://transcript-scraper-stefdgisi.replit.app/captions-search?q=THC%20origin&max_results=15&use_ai=true net::ERR_FAILED 404 (Not Found)
+searchYouTube @ script.js:390
+searchVideos @ script.js:806
+await in searchVideos
+onComplete @ script.js:784
+audioElement.onended @ script.js:621Understand this error
+script.js:46 [8:22:28 PM] SEARCH: Transcript API error: TypeError: Failed to fetch
+    at VideoSourcer.searchYouTube (script.js:390:40)
+    at LearningPipeline.searchVideos (script.js:806:69)
+script.js:46 [8:22:28 PM] SEARCH: Using fallback Custom Search for: "THC origin"
+script.js:46 [8:22:29 PM] SEARCH: Fallback found 0 videos
+script.js:46 [8:22:29 PM] Search results for "THC origin": 0
+script.js:46 [8:22:29 PM] Total videos found: 11
+script.js:46 [8:22:29 PM] Unique videos after filtering: 8
+script.js:46 [8:22:29 PM] FLOW: Found 8 educational videos
+script.js:46 [8:22:29 PM] FLOW: Step 4 - Auto-selecting best educational video
+script.js:46 [8:22:29 PM] STATE: choosing_video
+script.js:46 [8:22:29 PM] FLOW: Selected best video: AMERICAN DAD APOCALYPSE SOON 2020 SURVIVORS ... (ID: AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES)
+script.js:46 [8:22:30 PM] FLOW: Will proceed to video selection in 1.5 seconds
+script.js:46 [8:22:31 PM] FLOW: Timeout completed, calling handleVideoSelection
+script.js:46 [8:22:31 PM] FLOW: Step 5 - Proceeding with URL-based segment analysis
+script.js:46 [8:22:31 PM] STATE: generating_segments
+script.js:46 [8:22:31 PM] FLOW: Step 7 - Generate segments
+script.js:46 [8:22:31 PM] STATE: generating_segments
+script.js:46 [8:22:31 PM] TRANSCRIPT: Fetching for AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES
+learntube.cc/:1 Access to fetch at 'https://transcript-scraper-stefdgisi.replit.app/transcript/AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES' from origin 'https://learntube.cc' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+script.js:543 
+            
+            
+           GET https://transcript-scraper-stefdgisi.replit.app/transcript/AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES net::ERR_FAILED 404 (Not Found)
+getTranscript @ script.js:543
+generateSegments @ script.js:932
+handleVideoSelection @ script.js:917
+(anonymous) @ script.js:880
+setTimeout
+autoSelectBestVideo @ script.js:878
+searchVideos @ script.js:851
+await in searchVideos
+onComplete @ script.js:784
+audioElement.onended @ script.js:621Understand this error
+script.js:47 [8:22:31 PM] ERROR: Transcript fetch failed: TypeError: Failed to fetch
+    at VideoSourcer.getTranscript (script.js:543:40)
+    at LearningPipeline.generateSegments (script.js:932:60)
+    at LearningPipeline.handleVideoSelection (script.js:917:24)
+    at script.js:880:22
+logError @ script.js:47
+getTranscript @ script.js:560
+await in getTranscript
+generateSegments @ script.js:932
+handleVideoSelection @ script.js:917
+(anonymous) @ script.js:880
+setTimeout
+autoSelectBestVideo @ script.js:878
+searchVideos @ script.js:851
+await in searchVideos
+onComplete @ script.js:784
+audioElement.onended @ script.js:621Understand this error
+script.js:46 [8:22:31 PM] No transcript available, using URL-based analysis
+script.js:46 [8:22:31 PM] SEGMENTER: Analyzing YouTube video for "What is THC and where does it come from?"
+script.js:46 [8:22:31 PM] SEGMENTER: Video URL: https://www.youtube.com/watch?v=AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES
+script.js:46 [8:22:31 PM] VIDEO ANALYSIS: Analyzing video AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES with Gemini 2.0 YouTube URL feature
+script.js:46 [8:22:31 PM] VIDEO ANALYSIS: Sending request to Gemini 2.0 for https://www.youtube.com/watch?v=AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES
+script.js:260 
+            
+            
+           POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA 400 (Bad Request)
+analyzeVideoWithGemini @ script.js:260
+findVideoSegments @ script.js:154
+generateSegments @ script.js:939
+await in generateSegments
+handleVideoSelection @ script.js:917
+(anonymous) @ script.js:880
+setTimeout
+autoSelectBestVideo @ script.js:878
+searchVideos @ script.js:851
+await in searchVideos
+onComplete @ script.js:784
+audioElement.onended @ script.js:621Understand this error
+script.js:46 [8:22:35 PM] VIDEO ANALYSIS: Gemini 2.0 API failed: 400 - {
+  "error": {
+    "code": 400,
+    "message": "Invalid or unsupported file uri: https://www.youtube.com/watch?v=AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES",
+    "status": "INVALID_ARGUMENT"
+  }
+}
+
+script.js:46 [8:22:51 PM] SEGMENTER: Raw AI response: ```json
+[
+  {"startTime": 30, "endTime": 210, "reason": "Core educational content"}
+]
+```
+script.js:46 [8:22:51 PM] SEGMENTER: Parsed segments: [{…}]
+script.js:46 [8:22:51 PM] SEGMENTER: Found 1 valid segments.
+script.js:46 [8:22:51 PM] Generated 1 segments: [{…}]
+script.js:46 [8:22:51 PM] FLOW: About to call playSegments with video: AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES
+script.js:46 [8:22:51 PM] FLOW: Step 8 - Play segments
+script.js:46 [8:22:51 PM] STATE: playing_video
+script.js:46 [8:22:51 PM] Icon updated - Playing: true, State: playing_video
+script.js:46 [8:22:51 PM] Creating YouTube player for video: AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES
+script.js:46 [8:22:51 PM] Available segments: 1
+script.js:46 [8:22:51 PM] Playing segment 1/1: 30s - 210s
+script.js:46 [8:22:51 PM] Creating player for video: AMERICAN+DAD+APOCALYPSE+SOON+2020+SURVIVORS+STORIES
+script.js:46 [8:22:51 PM] Adjusted segment times: 30s to 210s
+script.js:47 [8:22:51 PM] ERROR: Failed to create YouTube player: Error: Invalid video id
+    at Gb (www-widgetapi.js:196:148)
+    at Ab (www-widgetapi.js:189:37)
+    at new X (www-widgetapi.js:178:261)
+    at LearningPipeline.playCurrentSegment (script.js:1082:38)
+    at LearningPipeline.createYouTubePlayer (script.js:1013:18)
+    at LearningPipeline.playSegments (script.js:971:18)
+    at LearningPipeline.generateSegments (script.js:954:22)
+    at async LearningPipeline.handleVideoSelection (script.js:917:13)
+logError @ script.js:47
+playCurrentSegment @ script.js:1150
+createYouTubePlayer @ script.js:1013
+playSegments @ script.js:971
+generateSegments @ script.js:954
+await in generateSegments
+handleVideoSelection @ script.js:917
+(anonymous) @ script.js:880
+setTimeout
+autoSelectBestVideo @ script.js:878
+searchVideos @ script.js:851
+await in searchVideos
+onComplete @ script.js:784
+audioElement.onended @ script.js:621Understand this error
+script.js:46 [8:22:51 PM] No more segments available, showing quiz
+script.js:46 [8:22:51 PM] FLOW: Step 9 - Show quiz
+script.js:46 [8:22:51 PM] STATE: quiz
+script.js:46 [8:22:51 PM] Icon updated - Playing: false, State: quiz
+script.js:46 [8:22:51 PM] GEMINI: Generating quiz for "What is THC and where does it come from?"
