@@ -588,13 +588,26 @@ Return ONLY the valid JSON, no other text.`;
 
     function initializeUI() {
         ui.curateButton.addEventListener('click', handleCurateClick);
+        
+        // Add Enter key support for topic input
+        ui.topicInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !ui.curateButton.disabled) {
+                e.preventDefault();
+                handleCurateClick();
+            }
+        });
+        
         ui.playPauseButton.addEventListener('click', playPauseLesson);
         ui.nextSegmentButton.addEventListener('click', () => { if (!ui.nextSegmentButton.disabled) { ui.nextSegmentButton.disabled = true; learningPipeline.processNextLearningPoint(); } });
         ui.skipVideoButton.addEventListener('click', () => { if (lessonState === 'playing_video' || lessonState === 'paused') { if (learningPipeline.segmentTimer) clearInterval(learningPipeline.segmentTimer); learningPipeline.handleVideoEnd(); } });
+        
         // The official YT API script will call this function globally
         window.onYouTubeIframeAPIReady = () => {
             log("YouTube IFrame API is ready.");
         };
+        
+        // Ensure button is enabled on page load
+        ui.curateButton.disabled = false;
     }
 
     function playPauseLesson() {
@@ -618,13 +631,31 @@ Return ONLY the valid JSON, no other text.`;
 
     async function handleCurateClick() {
         const topic = ui.topicInput.value.trim();
-        if (!topic) return;
+        if (!topic) {
+            ui.topicInput.focus();
+            ui.topicInput.style.borderColor = '#ef4444';
+            setTimeout(() => {
+                ui.topicInput.style.borderColor = '';
+            }, 2000);
+            return;
+        }
+        
+        // Prevent multiple clicks
+        if (ui.curateButton.disabled) return;
+        
         localStorage.setItem('lastTopic', topic);
         resetUIState(false); // Don't reset to initial view yet
         ui.curateButton.disabled = true;
         ui.headerDescription.classList.add('hidden');
         ui.headerFeatures.classList.add('hidden');
-        await learningPipeline.start(topic);
+        
+        try {
+            await learningPipeline.start(topic);
+        } catch (error) {
+            logError('Failed to start lesson:', error);
+            displayError('Failed to start lesson. Please try again.');
+            ui.curateButton.disabled = false;
+        }
     }
 
     function displayLevelSelection() {
