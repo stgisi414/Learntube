@@ -637,22 +637,35 @@ Return ONLY the valid JSON, no other text.`;
         ctx.fillStyle = bgGradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
         
-        // Configure text rendering
+        // Configure text rendering with mobile optimization
+        const isMobile = ui.canvas.width <= 768;
         const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
-        const fontSize = Math.max(28, Math.min(baseSize / 18, 52));
-        const lineHeight = fontSize * 1.6;
-        const maxWidth = ui.canvas.width * 0.88;
+        
+        let fontSize, lineHeight, maxWidth, padding;
+        if (isMobile) {
+            // Mobile-optimized text sizing
+            fontSize = Math.max(18, Math.min(baseSize / 20, 32));
+            lineHeight = fontSize * 1.4;
+            maxWidth = ui.canvas.width * 0.92;
+            padding = ui.canvas.width * 0.04;
+        } else {
+            // Desktop sizing
+            fontSize = Math.max(28, Math.min(baseSize / 18, 52));
+            lineHeight = fontSize * 1.6;
+            maxWidth = ui.canvas.width * 0.88;
+            padding = ui.canvas.width * 0.06;
+        }
         
         ctx.font = `600 ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // White text with strong shadow
+        // White text with optimized shadow for mobile
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetX = 3;
-        ctx.shadowOffsetY = 3;
+        ctx.shadowBlur = isMobile ? 4 : 8;
+        ctx.shadowOffsetX = isMobile ? 1 : 3;
+        ctx.shadowOffsetY = isMobile ? 1 : 3;
         
         // Split text into lines that fit
         const words = text.split(' ');
@@ -674,14 +687,21 @@ Return ONLY the valid JSON, no other text.`;
             lines.push(currentLine);
         }
         
-        // Calculate vertical positioning
+        // Calculate vertical positioning with better mobile spacing
         const totalTextHeight = lines.length * lineHeight;
-        const startY = (ui.canvas.height / 2) - (totalTextHeight / 2) + (lineHeight / 2);
+        const availableHeight = ui.canvas.height - (padding * 2);
+        const startY = Math.max(
+            padding + (lineHeight / 2),
+            (ui.canvas.height / 2) - (totalTextHeight / 2) + (lineHeight / 2)
+        );
         
-        // Draw each line
+        // Draw each line with mobile optimization
         lines.forEach((line, index) => {
             const lineY = startY + (index * lineHeight);
-            ctx.fillText(line, ui.canvas.width / 2, lineY);
+            // Only draw lines that are visible
+            if (lineY >= 0 && lineY <= ui.canvas.height) {
+                ctx.fillText(line, ui.canvas.width / 2, lineY);
+            }
         });
         
         // Reset shadow settings
@@ -690,7 +710,7 @@ Return ONLY the valid JSON, no other text.`;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         
-        log(`TEXT DISPLAY: Rendered "${text.substring(0, 50)}..."`);
+        log(`TEXT DISPLAY: Rendered "${text.substring(0, 50)}..." for ${isMobile ? 'mobile' : 'desktop'}`);
     }
 
     function animateTextProgress(fullText, progress) {
@@ -716,19 +736,30 @@ Return ONLY the valid JSON, no other text.`;
         ctx.fillStyle = bgGradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
         
-        // Configure text
+        // Configure text with mobile optimization
+        const isMobile = ui.canvas.width <= 768;
         const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
-        const fontSize = Math.max(28, Math.min(baseSize / 18, 52));
-        const lineHeight = fontSize * 1.6;
-        const maxWidth = ui.canvas.width * 0.88;
+        
+        let fontSize, lineHeight, maxWidth, padding;
+        if (isMobile) {
+            fontSize = Math.max(18, Math.min(baseSize / 20, 32));
+            lineHeight = fontSize * 1.4;
+            maxWidth = ui.canvas.width * 0.92;
+            padding = ui.canvas.width * 0.04;
+        } else {
+            fontSize = Math.max(28, Math.min(baseSize / 18, 52));
+            lineHeight = fontSize * 1.6;
+            maxWidth = ui.canvas.width * 0.88;
+            padding = ui.canvas.width * 0.06;
+        }
         
         ctx.font = `600 ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetX = 3;
-        ctx.shadowOffsetY = 3;
+        ctx.shadowBlur = isMobile ? 4 : 8;
+        ctx.shadowOffsetX = isMobile ? 1 : 3;
+        ctx.shadowOffsetY = isMobile ? 1 : 3;
         
         // Split into lines
         const words = fullText.split(' ');
@@ -750,12 +781,16 @@ Return ONLY the valid JSON, no other text.`;
             lines.push(currentLine);
         }
         
-        // Calculate positioning with scroll effect
+        // Calculate positioning with mobile-optimized scroll effect
         const totalTextHeight = lines.length * lineHeight;
-        const startY = (ui.canvas.height / 2) - (totalTextHeight / 2) + (lineHeight / 2);
+        const availableHeight = ui.canvas.height - (padding * 2);
+        const startY = Math.max(
+            padding + (lineHeight / 2),
+            (ui.canvas.height / 2) - (totalTextHeight / 2) + (lineHeight / 2)
+        );
         
-        // Apply scroll based on progress
-        const scrollDistance = Math.max(0, totalTextHeight - ui.canvas.height + lineHeight * 3);
+        // Apply scroll based on progress with mobile optimization
+        const scrollDistance = Math.max(0, totalTextHeight - availableHeight + lineHeight * (isMobile ? 2 : 3));
         const currentScroll = progress * scrollDistance;
         
         // Draw lines with highlighting and fade effects
@@ -766,12 +801,12 @@ Return ONLY the valid JSON, no other text.`;
             if (lineY > -lineHeight && lineY < ui.canvas.height + lineHeight) {
                 // Calculate opacity based on position
                 let opacity = 1;
-                const fadeZone = lineHeight * 1.5;
+                const fadeZone = lineHeight * (isMobile ? 1 : 1.5);
                 
-                if (lineY < fadeZone) {
-                    opacity = Math.max(0.2, lineY / fadeZone);
-                } else if (lineY > ui.canvas.height - fadeZone) {
-                    opacity = Math.max(0.2, (ui.canvas.height - lineY) / fadeZone);
+                if (lineY < fadeZone + padding) {
+                    opacity = Math.max(0.2, (lineY - padding) / fadeZone);
+                } else if (lineY > ui.canvas.height - fadeZone - padding) {
+                    opacity = Math.max(0.2, (ui.canvas.height - lineY - padding) / fadeZone);
                 }
                 
                 // Highlight current reading position
@@ -797,7 +832,7 @@ Return ONLY the valid JSON, no other text.`;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         
-        log(`TEXT ANIMATION: Progress ${(progress * 100).toFixed(1)}%`);
+        log(`TEXT ANIMATION: Progress ${(progress * 100).toFixed(1)}% (${isMobile ? 'mobile' : 'desktop'})`);
     }
 
     function displayStatusMessage(mainText, subText = '') {
