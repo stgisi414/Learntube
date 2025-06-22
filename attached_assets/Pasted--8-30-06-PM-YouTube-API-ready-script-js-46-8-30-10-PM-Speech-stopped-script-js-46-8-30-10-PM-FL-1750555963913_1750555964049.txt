@@ -1,0 +1,133 @@
+[8:30:06 PM] YouTube API ready
+script.js:46 [8:30:10 PM] Speech stopped
+script.js:46 [8:30:10 PM] FLOW: Step 1 - Generate lesson plan
+script.js:46 [8:30:10 PM] GEMINI: Generating lesson plan...
+script.js:46 [8:30:15 PM] FLOW: Starting level Apprentice
+script.js:46 [8:30:15 PM] FLOW: Step 3 - Play narration
+script.js:46 [8:30:15 PM] STATE: narrating
+script.js:46 [8:30:15 PM] Icon updated - Playing: true, State: narrating
+script.js:46 [8:30:15 PM] GEMINI: Generating narration for "Chemical structure of THC"
+script.js:46 [8:30:17 PM] Speech stopped
+script.js:46 [8:30:30 PM] FLOW: Step 2 - Search educational videos
+script.js:46 [8:30:30 PM] STATE: searching_videos
+script.js:46 [8:30:30 PM] GEMINI: Generating search queries for "Chemical structure of THC"
+script.js:46 [8:30:31 PM] Generated search queries: (3) ['THC structure', 'THC molecule', 'THC chemical']
+script.js:46 [8:30:31 PM] SEARCH: Searching for educational content: "THC structure"
+script.js:46 [8:30:31 PM] SEARCH: Using Custom Search for: "THC structure"
+script.js:46 [8:30:32 PM] SEARCH: Found 10 videos for "THC structure"
+script.js:46 [8:30:32 PM] Search results for "THC structure": 10
+script.js:46 [8:30:32 PM] SEARCH: Searching for educational content: "THC molecule"
+script.js:46 [8:30:32 PM] SEARCH: Using Custom Search for: "THC molecule"
+script.js:46 [8:30:32 PM] SEARCH: Found 10 videos for "THC molecule"
+script.js:46 [8:30:32 PM] Search results for "THC molecule": 10
+script.js:46 [8:30:32 PM] Total videos found: 20
+script.js:46 [8:30:32 PM] Unique videos after filtering: 8
+script.js:46 [8:30:32 PM] FLOW: Found 8 educational videos
+script.js:46 [8:30:32 PM] FLOW: Step 4 - Auto-selecting best educational video
+script.js:46 [8:30:32 PM] STATE: choosing_video
+script.js:46 [8:30:32 PM] FLOW: Selected best video: The Cannabinoid Molecular Structure Part 1 - YouTube (ID: ITiJMUrk6BU)
+script.js:46 [8:30:32 PM] FLOW: Will proceed to video selection in 1.5 seconds
+script.js:46 [8:30:34 PM] FLOW: Timeout completed, calling handleVideoSelection
+script.js:46 [8:30:34 PM] FLOW: Step 5 - Proceeding with URL-based segment analysis
+script.js:46 [8:30:34 PM] STATE: generating_segments
+script.js:46 [8:30:34 PM] FLOW: Step 7 - Generate segments
+script.js:46 [8:30:34 PM] STATE: generating_segments
+script.js:46 [8:30:34 PM] TRANSCRIPT: Fetching for ITiJMUrk6BU
+script.js:46 [8:30:40 PM] No transcript available, using URL-based analysis
+script.js:46 [8:30:40 PM] SEGMENTER: Analyzing YouTube video for "Chemical structure of THC"
+script.js:46 [8:30:40 PM] SEGMENTER: Video URL: https://www.youtube.com/watch?v=ITiJMUrk6BU
+script.js:46 [8:30:40 PM] VIDEO ANALYSIS: Skipping Gemini 2.0 video analysis - using fallback approach
+script.js:46 [8:30:42 PM] SEGMENTER: Raw AI response: ```json
+[
+  {"startTime": 45, "endTime": 135, "reason": "Detailed explanation of THC's chemical structure, likely including diagrams and nomenclature."},
+  {"startTime": 150, "endTime": 210, "reason": "Further analysis of the structure, possibly focusing on functional groups and their impact on THC's properties."}
+]
+```
+script.js:46 [8:30:42 PM] SEGMENTER: Parsed segments: (2) [{…}, {…}]
+script.js:46 [8:30:42 PM] SEGMENTER: Found 2 valid segments.
+script.js:46 [8:30:42 PM] Generated 2 segments: (2) [{…}, {…}]
+script.js:46 [8:30:42 PM] FLOW: About to call playSegments with video: ITiJMUrk6BU
+script.js:46 [8:30:42 PM] FLOW: Step 8 - Play segments
+script.js:46 [8:30:42 PM] STATE: playing_video
+script.js:46 [8:30:42 PM] Icon updated - Playing: true, State: playing_video
+script.js:46 [8:30:42 PM] Creating YouTube player for video: ITiJMUrk6BU
+script.js:46 [8:30:42 PM] Available segments: 2
+script.js:46 [8:30:42 PM] Playing segment 1/2: 45s - 135s
+script.js:46 [8:30:42 PM] Creating player for video: ITiJMUrk6BU
+script.js:46 [8:30:42 PM] Adjusted segment times: 45s to 135s
+www-widgetapi.js:195 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube.com') does not match the recipient window's origin ('https://learntube.cc').
+n.sendMessage @ www-widgetapi.js:195
+n.F @ www-widgetapi.js:191
+setInterval
+Cb @ www-widgetapi.js:192
+X @ www-widgetapi.js:178
+playCurrentSegment @ script.js:968
+createYouTubePlayer @ script.js:899
+playSegments @ script.js:857
+generateSegments @ script.js:840
+await in generateSegments
+handleVideoSelection @ script.js:803
+(anonymous) @ script.js:766
+setTimeout
+autoSelectBestVideo @ script.js:764
+searchVideos @ script.js:737
+await in searchVideos
+onComplete @ script.js:670
+audioElement.onended @ script.js:504Understand this warning
+www-widgetapi.js:195 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube.com') does not match the recipient window's origin ('https://learntube.cc').
+n.sendMessage @ www-widgetapi.js:195
+n.F @ www-widgetapi.js:191
+setInterval
+Cb @ www-widgetapi.js:192
+X @ www-widgetapi.js:178
+playCurrentSegment @ script.js:968
+createYouTubePlayer @ script.js:899
+playSegments @ script.js:857
+generateSegments @ script.js:840
+await in generateSegments
+handleVideoSelection @ script.js:803
+(anonymous) @ script.js:766
+setTimeout
+autoSelectBestVideo @ script.js:764
+searchVideos @ script.js:737
+await in searchVideos
+onComplete @ script.js:670
+audioElement.onended @ script.js:504Understand this warning
+www-widgetapi.js:195 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube.com') does not match the recipient window's origin ('https://learntube.cc').
+n.sendMessage @ www-widgetapi.js:195
+n.F @ www-widgetapi.js:191
+setInterval
+Cb @ www-widgetapi.js:192
+X @ www-widgetapi.js:178
+playCurrentSegment @ script.js:968
+createYouTubePlayer @ script.js:899
+playSegments @ script.js:857
+generateSegments @ script.js:840
+await in generateSegments
+handleVideoSelection @ script.js:803
+(anonymous) @ script.js:766
+setTimeout
+autoSelectBestVideo @ script.js:764
+searchVideos @ script.js:737
+await in searchVideos
+onComplete @ script.js:670
+audioElement.onended @ script.js:504Understand this warning
+script.js:46 [8:30:44 PM] YouTube player ready, starting playback
+script.js:46 [8:30:45 PM] STATE: playing_video
+script.js:46 [8:30:45 PM] Icon updated - Playing: true, State: playing_video
+script.js:46 [8:30:48 PM] YouTube player state: 3
+script.js:46 [8:30:51 PM] YouTube player state: 1
+script.js:46 [8:30:51 PM] STATE: playing_video
+script.js:46 [8:30:51 PM] Icon updated - Playing: true, State: playing_video
+script.js:46 [8:31:46 PM] YouTube player state: 2
+script.js:46 [8:31:46 PM] STATE: paused
+script.js:46 [8:31:46 PM] Icon updated - Playing: false, State: paused
+script.js:46 [8:31:48 PM] YouTube player state: 3
+script.js:46 [8:31:48 PM] YouTube player state: 1
+script.js:46 [8:31:48 PM] STATE: playing_video
+script.js:46 [8:31:48 PM] Icon updated - Playing: true, State: playing_video
+script.js:46 [8:32:14 PM] Skip video clicked - State: playing_video
+script.js:46 [8:32:14 PM] FLOW: Step 9 - Show quiz
+script.js:46 [8:32:14 PM] STATE: quiz
+script.js:46 [8:32:14 PM] Icon updated - Playing: false, State: quiz
+script.js:46 [8:32:14 PM] GEMINI: Generating quiz for "Chemical structure of THC"
