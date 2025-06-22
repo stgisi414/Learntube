@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================================
     const GEMINI_API_KEY = "AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA";
     const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
-    const CSE_ID = '534de8daaf2cb449d';
+    const CSE_ID = 'b53121b78d1c64563';
     const SUPADATA_API_KEY = "sd_1d4e0e4e3d5aecda115fc39d1d47a33b";
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
@@ -318,90 +318,81 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
         }
 
         async fallbackSearch(query) {
-            log(`SEARCH: Using fallback Custom Search for: "${query}"`);
+            log(`SEARCH: Using Custom Search for: "${query}"`);
             
-            const searchQueries = [
-                `${query} tutorial`,
-                `${query} explained`,
-                `how to ${query}`,
-                `${query} course`
-            ];
+            const searchParams = new URLSearchParams({
+                key: YOUTUBE_API_KEY,
+                cx: CSE_ID,
+                q: `${query} site:youtube.com`,
+                num: 10
+            });
 
-            let allResults = [];
-            
-            for (const searchQuery of searchQueries.slice(0, 2)) { // Limit to 2 queries for fallback
-                const searchParams = new URLSearchParams({
-                    key: YOUTUBE_API_KEY,
-                    cx: CSE_ID,
-                    q: searchQuery,
-                    num: 5
-                });
-
-                try {
-                    const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
-                    
-                    if (!response.ok) continue;
-                    
-                    const data = await response.json();
-                    
-                    if (!data.items || data.items.length === 0) continue;
-
-                    const results = data.items.map(item => {
-                        let videoId = null;
-                        
-                        if (item.link) {
-                            // More robust video ID extraction
-                            const match = item.link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-                            videoId = match ? match[1] : null;
-                            
-                            // Fallback: check if it's already a video ID format
-                            if (!videoId && /^[a-zA-Z0-9_-]{11}$/.test(item.link)) {
-                                videoId = item.link;
-                            }
-                        }
-                        
-                        if (videoId && videoId.length === 11) {
-                            // Score videos based on educational indicators
-                            let score = 1;
-                            const title = (item.title || '').toLowerCase();
-                            const snippet = (item.snippet || '').toLowerCase();
-                            
-                            // Boost educational keywords
-                            if (title.includes('tutorial') || title.includes('how to') || title.includes('explained')) score += 3;
-                            if (title.includes('course') || title.includes('lesson') || title.includes('learn')) score += 2;
-                            if (title.includes('university') || title.includes('lecture') || title.includes('professor')) score += 2;
-                            if (snippet.includes('educational') || snippet.includes('teaching')) score += 1;
-                            
-                            // Penalize non-educational content
-                            if (title.includes('reaction') || title.includes('funny') || title.includes('prank')) score -= 2;
-                            if (title.includes('compilation') || title.includes('fails') || title.includes('meme')) score -= 2;
-                            
-                            return {
-                                youtubeId: videoId,
-                                title: item.title || 'Untitled',
-                                description: item.snippet || '',
-                                thumbnail: item.pagemap?.cse_thumbnail?.[0]?.src || '',
-                                educationalScore: score,
-                                hasTranscript: false // Will check later
-                            };
-                        }
-                        return null;
-                    }).filter(Boolean);
-
-                    allResults.push(...results);
-                    
-                } catch (error) {
-                    log(`SEARCH: Fallback query failed for "${searchQuery}":`, error);
-                    continue;
+            try {
+                const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
+                
+                if (!response.ok) {
+                    log(`SEARCH: API error ${response.status}, trying broader search`);
+                    // Try without site restriction
+                    const broadParams = new URLSearchParams({
+                        key: YOUTUBE_API_KEY,
+                        cx: CSE_ID,
+                        q: query,
+                        num: 10
+                    });
+                    const broadResponse = await fetch(`https://www.googleapis.com/customsearch/v1?${broadParams}`);
+                    if (!broadResponse.ok) throw new Error(`Search failed: ${broadResponse.status}`);
+                    const broadData = await broadResponse.json();
+                    return this.processSearchResults(broadData, query);
                 }
+                
+                const data = await response.json();
+                return this.processSearchResults(data, query);
+                
+            } catch (error) {
+                logError(`SEARCH: Error for "${query}":`, error);
+                return [];
+            }
+        }
+
+        processSearchResults(data, query) {
+            if (!data.items || data.items.length === 0) {
+                log(`SEARCH: No results found for "${query}"`);
+                return [];
             }
 
-            const uniqueResults = allResults
-                .filter((video, index, self) => self.findIndex(v => v.youtubeId === video.youtubeId) === index)
-                .slice(0, 10);
+            const results = data.items.map(item => {
+                let videoId = null;
+                
+                if (item.link) {
+                    const match = item.link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+                    videoId = match ? match[1] : null;
+                }
+                
+                if (videoId && videoId.length === 11) {
+                    let score = 1;
+                    const title = (item.title || '').toLowerCase();
+                    const snippet = (item.snippet || '').toLowerCase();
+                    
+                    if (title.includes('tutorial') || title.includes('explained') || title.includes('how to')) score += 3;
+                    if (title.includes('course') || title.includes('lesson') || title.includes('learn')) score += 2;
+                    if (title.includes('university') || title.includes('lecture')) score += 2;
+                    if (snippet.includes('educational')) score += 1;
+                    
+                    return {
+                        youtubeId: videoId,
+                        title: item.title || 'Untitled',
+                        description: item.snippet || '',
+                        thumbnail: item.pagemap?.cse_thumbnail?.[0]?.src || '',
+                        educationalScore: score,
+                        hasTranscript: true
+                    };
+                }
+                return null;
+            }).filter(Boolean);
 
-            log(`SEARCH: Fallback found ${uniqueResults.length} videos`);
-            return uniqueResults;
+            const sortedResults = results.sort((a, b) => (b.educationalScore || 0) - (a.educationalScore || 0));
+            log(`SEARCH: Found ${sortedResults.length} videos for "${query}"`);
+            return sortedResults;
         }
 
         async checkTranscriptAvailable(videoId) {
@@ -513,10 +504,13 @@ If the transcript doesn't clearly cover "${learningPoint}", return a general edu
                     if (this.onCompleteCallback) this.onCompleteCallback(); 
                 }; 
                 this.audioElement.onerror = (e) => {
-                    log(`Audio element error: ${e}`);
+                    log(`Audio error occurred, continuing without speech`);
                     this.isPlaying = false;
                     this.isPaused = false;
-                    if (this.onCompleteCallback) this.onCompleteCallback();
+                    // Don't call completion callback on error - let the flow continue naturally
+                    setTimeout(() => {
+                        if (this.onCompleteCallback) this.onCompleteCallback();
+                    }, 1000);
                 };
             } catch (error) { 
                 log(`Speech Error: ${error}`); 
