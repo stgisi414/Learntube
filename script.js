@@ -466,43 +466,53 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
         }
 
         detectLanguage(text) {
-            // Enhanced language detection
-            const patterns = {
-                'ko': /[\u3131-\u3163\uac00-\ud7a3]|korean|hangul|한국/i,
-                'ja': /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]|japanese|nihongo|日本/i,
-                'zh': /[\u4e00-\u9fff]|chinese|mandarin|中文|汉语/i,
-                'es': /spanish|español|castellano/i,
-                'fr': /french|français|francais/i,
-                'de': /german|deutsch/i,
-                'it': /italian|italiano/i,
-                'pt': /portuguese|português/i,
-                'ru': /[\u0400-\u04ff]|russian|русский/i,
-                'ar': /[\u0600-\u06ff]|arabic|عربي/i,
-                'hi': /[\u0900-\u097f]|hindi|हिन्दी/i
-            };
+            // More precise language detection with priority order
+            const patterns = [
+                { lang: 'ko', pattern: /[\u3131-\u3163\uac00-\ud7a3]/g }, // Korean characters
+                { lang: 'ja', pattern: /[\u3040-\u309f\u30a0-\u30ff]/g }, // Hiragana/Katakana
+                { lang: 'zh', pattern: /[\u4e00-\u9fff]/g }, // Chinese characters
+                { lang: 'ru', pattern: /[\u0400-\u04ff]/g }, // Cyrillic
+                { lang: 'ar', pattern: /[\u0600-\u06ff]/g }, // Arabic
+                { lang: 'hi', pattern: /[\u0900-\u097f]/g }, // Devanagari
+                { lang: 'es', pattern: /\b(español|castellano|¿|¡|ñ|á|é|í|ó|ú)\b/gi },
+                { lang: 'fr', pattern: /\b(français|francais|à|é|è|ê|ë|ç|î|ï|ô|ù|û|ü|ÿ)\b/gi },
+                { lang: 'de', pattern: /\b(deutsch|ä|ö|ü|ß)\b/gi },
+                { lang: 'it', pattern: /\b(italiano|à|è|é|ì|í|î|ò|ó|ù|ú)\b/gi },
+                { lang: 'pt', pattern: /\b(português|português|ã|ç|á|à|â|é|ê|í|ó|ô|õ|ú)\b/gi }
+            ];
 
-            for (const [lang, pattern] of Object.entries(patterns)) {
+            // Check for non-Latin scripts first (they're more definitive)
+            for (const {lang, pattern} of patterns.slice(0, 6)) {
+                const matches = text.match(pattern);
+                if (matches && matches.length > 0) {
+                    return lang;
+                }
+            }
+
+            // Check for Latin-based languages
+            for (const {lang, pattern} of patterns.slice(6)) {
                 if (pattern.test(text)) {
                     return lang;
                 }
             }
+
             return 'en'; // Default to English
         }
 
         getVoiceConfig(languageCode) {
             const voices = {
-                'ko': { languageCode: 'ko-KR', name: 'ko-KR-Standard-A' },
-                'ja': { languageCode: 'ja-JP', name: 'ja-JP-Standard-A' },
-                'zh': { languageCode: 'zh-CN', name: 'zh-CN-Standard-A' },
-                'es': { languageCode: 'es-ES', name: 'es-ES-Standard-A' },
-                'fr': { languageCode: 'fr-FR', name: 'fr-FR-Standard-A' },
-                'de': { languageCode: 'de-DE', name: 'de-DE-Standard-A' },
-                'it': { languageCode: 'it-IT', name: 'it-IT-Standard-A' },
-                'pt': { languageCode: 'pt-BR', name: 'pt-BR-Standard-A' },
-                'ru': { languageCode: 'ru-RU', name: 'ru-RU-Standard-A' },
-                'ar': { languageCode: 'ar-XA', name: 'ar-XA-Standard-A' },
-                'hi': { languageCode: 'hi-IN', name: 'hi-IN-Standard-A' },
-                'en': { languageCode: 'en-US', name: 'en-US-Standard-C' }
+                'ko': { languageCode: 'ko-KR', name: 'ko-KR-Standard-C', ssmlGender: 'FEMALE' },
+                'ja': { languageCode: 'ja-JP', name: 'ja-JP-Standard-B', ssmlGender: 'FEMALE' },
+                'zh': { languageCode: 'zh-CN', name: 'zh-CN-Standard-A', ssmlGender: 'FEMALE' },
+                'es': { languageCode: 'es-US', name: 'es-US-Standard-A', ssmlGender: 'FEMALE' },
+                'fr': { languageCode: 'fr-FR', name: 'fr-FR-Standard-C', ssmlGender: 'FEMALE' },
+                'de': { languageCode: 'de-DE', name: 'de-DE-Standard-A', ssmlGender: 'FEMALE' },
+                'it': { languageCode: 'it-IT', name: 'it-IT-Standard-A', ssmlGender: 'FEMALE' },
+                'pt': { languageCode: 'pt-BR', name: 'pt-BR-Standard-A', ssmlGender: 'FEMALE' },
+                'ru': { languageCode: 'ru-RU', name: 'ru-RU-Standard-C', ssmlGender: 'FEMALE' },
+                'ar': { languageCode: 'ar-XA', name: 'ar-XA-Standard-A', ssmlGender: 'FEMALE' },
+                'hi': { languageCode: 'hi-IN', name: 'hi-IN-Standard-A', ssmlGender: 'FEMALE' },
+                'en': { languageCode: 'en-US', name: 'en-US-Standard-H', ssmlGender: 'FEMALE' }
             };
             return voices[languageCode] || voices['en'];
         }
@@ -526,7 +536,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     }
                 }
 
-                const lang = match[1];
+                const lang = match[1].toLowerCase();
                 const content = match[2].trim();
                 if (content) {
                     segments.push({
@@ -537,20 +547,17 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                 lastIndex = match.index + match[0].length;
             }
 
-            // If no language tags found, detect language and create single segment
+            // If no language tags found, smart split by language detection
             if (segments.length === 0) {
-                const detectedLang = this.detectLanguage(text);
-                segments.push({
-                    text: text.trim(),
-                    language: detectedLang
-                });
+                return this.smartLanguageSplit(text);
             } else {
                 // Add any remaining text as English
                 const remainingText = text.substring(lastIndex).trim();
                 if (remainingText) {
+                    const detectedLang = this.detectLanguage(remainingText);
                     segments.push({
                         text: remainingText,
-                        language: 'en'
+                        language: detectedLang
                     });
                 }
             }
@@ -558,52 +565,171 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             return segments.filter(segment => segment.text.length > 0);
         }
 
+        smartLanguageSplit(text) {
+            // Smart splitting for mixed-language content without explicit tags
+            const segments = [];
+            
+            // Split by sentences first
+            const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
+            
+            for (const sentence of sentences) {
+                const cleanSentence = sentence.trim();
+                if (!cleanSentence) continue;
+
+                // Detect language for each sentence
+                const detectedLang = this.detectLanguage(cleanSentence);
+                
+                // If we have a previous segment with the same language, combine them
+                if (segments.length > 0 && segments[segments.length - 1].language === detectedLang) {
+                    segments[segments.length - 1].text += ' ' + cleanSentence;
+                } else {
+                    segments.push({
+                        text: cleanSentence,
+                        language: detectedLang
+                    });
+                }
+            }
+
+            // If no sentences detected, treat as single segment
+            if (segments.length === 0) {
+                const detectedLang = this.detectLanguage(text);
+                segments.push({
+                    text: text.trim(),
+                    language: detectedLang
+                });
+            }
+
+            return segments;
+        }
+
         async synthesizeSegment(text, languageCode) {
             const voiceConfig = this.getVoiceConfig(languageCode);
-            log(`SPEECH: Synthesizing "${text.substring(0, 30)}..." in ${languageCode}`);
+            log(`SPEECH: Synthesizing "${text.substring(0, 30)}..." in ${languageCode} using voice ${voiceConfig.name}`);
 
-            const maxRetries = 2;
+            // Language-specific audio configuration
+            const audioConfig = {
+                audioEncoding: 'MP3',
+                speakingRate: this.getSpeakingRate(languageCode),
+                pitch: this.getPitch(languageCode),
+                volumeGainDb: 0.0
+            };
+
+            const maxRetries = 3;
             let currentRetry = 0;
 
             while (currentRetry <= maxRetries) {
                 try {
+                    const requestBody = {
+                        input: { text: this.preprocessTextForLanguage(text, languageCode) },
+                        voice: voiceConfig,
+                        audioConfig: audioConfig
+                    };
+
+                    log(`SPEECH API: Request for ${languageCode}:`, requestBody);
+
                     const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            input: { text },
-                            voice: voiceConfig,
-                            audioConfig: { audioEncoding: 'MP3' }
-                        })
+                        body: JSON.stringify(requestBody)
                     });
 
                     if (response.ok) {
                         const data = await response.json();
+                        log(`SPEECH: Successfully synthesized ${languageCode} audio`);
                         return this.base64ToBlob(data.audioContent);
                     }
 
+                    const errorData = await response.json().catch(() => ({}));
+                    log(`SPEECH API ERROR: ${response.status} - ${JSON.stringify(errorData)}`);
+
                     if (response.status === 429 && currentRetry < maxRetries) {
-                        log(`SPEECH API: Rate limited. Retrying in ${currentRetry + 1} seconds...`);
+                        log(`SPEECH API: Rate limited. Retrying in ${(currentRetry + 1) * 2} seconds...`);
                         currentRetry++;
-                        await new Promise(resolve => setTimeout(resolve, currentRetry * 1000));
+                        await new Promise(resolve => setTimeout(resolve, (currentRetry) * 2000));
                     } else if (response.status >= 500 && currentRetry < maxRetries) {
                         log(`SPEECH API: Server error ${response.status}. Retrying...`);
                         currentRetry++;
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 1500));
                     } else {
-                        const errorData = await response.json().catch(() => ({}));
                         throw new Error(`Speech API failed: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
                     }
                 } catch (fetchError) {
                     if (currentRetry < maxRetries) {
-                        log(`SPEECH API: Network error. Retrying...`);
+                        log(`SPEECH API: Network error. Retrying... (${currentRetry + 1}/${maxRetries})`);
                         currentRetry++;
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 2000));
                     } else {
+                        logError(`SPEECH: Final synthesis error for ${languageCode}:`, fetchError);
                         throw fetchError;
                     }
                 }
             }
+        }
+
+        getSpeakingRate(languageCode) {
+            // Adjust speaking rate for different languages
+            const rates = {
+                'ko': 0.9,  // Korean slightly slower
+                'ja': 0.9,  // Japanese slightly slower
+                'zh': 0.9,  // Chinese slightly slower
+                'es': 1.0,  // Spanish normal
+                'fr': 1.0,  // French normal
+                'de': 0.95, // German slightly slower
+                'it': 1.0,  // Italian normal
+                'pt': 1.0,  // Portuguese normal
+                'ru': 0.9,  // Russian slightly slower
+                'ar': 0.9,  // Arabic slightly slower
+                'hi': 0.9,  // Hindi slightly slower
+                'en': 1.0   // English normal
+            };
+            return rates[languageCode] || 1.0;
+        }
+
+        getPitch(languageCode) {
+            // Adjust pitch for different languages
+            const pitches = {
+                'ko': 0.0,   // Korean neutral
+                'ja': 0.0,   // Japanese neutral
+                'zh': 0.0,   // Chinese neutral
+                'es': 0.0,   // Spanish neutral
+                'fr': 0.0,   // French neutral
+                'de': -1.0,  // German slightly lower
+                'it': 1.0,   // Italian slightly higher
+                'pt': 0.0,   // Portuguese neutral
+                'ru': -1.0,  // Russian slightly lower
+                'ar': 0.0,   // Arabic neutral
+                'hi': 0.0,   // Hindi neutral
+                'en': 0.0    // English neutral
+            };
+            return pitches[languageCode] || 0.0;
+        }
+
+        preprocessTextForLanguage(text, languageCode) {
+            // Add language-specific preprocessing for better pronunciation
+            let processedText = text.trim();
+
+            switch (languageCode) {
+                case 'ko':
+                    // Korean text preprocessing
+                    processedText = processedText.replace(/\s+/g, ' ');
+                    break;
+                case 'ja':
+                    // Japanese text preprocessing
+                    processedText = processedText.replace(/\s+/g, ' ');
+                    break;
+                case 'zh':
+                    // Chinese text preprocessing
+                    processedText = processedText.replace(/\s+/g, '');
+                    break;
+                case 'es':
+                    // Spanish text preprocessing - add pronunciation hints
+                    processedText = processedText.replace(/ñ/g, 'ñ');
+                    break;
+                default:
+                    processedText = processedText.replace(/\s+/g, ' ');
+            }
+
+            return processedText;
         }
 
         async play(text, { onProgress = null, onComplete = null } = {}) {
