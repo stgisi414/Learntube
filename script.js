@@ -102,34 +102,42 @@ Return ONLY the valid JSON, no other text.`;
 
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic) {
             log(`GEMINI: Checking relevance of "${videoTitle}" for "${learningPoint}"`);
-            const prompt = `Analyze if this YouTube video is relevant for learning about "${learningPoint}" in the context of "${mainTopic}".
+            const prompt = `You are a strict educational content filter. Analyze if this YouTube video is relevant for learning about "${learningPoint}" in the context of "${mainTopic}".
 
 Video Title: "${videoTitle}"
 Learning Topic: "${learningPoint}"
 Main Subject: "${mainTopic}"
 
-Consider:
-- Does the video title directly relate to the learning topic?
-- Would this video help someone learn about "${learningPoint}"?
-- Is it educational content (not entertainment, ads, or unrelated topics)?
+STRICT CRITERIA - Mark as relevant ONLY if:
+1. Video title directly mentions concepts from "${learningPoint}" or "${mainTopic}"
+2. Video appears to be a tutorial, explanation, or educational content about the specific topic
+3. Video is NOT about basic software usage (like "how to open Google Docs") unless that's specifically what the learning point is about
+4. Video is NOT generic advice that could apply to any topic
 
-Return ONLY a JSON object: {"relevant": true/false, "reason": "brief explanation"}
+Examples of RELEVANT videos:
+- "Building Gemini AI Apps Tutorial" for "Gemini app development"
+- "JavaScript Functions Explained" for "JavaScript functions"
 
-Examples:
-- Video: "Photoshop Tutorial" for Learning: "comedic persona" → {"relevant": false, "reason": "Photoshop is not related to developing comedy skills"}
-- Video: "Stand-up Comedy Basics" for Learning: "comedic persona" → {"relevant": true, "reason": "Directly teaches comedy fundamentals"}`;
+Examples of NOT RELEVANT videos:
+- "How to Open Google Docs" for "creating app documentation" (too basic/generic)
+- "General Productivity Tips" for any specific technical topic
+- "WordPress Basics" for "React development"
 
-            const response = await this.makeRequest(prompt, { temperature: 0.2 });
+Be very strict. When in doubt, mark as NOT relevant.
+
+Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanation", "confidence": 1-10}`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.1 });
             const result = this.parseJSONResponse(response);
             
             if (result && typeof result.relevant === 'boolean') {
-                log(`RELEVANCE CHECK: ${result.relevant ? 'RELEVANT' : 'NOT RELEVANT'} - ${result.reason}`);
+                log(`RELEVANCE CHECK: ${result.relevant ? 'RELEVANT' : 'NOT RELEVANT'} (Confidence: ${result.confidence || 'N/A'}) - ${result.reason}`);
                 return result;
             }
             
-            // Fallback: assume relevant if we can't parse the response
-            log('RELEVANCE CHECK: Fallback to relevant (parsing failed)');
-            return { relevant: true, reason: "Could not determine relevance" };
+            // More conservative fallback: assume NOT relevant if we can't parse
+            log('RELEVANCE CHECK: Fallback to NOT relevant (parsing failed - being conservative)');
+            return { relevant: false, reason: "Could not determine relevance, being conservative" };
         }
 
         async generateNarration(learningPoint, previousPoint) {
@@ -640,20 +648,32 @@ Examples:
                 const relevantVideos = [];
                 const mainTopic = currentLessonPlan.topic || learningPoint;
                 
-                // Check up to 8 top videos for relevance
-                for (const video of uniqueVideos.slice(0, 8)) {
+                // Check up to 12 top videos for relevance (increased for better selection)
+                for (const video of uniqueVideos.slice(0, 12)) {
                     const relevanceCheck = await this.gemini.checkVideoRelevance(video.title, learningPoint, mainTopic);
                     if (relevanceCheck.relevant) {
-                        // Boost relevance score for relevant videos
-                        video.educationalScore += 2;
+                        // Apply confidence-based scoring
+                        const confidenceBoost = (relevanceCheck.confidence || 5) / 2;
+                        video.educationalScore += confidenceBoost;
+                        video.relevanceConfidence = relevanceCheck.confidence || 5;
                         relevantVideos.push(video);
-                        log(`RELEVANT VIDEO: "${video.title}" - ${relevanceCheck.reason}`);
+                        log(`RELEVANT VIDEO: "${video.title}" (Confidence: ${relevanceCheck.confidence || 'N/A'}) - ${relevanceCheck.reason}`);
                     } else {
                         log(`FILTERED OUT: "${video.title}" - ${relevanceCheck.reason}`);
                     }
                     
-                    // Stop when we have enough relevant videos
-                    if (relevantVideos.length >= 5) break;
+                    // Stop when we have enough HIGH-CONFIDENCE relevant videos
+                    if (relevantVideos.length >= 6) break;
+                }
+                
+                // Further filter by confidence if we have multiple options
+                if (relevantVideos.length > 3) {
+                    relevantVideos.sort((a, b) => {
+                        const confidenceDiff = (b.relevanceConfidence || 5) - (a.relevanceConfidence || 5);
+                        if (Math.abs(confidenceDiff) > 2) return confidenceDiff;
+                        return b.educationalScore - a.educationalScore;
+                    });
+                    relevantVideos = relevantVideos.slice(0, 4); // Keep only top 4 most relevant
                 }
                 
                 log(`Relevant videos after filtering: ${relevantVideos.length}`);
@@ -679,11 +699,28 @@ Examples:
             }
         }
 
-        autoSelectBestVideo(learningPoint) {
-            log("FLOW: Step 4 - Auto-selecting best video");
+        async autoSelectBestVideo(learningPoint) {
+            log("FLOW: Step 4 - Auto-selecting best video with final validation");
             updateStatus('choosing_video');
-            const bestVideo = currentVideoChoices[0];
-            log(`FLOW: Selected video: ${bestVideo.title} (ID: ${bestVideo.youtubeId})`);
+            
+            // Get the top candidate
+            let bestVideo = currentVideoChoices[0];
+            
+            // Double-check the selected video with an even stricter prompt
+            const finalCheck = await this.gemini.checkVideoRelevance(bestVideo.title, learningPoint, currentLessonPlan.topic);
+            
+            // If the best video fails the final check, try the next one
+            if (!finalCheck.relevant && currentVideoChoices.length > 1) {
+                log(`FINAL CHECK: Best video "${bestVideo.title}" failed final relevance check. Trying next option.`);
+                bestVideo = currentVideoChoices[1];
+                const secondCheck = await this.gemini.checkVideoRelevance(bestVideo.title, learningPoint, currentLessonPlan.topic);
+                if (!secondCheck.relevant && currentVideoChoices.length > 2) {
+                    bestVideo = currentVideoChoices[2];
+                    log(`FINAL CHECK: Trying third option: "${bestVideo.title}"`);
+                }
+            }
+            
+            log(`FLOW: Final selected video: ${bestVideo.title} (ID: ${bestVideo.youtubeId})`);
             displayStatusMessage('✅ Video selected!', `"${bestVideo.title}"`);
             setTimeout(() => this.generateSegments(bestVideo), 1500);
         }
