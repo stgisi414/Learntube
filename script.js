@@ -277,109 +277,197 @@ Return ONLY a JSON array of 3 strings.`;
         }
 
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
-            log(`GEMINI: Checking relevance of "${videoTitle}" for "${learningPoint}"`);
+            log(`RELEVANCE CHECKER: Analyzing "${videoTitle}" for "${learningPoint}"`);
 
-            // Extract domain information for stronger filtering
-            const isLinguisticTopic = /onomatopoeia|language|linguistic|pronunciation|phonetic|sound.*word|cultural.*sound/i.test(mainTopic + ' ' + learningPoint);
-            const isCulturalTopic = /korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi|cultural|traditional/i.test(mainTopic + ' ' + learningPoint);
+            // Step 1: Extract key terms and context from the main topic
+            const extractTopicKeywords = (topic) => {
+                const keywords = {
+                    languages: [],
+                    subjects: [],
+                    forbidden: []
+                };
+
+                // Language detection
+                const langMatches = topic.match(/\b(korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi|mandarin|cantonese|hangul|hiragana|katakana)\b/gi);
+                if (langMatches) keywords.languages = [...new Set(langMatches.map(l => l.toLowerCase()))];
+
+                // Subject detection
+                const subjectMatches = topic.match(/\b(onomatopoeia|sound words|language|music|art|history|science|math|cooking|dance|martial arts|literature|philosophy|technology|programming)\b/gi);
+                if (subjectMatches) keywords.subjects = [...new Set(subjectMatches.map(s => s.toLowerCase()))];
+
+                // Forbidden terms for this context
+                if (keywords.languages.length > 0 && keywords.subjects.includes('onomatopoeia')) {
+                    keywords.forbidden = ['music production', 'audio editing', 'sound design', 'daw', 'ableton', 'logic', 'pro tools', 'maschine', 'fl studio', 'beats', 'mixing', 'mastering', 'recording'];
+                }
+
+                return keywords;
+            };
+
+            const topicKeywords = extractTopicKeywords(mainTopic + ' ' + learningPoint);
             
-            // Check for obvious mismatches in the title first
-            const softwareTerms = /maschine|ableton|logic|pro tools|fl studio|cubase|reaper|audacity|audio editor|music production|daw|vst|plugin|software|app development|programming|coding/i;
-            const hasSoftwareTerms = softwareTerms.test(videoTitle);
-            
-            if ((isLinguisticTopic || isCulturalTopic) && hasSoftwareTerms) {
-                log(`RELEVANCE CHECK: Quick reject - Software video "${videoTitle}" for cultural/linguistic topic "${mainTopic}"`);
-                return { 
-                    relevant: false, 
-                    reason: `Software/technical video "${videoTitle}" is not relevant for cultural/linguistic topic "${mainTopic}"`,
-                    confidence: 9
+            // Step 2: Pre-filter obviously wrong videos
+            const preFilter = (title, keywords) => {
+                const titleLower = title.toLowerCase();
+                
+                // Hard rejection rules
+                if (keywords.forbidden.length > 0) {
+                    for (const forbidden of keywords.forbidden) {
+                        if (titleLower.includes(forbidden)) {
+                            return {
+                                pass: false,
+                                reason: `Contains forbidden term "${forbidden}" which indicates wrong domain`
+                            };
+                    }
+                }
+
+                // For language + subject combinations, require both
+                if (keywords.languages.length > 0 && keywords.subjects.length > 0) {
+                    const hasLanguage = keywords.languages.some(lang => titleLower.includes(lang));
+                    const hasSubject = keywords.subjects.some(subj => titleLower.includes(subj));
+                    
+                    if (!hasLanguage && !hasSubject) {
+                        return {
+                            pass: false,
+                            reason: `Missing both language (${keywords.languages.join('/')}) and subject (${keywords.subjects.join('/')}) keywords`
+                        };
+                    }
+                    
+                    // If has subject but wrong/no language, be very strict
+                    if (hasSubject && !hasLanguage) {
+                        const hasWrongLanguage = ['english', 'spanish', 'french', 'german', 'italian', 'japanese', 'chinese', 'korean']
+                            .filter(l => !keywords.languages.includes(l))
+                            .some(wrongLang => titleLower.includes(wrongLang));
+                        
+                        if (hasWrongLanguage) {
+                            return {
+                                pass: false,
+                                reason: `Has subject but wrong language context`
+                            };
+                        }
+                    }
+                }
+
+                return { pass: true, reason: "Passed pre-filter" };
+            };
+
+            const preFilterResult = preFilter(videoTitle, topicKeywords);
+            if (!preFilterResult.pass) {
+                log(`PRE-FILTER REJECT: "${videoTitle}" - ${preFilterResult.reason}`);
+                return {
+                    relevant: false,
+                    reason: `Pre-filter rejection: ${preFilterResult.reason}`,
+                    confidence: 8
                 };
             }
 
-            let prompt = `You are an ULTRA-STRICT educational content filter with domain expertise. Analyze if this YouTube video is educationally relevant for "${learningPoint}" in the context of "${mainTopic}".
+            // Step 3: Build context-aware prompt
+            const buildSmartPrompt = (title, learning, main, keywords, transcript) => {
+                let prompt = `STRICT VIDEO RELEVANCE ANALYSIS
 
-VIDEO ANALYSIS:
-Title: "${videoTitle}"
-Learning Goal: "${learningPoint}"
-Main Subject: "${mainTopic}"
+TASK: Determine if this YouTube video is DIRECTLY relevant for learning "${learning}" within "${main}".
 
-DOMAIN CONTEXT:
-${isLinguisticTopic ? '- This is a LINGUISTIC/LANGUAGE topic requiring cultural authenticity' : ''}
-${isCulturalTopic ? '- This is a CULTURAL topic requiring cultural specificity' : ''}`;
+VIDEO: "${title}"
+TARGET LEARNING: "${learning}"
+MAIN TOPIC: "${main}"
 
-            if (transcript && transcript.trim().length > 0) {
-                const truncatedTranscript = transcript.length > 2000 
-                    ? transcript.substring(0, 2000) + "..." 
-                    : transcript;
+CONTEXT ANALYSIS:`;
 
-                prompt += `
+                if (keywords.languages.length > 0) {
+                    prompt += `
+LANGUAGE FOCUS: ${keywords.languages.join(', ')}
+- Video MUST discuss this specific language/culture
+- Generic content about the subject is NOT sufficient`;
+                }
+
+                if (keywords.subjects.length > 0) {
+                    prompt += `
+SUBJECT FOCUS: ${keywords.subjects.join(', ')}
+- Video MUST teach about this specific subject
+- Technical/production content is NOT suitable for educational topics`;
+                }
+
+                if (keywords.forbidden.length > 0) {
+                    prompt += `
+FORBIDDEN DOMAINS: ${keywords.forbidden.join(', ')}
+- Videos about these topics are AUTOMATICALLY rejected
+- This is an educational context, not technical production`;
+                }
+
+                if (transcript && transcript.trim().length > 0) {
+                    const cleanTranscript = transcript.length > 1500 ? transcript.substring(0, 1500) + "..." : transcript;
+                    prompt += `
 
 TRANSCRIPT ANALYSIS:
-"${truncatedTranscript}"
+"${cleanTranscript}"
 
-ULTRA-STRICT TRANSCRIPT-BASED CRITERIA - Mark as relevant ONLY if:
-1. Transcript explicitly discusses "${mainTopic}" with proper cultural/linguistic context
-2. Content is educational about the EXACT topic (not tangentially related)
-3. Video teaches about the specific subject matter, not technical tools
-4. For "${mainTopic}": Content must authentically address this exact topic
+TRANSCRIPT REQUIREMENTS:
+- Must contain specific discussion of "${main}"
+- Must be educational/instructional in nature
+- Must match the cultural/linguistic context if specified
+- Generic or tangentially related content = REJECT`;
+                } else {
+                    prompt += `
 
-AUTOMATIC REJECTION TRIGGERS:
-- Software/Music Production: ${isLinguisticTopic || isCulturalTopic ? 'AUTOMATIC REJECT - Wrong domain for cultural/linguistic topic' : 'Reject unless topic is specifically about that software'}
-- Generic Audio Content: REJECT for specific cultural/linguistic topics
-- Technical Tutorials: REJECT unless topic is technical
-- Wrong Cultural Context: REJECT if discussing wrong culture/language
+TITLE-ONLY ANALYSIS:
+- Must explicitly reference the target topic
+- Must indicate educational content
+- Generic or production-focused titles = REJECT`;
+                }
 
-DOMAIN ENFORCEMENT:
-${isLinguisticTopic ? '- LINGUISTIC TOPIC: Must discuss language learning, phonetics, cultural language aspects - NOT audio editing or music production' : ''}
-${isCulturalTopic ? '- CULTURAL TOPIC: Must discuss cultural education, traditions, authentic cultural content - NOT software or technical subjects' : ''}`;
-            } else {
                 prompt += `
 
-TITLE-ONLY ANALYSIS (Less reliable, be MORE strict):
+STRICT DECISION CRITERIA:
+✅ ACCEPT only if:
+1. Video directly teaches about "${main}"
+2. Content matches required language/cultural context
+3. Educational/instructional approach (not entertainment/production)
+4. Title and/or transcript specifically address the learning goal
 
-ULTRA-STRICT TITLE-BASED CRITERIA - Mark as relevant ONLY if:
-1. Title explicitly mentions "${mainTopic}" or direct synonyms
-2. Title indicates educational/instructional content about the exact topic
-3. Title does not contain software names, music production terms, or technical jargon
-4. Title suggests authentic cultural/educational content for the specific topic
+❌ REJECT if:
+1. Wrong domain (production vs education)
+2. Wrong language/cultural context
+3. Generic/tangential relationship
+4. Technical tutorials unrelated to the educational topic
+5. Entertainment content without educational value
 
-AUTOMATIC TITLE-BASED REJECTIONS:
-- Contains software names (Maschine, Ableton, Logic, etc.): ${isLinguisticTopic || isCulturalTopic ? 'AUTOMATIC REJECT' : 'REJECT unless software is the topic'}
-- Contains "audio editing", "music production", "sound effects": ${isLinguisticTopic || isCulturalTopic ? 'AUTOMATIC REJECT' : 'NEUTRAL'}
-- Generic terms without cultural specificity: REJECT for cultural topics
-- Wrong cultural context: AUTOMATIC REJECT`;
-            }
-
-            prompt += `
-
-RELEVANCE EXAMPLES:
-FOR "${mainTopic}":
-✅ RELEVANT: "Korean Onomatopoeia Tutorial", "Learning Korean Sound Words", "Korean Language Sounds Explained"
-❌ NOT RELEVANT: "Maschine Beat Tutorial", "Audio Editing Tips", "Sound Effects Library", "Music Production Sounds"
-
-CONFIDENCE SCORING:
-- 9-10: Perfect match with cultural/educational authenticity
-- 7-8: Good educational content about the exact topic
-- 5-6: Somewhat related but missing key elements
-- 1-4: Poor match or wrong domain
+SCORING:
+- 9-10: Perfect educational match with exact topic coverage
+- 7-8: Good educational content, minor context issues
+- 4-6: Somewhat related but missing key elements
+- 1-3: Poor match or wrong domain
 - 0: Completely irrelevant
 
-Be EXTREMELY conservative. When in doubt, mark as NOT relevant.
+RESPONSE FORMAT: {"relevant": true/false, "reason": "specific explanation", "confidence": 0-10}`;
 
-Return ONLY: {"relevant": true/false, "reason": "detailed explanation", "confidence": 1-10}`;
+                return prompt;
+            };
 
-            const response = await this.makeRequest(prompt, { temperature: 0.01 });
-            const result = this.parseJSONResponse(response);
+            const smartPrompt = buildSmartPrompt(videoTitle, learningPoint, mainTopic, topicKeywords, transcript);
 
-            if (result && typeof result.relevant === 'boolean') {
-                const transcriptNote = transcript ? " (with transcript)" : " (title only)";
-                const domainNote = isLinguisticTopic ? " [LINGUISTIC]" : isCulturalTopic ? " [CULTURAL]" : " [GENERAL]";
-                log(`RELEVANCE CHECK${domainNote}: ${result.relevant ? 'RELEVANT' : 'NOT RELEVANT'} (Confidence: ${result.confidence || 'N/A'})${transcriptNote} - ${result.reason}`);
-                return result;
+            try {
+                const response = await this.makeRequest(smartPrompt, { temperature: 0.05 });
+                const result = this.parseJSONResponse(response);
+
+                if (result && typeof result.relevant === 'boolean') {
+                    const contextNote = topicKeywords.languages.length > 0 ? ` [${topicKeywords.languages.join('/')}]` : '';
+                    const transcriptNote = transcript ? " (transcript)" : " (title-only)";
+                    
+                    log(`RELEVANCE RESULT${contextNote}: ${result.relevant ? '✅ RELEVANT' : '❌ REJECTED'} (${result.confidence}/10)${transcriptNote}`);
+                    log(`REASON: ${result.reason}`);
+                    
+                    return result;
+                }
+            } catch (error) {
+                logError('RELEVANCE CHECK: AI analysis failed:', error);
             }
 
-            log('RELEVANCE CHECK: Fallback to NOT relevant (failed to parse - being ultra-conservative)');
-            return { relevant: false, reason: "Could not parse relevance response, defaulting to not relevant", confidence: 1 };
+            // Fallback: Conservative rejection
+            log('RELEVANCE CHECK: Analysis failed, defaulting to REJECT (conservative approach)');
+            return { 
+                relevant: false, 
+                reason: "Analysis failed - defaulting to rejection for safety", 
+                confidence: 1 
+            };
         }
 
         async generateNarration(learningPoint, previousPoint) {
