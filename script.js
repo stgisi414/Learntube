@@ -74,14 +74,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async generateLessonPlan(topic) {
             log("GEMINI: Generating lesson plan...");
-            const prompt = `Create a learning plan for "${topic}".
-- Create 4 levels: Apprentice, Journeyman, Senior, Master.
-- Set the number of learning points for each level: Apprentice (3), Journeyman (5), Senior (7), Master (9).
-- Keep topics concise and educational.
+            const prompt = `Create a comprehensive learning plan specifically for "${topic}". Each learning point MUST directly relate to and explicitly mention "${topic}".
+
+IMPORTANT REQUIREMENTS:
+- Every learning point must specifically incorporate the exact topic: "${topic}"
+- Use the exact terminology from the topic in each learning point
+- Create 4 levels: Apprentice, Journeyman, Senior, Master
+- Set the number of learning points for each level: Apprentice (3), Journeyman (5), Senior (7), Master (9)
+- Make each point educational and progressively more advanced
+- Ensure cultural/linguistic specificity is maintained (e.g., if topic is "Korean onomatopoeias", each point should mention Korean specifically)
 
 Example format:
 {
-  "Apprentice": ["Point 1", "Point 2", "Point 3"],
+  "Apprentice": ["Point 1 about ${topic}", "Point 2 about ${topic}", "Point 3 about ${topic}"],
   "Journeyman": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5"],
   "Senior": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5", "Point 6", "Point 7"],
   "Master": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5", "Point 6", "Point 7", "Point 8", "Point 9"]
@@ -96,7 +101,18 @@ Return ONLY the valid JSON, no other text.`;
 
         async generateSearchQueries(learningPoint) {
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
-            const prompt = `Generate 3 simple, effective Youtube queries for "${learningPoint}". Each query should be 2-5 words. Focus on finding educational content like tutorials, explanations, or documentaries. Return ONLY a JSON array of strings. Example: ["quantum physics explained", "basics of quantum mechanics", "quantum theory documentary"]`;
+            const mainTopic = currentLessonPlan?.topic || learningPoint;
+            const prompt = `Generate 3 simple, effective Youtube queries for "${learningPoint}" in the context of "${mainTopic}". 
+            
+IMPORTANT: Each query should specifically include key terms from "${mainTopic}" to ensure cultural/linguistic accuracy. For example:
+- If main topic is "Korean onomatopoeias", queries should include "Korean" 
+- If main topic is "Japanese art", queries should include "Japanese"
+- If main topic is specific to a culture/language/field, maintain that specificity
+
+Each query should be 2-6 words. Focus on finding educational content like tutorials, explanations, or documentaries. 
+Return ONLY a JSON array of strings. 
+
+Example for "Korean onomatopoeias": ["Korean onomatopoeia sounds", "Korean language sound words", "Korean onomatopoeia tutorial"]`;
             const response = await this.makeRequest(prompt, { temperature: 0.3 });
             return this.parseJSONResponse(response);
         }
@@ -190,15 +206,29 @@ Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanat
 
         async generateNarration(learningPoint, previousPoint) {
             log(`GEMINI: Generating narration for "${learningPoint}"`);
+            const mainTopic = currentLessonPlan?.topic || learningPoint;
             let prompt = previousPoint ?
-                `Write a simple 1-2 sentence transition. The previous topic was "${previousPoint}". Now we're learning about "${learningPoint}". Keep it simple and educational. Just return the text.` :
-                `Write a simple 1-2 sentence welcome message for a lesson about "${learningPoint}". Keep it friendly and educational. Just return the text.`;
+                `Write a simple 1-2 sentence transition for a lesson about "${mainTopic}". The previous topic was "${previousPoint}". Now we're learning about "${learningPoint}". 
+                
+IMPORTANT: Make sure to specifically mention "${mainTopic}" in your narration and keep the focus on this exact topic. Be specific about the cultural/linguistic context if applicable.
+                
+Keep it simple and educational. Just return the text.` :
+                `Write a simple 1-2 sentence welcome message for a lesson about "${mainTopic}", specifically focusing on "${learningPoint}". 
+                
+IMPORTANT: Make sure to specifically mention "${mainTopic}" in your welcome message and maintain any cultural/linguistic specificity.
+                
+Keep it friendly and educational. Just return the text.`;
             return await this.makeRequest(prompt, { temperature: 0.5, maxOutputTokens: 256 });
         }
 
         async generateConcludingNarration(learningPoint) {
             log(`GEMINI: Generating concluding narration for "${learningPoint}"`);
-            const prompt = `Write a short, 1-sentence concluding summary for the topic "${learningPoint}" that we just covered. This will play after the video or quiz. Keep it encouraging. Just return the text.`;
+            const mainTopic = currentLessonPlan?.topic || learningPoint;
+            const prompt = `Write a short, 1-sentence concluding summary for the topic "${learningPoint}" in the context of learning about "${mainTopic}". 
+            
+IMPORTANT: Make sure to specifically mention "${mainTopic}" and maintain any cultural/linguistic specificity in your summary.
+            
+This will play after the video or quiz. Keep it encouraging and specific to the exact topic. Just return the text.`;
             return await this.makeRequest(prompt, { temperature: 0.6, maxOutputTokens: 256 });
         }
 
