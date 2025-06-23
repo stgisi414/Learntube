@@ -74,38 +74,80 @@ document.addEventListener('DOMContentLoaded', () => {
         async generateLessonPlan(topic) {
             log("GEMINI: Generating lesson plan...");
             
-            // Detect if this is a cultural/linguistic topic for stronger enforcement
-            const culturalKeywords = /korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi|cultural|linguistic|language|onomatopoeia/i;
-            const isCulturalTopic = culturalKeywords.test(topic);
+            // Extract language/cultural markers from the topic for enforcement
+            const extractLanguageCulture = (topicText) => {
+                const text = topicText.toLowerCase();
+                
+                // Language markers
+                const languageMarkers = text.match(/\b(korean|japanese|chinese|mandarin|cantonese|spanish|french|german|italian|portuguese|russian|arabic|hindi|english|dutch|swedish|norwegian|finnish|polish|turkish|vietnamese|thai|persian|urdu|bengali|tamil|hebrew|swahili|yoruba|amharic|tagalog|indonesian|malay)\b/gi);
+                
+                // Cultural/regional markers
+                const culturalMarkers = text.match(/\b(asian|european|african|american|latin|middle eastern|south asian|east asian|southeast asian|slavic|germanic|romance|semitic|sino-tibetan|austronesian)\b/gi);
+                
+                // Linguistic terms
+                const linguisticMarkers = text.match(/\b(onomatopoeia|phonetic|linguistic|language|dialect|accent|pronunciation|grammar|syntax|vocabulary|idiom|phrase|expression|sound|cultural)\b/gi);
+                
+                return {
+                    languages: languageMarkers || [],
+                    cultures: culturalMarkers || [],
+                    linguistics: linguisticMarkers || []
+                };
+            };
             
-            const prompt = `Create a comprehensive learning plan EXCLUSIVELY for "${topic}". This is ${isCulturalTopic ? 'a cultural/linguistic topic requiring STRICT cultural accuracy' : 'a specialized topic requiring EXACT terminology'}.
+            const markers = extractLanguageCulture(topic);
+            const hasLanguageContext = markers.languages.length > 0 || markers.cultures.length > 0 || markers.linguistics.length > 0;
+            
+            // Build enforced terms list
+            const enforcedTerms = [
+                ...markers.languages,
+                ...markers.cultures,
+                ...markers.linguistics
+            ].filter((term, index, arr) => arr.findIndex(t => t.toLowerCase() === term.toLowerCase()) === index);
+            
+            const prompt = `Create a comprehensive learning plan EXCLUSIVELY for "${topic}". 
 
-ABSOLUTE REQUIREMENTS:
-- Every single learning point MUST explicitly mention "${topic}" by name
-- Use the EXACT terminology from "${topic}" in each point
-- If topic contains cultural/linguistic elements (Korean, Japanese, etc.), maintain that cultural specificity in EVERY point
-- NO generic points allowed - everything must be specific to "${topic}"
+ABSOLUTE MULTILINGUAL REQUIREMENTS:
+- Every single learning point MUST explicitly mention "${topic}" by name or its core components
+- MAINTAIN ALL LANGUAGE/CULTURAL SPECIFICITY from the original topic
+${enforcedTerms.length > 0 ? `- REQUIRED TERMS that must appear in learning points: ${enforcedTerms.join(', ')}` : ''}
+- Use EXACT terminology from "${topic}" in each point
+- NO generic substitutions allowed (e.g., don't say "sound effects" when topic is "Korean onomatopoeia")
 - Create 4 levels: Apprentice (3 points), Journeyman (5), Senior (7), Master (9)
 
-${isCulturalTopic ? `
-CULTURAL SPECIFICITY ENFORCEMENT:
-- If topic is "Korean onomatopoeias", every point must mention "Korean" specifically
-- If topic is "Japanese art", every point must mention "Japanese" specifically  
-- Do NOT use generic terms like "sound effects" or "language sounds" - use the specific cultural reference
-- Include actual examples from that culture when possible
+${hasLanguageContext ? `
+LANGUAGE/CULTURAL ENFORCEMENT:
+- If topic mentions a specific language (Korean, Chinese, Japanese, etc.), EVERY point must include that language name
+- If topic mentions specific cultural elements, maintain those throughout
+- Include authentic examples from the specified language/culture when possible
+- Do NOT generalize or use broader category terms
+- For linguistic topics, focus on the specific language mentioned, not general linguistics
+
+EXAMPLES OF PROPER SPECIFICITY:
+- Topic: "Korean onomatopoeia" → Points must say "Korean onomatopoeia", not "sound words" or "onomatopoeia"
+- Topic: "Chinese calligraphy" → Points must say "Chinese calligraphy", not "Asian writing" or "calligraphy"
+- Topic: "Japanese martial arts" → Points must say "Japanese martial arts", not "Asian fighting" or "martial arts"
 ` : ''}
 
-Example format for "${topic}":
+TEMPLATE STRUCTURE - Every point must follow this pattern:
+"[Specific action/concept] + [EXACT topic terminology]"
+
+Examples for "${topic}":
 {
-  "Apprentice": ["Basic concepts of ${topic}", "Introduction to ${topic} fundamentals", "Understanding ${topic} basics"],
-  "Journeyman": ["Advanced ${topic} techniques", "Historical context of ${topic}", "Regional variations in ${topic}", "Practical applications of ${topic}", "Modern usage of ${topic}"],
-  "Senior": ["Expert-level ${topic} analysis", "Complex ${topic} patterns", "Professional ${topic} usage", "Cultural significance of ${topic}", "${topic} in academic context", "Research methods for ${topic}", "Teaching ${topic} effectively"],
-  "Master": ["Mastering ${topic} completely", "Original research in ${topic}", "Cross-cultural comparisons with ${topic}", "Advanced theory of ${topic}", "Historical evolution of ${topic}", "Future trends in ${topic}", "Expert ${topic} consultation", "Publishing ${topic} research", "Leading ${topic} education"]
+  "Apprentice": ["Basic fundamentals of ${topic}", "Introduction to ${topic} essentials", "Understanding core ${topic} principles"],
+  "Journeyman": ["Advanced techniques in ${topic}", "Historical development of ${topic}", "Regional variations within ${topic}", "Practical applications of ${topic}", "Modern usage of ${topic}"],
+  "Senior": ["Expert-level ${topic} analysis", "Complex patterns in ${topic}", "Professional use of ${topic}", "Cultural significance of ${topic}", "${topic} in academic contexts", "Research methodologies for ${topic}", "Teaching ${topic} effectively"],
+  "Master": ["Mastering ${topic} completely", "Original research in ${topic}", "Comparative analysis of ${topic}", "Advanced theoretical frameworks for ${topic}", "Historical evolution of ${topic}", "Future developments in ${topic}", "Expert consultation on ${topic}", "Publishing research on ${topic}", "Leading ${topic} education"]
 }
+
+VERIFICATION CHECKLIST:
+✓ Does every point contain the exact topic terminology?
+✓ Are language/cultural specifics maintained throughout?
+✓ No generic substitutions or broader categories used?
+✓ Authentic to the specified language/culture?
 
 Topic: "${topic}"
 
-Return ONLY the valid JSON. Each point must contain "${topic}" terminology.`;
+Return ONLY the valid JSON. Every single learning point must contain the complete "${topic}" terminology or its core language/cultural components.`;
             const response = await this.makeRequest(prompt);
             return this.parseJSONResponse(response);
         }
