@@ -141,6 +141,53 @@ This represents a complete system failure across the entire content pipeline.
 - Added mixed-language parsing
 - **RESULT**: Partially Failed - pronunciation still incorrect for non-English
 
+### Fix Attempt #6 (MVP Overhaul - In Progress): Lesson Plan Generation Refinement
+- **Goal**: Improve cultural and linguistic specificity in lesson plans.
+- **Action (Step 1.1)**: Revised the prompt for `GeminiOrchestrator.generateLessonPlan`.
+    - Simplified core fidelity rules.
+    - Added a "CULTURALLY ENRICHED LEARNING POINTS REQUIRED" section to the prompt if cultural/linguistic context is detected by `extractCulturalContext`. This new section explicitly instructs the AI to generate learning points that incorporate specific examples or facets relevant to the detected language/culture, rather than just appending the topic string generically.
+    - Provided more illustrative examples in the prompt for both culturally specific topics (e.g., "Korean Onomatopoeia") and general topics.
+    - Adjusted Gemini temperature to `0.35` for the initial request to encourage richer, more descriptive points while still maintaining control.
+- **Action (Step 1.2)**: Enhanced validation logic for culturally specific topics.
+    - If `requiresStrictCulturalMaintenance` is true, the validation now checks that each learning point contains the base topic AND at least one of the detected language keywords or general cultural terms. This is an MVP heuristic to enforce better cultural integration.
+    - The retry prompt was also updated to reinforce the need for "culturally rich and specific learning points" and uses a lower temperature (`0.2`) for stricter adherence on retry.
+- **Expected Outcome**: Lesson plans should now better reflect the specific cultural or linguistic nuances of the input topic, leading to more relevant downstream content generation (search queries, narrations).
+- **Status**: Implemented. Pending testing with overall MVP.
+
+### Fix Attempt #7 (MVP Overhaul - In Progress): Search Query Generation Refinement
+- **Goal**: Generate highly specific and context-aware YouTube search queries.
+- **Action (Step 2.1)**: Modified `GeminiOrchestrator.generateSearchQueries`.
+    - Integrated context extraction logic (`extractCulturalContextForQuery` and `getForbiddenTermsForQuery`) to identify relevant languages, cultural nuances of the `mainTopic`, and specific terms to avoid (e.g., "music production" for "Korean onomatopoeia").
+- **Action (Step 2.2)**: Revised the Gemini prompt for search query generation.
+    - The prompt now explicitly instructs the AI to create 3-7 word queries that are highly specific to the `learningPoint` while incorporating the cultural/linguistic context of the `mainTopic`.
+    - If forbidden terms are identified, the prompt now includes a "NEGATIVE KEYWORDS" section, instructing the AI to actively avoid these terms.
+    - Clear examples of good queries and the desired JSON output format are provided.
+    - Adjusted Gemini temperature to `0.25` to encourage focused yet slightly varied query suggestions.
+- **Expected Outcome**: Search queries will be more targeted, leading to a higher likelihood of retrieving relevant educational videos and reducing the burden on the subsequent video relevance checking step.
+- **Status**: Implemented. Pending testing with overall MVP.
+
+### Fix Attempt #8 (MVP Overhaul - In Progress): Video Relevance Checking System Rebuild
+- **Goal**: Accurately determine video relevance, especially for culturally specific educational content, and filter out incorrect domains (e.g., "music production" vs. "Korean onomatopoeia").
+- **Action (Step 3.1)**: Restructured `GeminiOrchestrator.checkVideoRelevance` into a multi-stage process.
+    - **Enhanced Keyword Extraction**: Implemented `extractTopicKeywords` to identify `requiredLangs`, `requiredSubjects`, `optionalSubjects`, and `forbiddenDomains` from the `mainTopic` and `learningPoint`. This provides structured data for filtering.
+    - **Stage 1: Code-Based Pre-filtering**:
+        - Video titles are checked against `forbiddenDomains`. Immediate rejection if a forbidden term is found.
+        - If `requiredLangs` are specified for the topic, the video title must contain them.
+        - If `requiredSubjects` are specified, the title must contain them or at least strong `optionalSubjects`.
+        - Videos failing pre-filter are rejected without an AI call, optimizing API usage.
+    - **Stage 2: AI-Assisted Relevance Check (Gemini)**:
+        - If pre-filtering passes, a highly structured prompt is sent to Gemini.
+        - Prompt includes video title, learning point, main topic, transcript snippet (if available), and all extracted keywords (required languages/subjects, forbidden domains).
+        - Gemini is tasked as a "Strict Educational Content Validator" and must return a JSON object: `{ "isRelevant": boolean, "confidenceScore": number (0-10), "reasoning": string, "identifiedLanguageFocus": string }`.
+        - Prompt emphasizes direct teaching relevance, cultural/linguistic accuracy, educational nature, and strict avoidance of forbidden domains.
+        - Gemini temperature set to `0.05` for rule-based, consistent evaluation.
+    - **Stage 3: Final Decision Logic**:
+        - Rejects if AI deems `isRelevant: false`.
+        - Rejects if AI `confidenceScore < 7`.
+        - Verifies that AI's `identifiedLanguageFocus` matches `requiredLangs` from the topic.
+- **Expected Outcome**: A significantly more accurate video relevance check that correctly identifies appropriate educational videos matching the specific (and cultural) context of the learning point, and aggressively filters out mismatched content. This should directly address the "SOUND DESIGN" video issue.
+- **Status**: Implemented. Pending testing with overall MVP.
+
 ---
 
 ## 📊 CURRENT SYSTEM STATUS
