@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
     const CSE_ID = 'b53121b78d1c64563';
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
-    const SUPADATA_API_KEY = "sd_1d4e0e4e3d5aecda115fc39d1d47a33b";
+    const SUPADATA_API_KEY = process.env.SUPADATA_API_KEY;
 
     const log = (message, ...args) => console.log(`[${new Date().toLocaleTimeString()}] ${message}`, ...args);
     const logError = (message, ...args) => console.error(`[${new Date().toLocaleTimeString()}] ERROR: ${message}`, ...args);
@@ -220,9 +220,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         async getVideoTranscript(youtubeId) {
             log(`TRANSCRIPT: Fetching for ${youtubeId}`);
+            if (!SUPADATA_API_KEY) {
+                log(`TRANSCRIPT: No API key available, skipping transcript for ${youtubeId}`);
+                return null;
+            }
             try {
                 const response = await fetch(`https://api.supadata.ai/v1/transcript?video_id=${youtubeId}`, { headers: { 'x-api-key': SUPADATA_API_KEY } });
-                if (!response.ok) { log(`TRANSCRIPT: API failed for ${youtubeId}: ${response.status}`); return null; }
+                if (!response.ok) { 
+                    log(`TRANSCRIPT: API failed for ${youtubeId}: ${response.status}`); 
+                    if (response.status === 401) {
+                        log(`TRANSCRIPT: Invalid or expired API key`);
+                    }
+                    return null; 
+                }
                 const data = await response.json();
                 if (data && Array.isArray(data.transcript)) { return data.transcript.map(item => item.text || '').join(' '); }
                 return null;
