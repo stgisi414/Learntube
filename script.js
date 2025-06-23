@@ -74,82 +74,162 @@ document.addEventListener('DOMContentLoaded', () => {
         async generateLessonPlan(topic) {
             log("GEMINI: Generating lesson plan...");
             
-            // Extract language/cultural markers from the topic for enforcement
-            const extractLanguageCulture = (topicText) => {
+            // Extract language/cultural context with enhanced detection
+            const extractCulturalContext = (topicText) => {
                 const text = topicText.toLowerCase();
                 
-                // Language markers
-                const languageMarkers = text.match(/\b(korean|japanese|chinese|mandarin|cantonese|spanish|french|german|italian|portuguese|russian|arabic|hindi|english|dutch|swedish|norwegian|finnish|polish|turkish|vietnamese|thai|persian|urdu|bengali|tamil|hebrew|swahili|yoruba|amharic|tagalog|indonesian|malay)\b/gi);
+                // Enhanced language detection with variations
+                const languagePatterns = {
+                    korean: /\b(korean|korea|hangul|한국|k-pop|kimchi|seoul)\b/gi,
+                    japanese: /\b(japanese|japan|nihongo|日本|hiragana|katakana|kanji|tokyo|anime|manga)\b/gi,
+                    chinese: /\b(chinese|china|mandarin|cantonese|中文|汉语|普通话|beijing|shanghai)\b/gi,
+                    spanish: /\b(spanish|spain|español|castellano|madrid|mexico|latin america)\b/gi,
+                    french: /\b(french|france|français|francais|paris|quebec)\b/gi,
+                    german: /\b(german|germany|deutsch|berlin|austria|swiss)\b/gi,
+                    italian: /\b(italian|italy|italiano|rome|milan)\b/gi,
+                    portuguese: /\b(portuguese|portugal|português|brazil|brasil|rio)\b/gi,
+                    russian: /\b(russian|russia|русский|moscow|soviet)\b/gi,
+                    arabic: /\b(arabic|arab|العربية|middle east|egypt|saudi)\b/gi,
+                    hindi: /\b(hindi|india|हिंदी|bollywood|delhi|mumbai)\b/gi
+                };
                 
-                // Cultural/regional markers
-                const culturalMarkers = text.match(/\b(asian|european|african|american|latin|middle eastern|south asian|east asian|southeast asian|slavic|germanic|romance|semitic|sino-tibetan|austronesian)\b/gi);
+                // Cultural/linguistic terms
+                const culturalTerms = /\b(onomatopoeia|onomatopoeic|sound words|phonetic|linguistic|language|dialect|accent|pronunciation|grammar|syntax|vocabulary|idiom|phrase|expression|cultural|traditional|folk|native|indigenous)\b/gi;
                 
-                // Linguistic terms
-                const linguisticMarkers = text.match(/\b(onomatopoeia|phonetic|linguistic|language|dialect|accent|pronunciation|grammar|syntax|vocabulary|idiom|phrase|expression|sound|cultural)\b/gi);
+                const detectedLanguages = [];
+                const detectedCultures = [];
+                
+                // Check for language matches
+                for (const [lang, pattern] of Object.entries(languagePatterns)) {
+                    if (pattern.test(text)) {
+                        detectedLanguages.push(lang);
+                    }
+                }
+                
+                // Check for cultural/linguistic terms
+                const culturalMatches = text.match(culturalTerms);
+                if (culturalMatches) {
+                    detectedCultures.push(...culturalMatches);
+                }
                 
                 return {
-                    languages: languageMarkers || [],
-                    cultures: culturalMarkers || [],
-                    linguistics: linguisticMarkers || []
+                    languages: [...new Set(detectedLanguages)],
+                    culturalTerms: [...new Set(culturalMatches || [])],
+                    hasSpecificLanguage: detectedLanguages.length > 0,
+                    hasCulturalContext: culturalMatches && culturalMatches.length > 0
                 };
             };
             
-            const markers = extractLanguageCulture(topic);
-            const hasLanguageContext = markers.languages.length > 0 || markers.cultures.length > 0 || markers.linguistics.length > 0;
+            const context = extractCulturalContext(topic);
+            const requiresStrictCulturalMaintenance = context.hasSpecificLanguage || context.hasCulturalContext;
             
-            // Build enforced terms list
-            const enforcedTerms = [
-                ...markers.languages,
-                ...markers.cultures,
-                ...markers.linguistics
-            ].filter((term, index, arr) => arr.findIndex(t => t.toLowerCase() === term.toLowerCase()) === index);
-            
-            const prompt = `Create a comprehensive learning plan EXCLUSIVELY for "${topic}". 
+            let prompt = `You are creating a learning plan for the EXACT topic: "${topic}"
 
-ABSOLUTE MULTILINGUAL REQUIREMENTS:
-- Every single learning point MUST explicitly mention "${topic}" by name or its core components
-- MAINTAIN ALL LANGUAGE/CULTURAL SPECIFICITY from the original topic
-${enforcedTerms.length > 0 ? `- REQUIRED TERMS that must appear in learning points: ${enforcedTerms.join(', ')}` : ''}
-- Use EXACT terminology from "${topic}" in each point
-- NO generic substitutions allowed (e.g., don't say "sound effects" when topic is "Korean onomatopoeia")
-- Create 4 levels: Apprentice (3 points), Journeyman (5), Senior (7), Master (9)
+ABSOLUTE TOPIC FIDELITY RULES:
+1. NEVER generalize or substitute terms
+2. EVERY learning point must contain the complete original topic phrase "${topic}"
+3. NO broader categories or generic alternatives allowed
+4. Maintain 100% specificity to the original request
 
-${hasLanguageContext ? `
-LANGUAGE/CULTURAL ENFORCEMENT:
-- If topic mentions a specific language (Korean, Chinese, Japanese, etc.), EVERY point must include that language name
-- If topic mentions specific cultural elements, maintain those throughout
-- Include authentic examples from the specified language/culture when possible
-- Do NOT generalize or use broader category terms
-- For linguistic topics, focus on the specific language mentioned, not general linguistics
+${requiresStrictCulturalMaintenance ? `
+🚨 CRITICAL CULTURAL/LINGUISTIC SPECIFICITY REQUIRED 🚨
+This topic contains specific cultural/linguistic elements that MUST be preserved:
+- Detected languages: ${context.languages.join(', ') || 'None'}
+- Cultural terms: ${context.culturalTerms.join(', ') || 'None'}
 
-EXAMPLES OF PROPER SPECIFICITY:
-- Topic: "Korean onomatopoeia" → Points must say "Korean onomatopoeia", not "sound words" or "onomatopoeia"
-- Topic: "Chinese calligraphy" → Points must say "Chinese calligraphy", not "Asian writing" or "calligraphy"
-- Topic: "Japanese martial arts" → Points must say "Japanese martial arts", not "Asian fighting" or "martial arts"
+MANDATORY REQUIREMENTS:
+- If topic mentions "Korean onomatopoeia" → ALL points must say "Korean onomatopoeia" 
+- If topic mentions "Japanese martial arts" → ALL points must say "Japanese martial arts"
+- If topic mentions "Chinese calligraphy" → ALL points must say "Chinese calligraphy"
+- NO generic substitutions like "sound words", "Asian fighting", "writing systems"
+- Include authentic cultural examples when possible
+- Reference specific cultural contexts and traditions
+
+FORBIDDEN GENERALIZATIONS:
+❌ "sound categories" instead of "Korean onomatopoeia"
+❌ "animal sounds" instead of "Korean onomatopoeia" 
+❌ "noise patterns" instead of "Korean onomatopoeia"
+❌ Any term that removes the cultural/linguistic specificity
 ` : ''}
 
-TEMPLATE STRUCTURE - Every point must follow this pattern:
-"[Specific action/concept] + [EXACT topic terminology]"
+Create exactly 4 difficulty levels with these point counts:
+- Apprentice: 3 learning points
+- Journeyman: 5 learning points  
+- Senior: 7 learning points
+- Master: 9 learning points
 
-Examples for "${topic}":
+EVERY SINGLE LEARNING POINT MUST:
+✅ Include the complete phrase "${topic}" exactly as written
+✅ Be educationally progressive (easy → advanced)
+✅ Maintain cultural authenticity if applicable
+✅ Use specific, not generic terminology
+
+EXAMPLE FORMAT for "${topic}":
 {
-  "Apprentice": ["Basic fundamentals of ${topic}", "Introduction to ${topic} essentials", "Understanding core ${topic} principles"],
-  "Journeyman": ["Advanced techniques in ${topic}", "Historical development of ${topic}", "Regional variations within ${topic}", "Practical applications of ${topic}", "Modern usage of ${topic}"],
-  "Senior": ["Expert-level ${topic} analysis", "Complex patterns in ${topic}", "Professional use of ${topic}", "Cultural significance of ${topic}", "${topic} in academic contexts", "Research methodologies for ${topic}", "Teaching ${topic} effectively"],
-  "Master": ["Mastering ${topic} completely", "Original research in ${topic}", "Comparative analysis of ${topic}", "Advanced theoretical frameworks for ${topic}", "Historical evolution of ${topic}", "Future developments in ${topic}", "Expert consultation on ${topic}", "Publishing research on ${topic}", "Leading ${topic} education"]
+  "Apprentice": [
+    "Introduction to ${topic}",
+    "Basic understanding of ${topic}",
+    "Fundamental concepts in ${topic}"
+  ],
+  "Journeyman": [
+    "Historical development of ${topic}",
+    "Cultural significance of ${topic}",
+    "Traditional techniques in ${topic}",
+    "Regional variations of ${topic}",
+    "Modern applications of ${topic}"
+  ],
+  [... continue with Senior and Master levels]
 }
 
-VERIFICATION CHECKLIST:
-✓ Does every point contain the exact topic terminology?
-✓ Are language/cultural specifics maintained throughout?
-✓ No generic substitutions or broader categories used?
-✓ Authentic to the specified language/culture?
+FINAL VERIFICATION - Each point must pass this test:
+- Does it contain "${topic}" exactly? ✓
+- Is it culturally/linguistically authentic? ✓
+- No generic substitutions? ✓
+
+Return ONLY valid JSON. Topic: "${topic}"`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.3 });
+            const parsed = this.parseJSONResponse(response);
+            
+            // Additional validation to catch any generalization failures
+            if (parsed && requiresStrictCulturalMaintenance) {
+                const allPoints = [
+                    ...(parsed.Apprentice || []),
+                    ...(parsed.Journeyman || []),
+                    ...(parsed.Senior || []),
+                    ...(parsed.Master || [])
+                ];
+                
+                // Check if any points are missing the specific cultural/linguistic terms
+                const topicKeyTerms = topic.toLowerCase();
+                const failedPoints = allPoints.filter(point => {
+                    const pointLower = point.toLowerCase();
+                    return !context.languages.some(lang => pointLower.includes(lang)) && 
+                           !pointLower.includes(topicKeyTerms);
+                });
+                
+                if (failedPoints.length > 0) {
+                    log(`LESSON PLAN VALIDATION: Found ${failedPoints.length} points missing cultural specificity. Regenerating...`);
+                    
+                    // Retry with even more specific prompt
+                    const retryPrompt = `RETRY - Previous attempt failed cultural specificity validation.
 
 Topic: "${topic}"
 
-Return ONLY the valid JSON. Every single learning point must contain the complete "${topic}" terminology or its core language/cultural components.`;
-            const response = await this.makeRequest(prompt);
-            return this.parseJSONResponse(response);
+ABSOLUTE REQUIREMENT: Every learning point must contain these exact words from the original topic.
+
+Create learning points that ALL include "${topic}" exactly as written. No exceptions, no alternatives, no generalizations.
+
+Return valid JSON with 4 levels: Apprentice (3), Journeyman (5), Senior (7), Master (9).
+
+Each point format: "[Learning action] + ${topic}"`;
+
+                    const retryResponse = await this.makeRequest(retryPrompt, { temperature: 0.1 });
+                    return this.parseJSONResponse(retryResponse);
+                }
+            }
+            
+            return parsed;
         }
 
         async generateSearchQueries(learningPoint) {
