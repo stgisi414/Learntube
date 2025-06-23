@@ -73,27 +73,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async generateLessonPlan(topic) {
             log("GEMINI: Generating lesson plan...");
-            const prompt = `Create a comprehensive learning plan specifically for "${topic}". Each learning point MUST directly relate to and explicitly mention "${topic}".
+            
+            // Detect if this is a cultural/linguistic topic for stronger enforcement
+            const culturalKeywords = /korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi|cultural|linguistic|language|onomatopoeia/i;
+            const isCulturalTopic = culturalKeywords.test(topic);
+            
+            const prompt = `Create a comprehensive learning plan EXCLUSIVELY for "${topic}". This is ${isCulturalTopic ? 'a cultural/linguistic topic requiring STRICT cultural accuracy' : 'a specialized topic requiring EXACT terminology'}.
 
-IMPORTANT REQUIREMENTS:
-- Every learning point must specifically incorporate the exact topic: "${topic}"
-- Use the exact terminology from the topic in each learning point
-- Create 4 levels: Apprentice, Journeyman, Senior, Master
-- Set the number of learning points for each level: Apprentice (3), Journeyman (5), Senior (7), Master (9)
-- Make each point educational and progressively more advanced
-- Ensure cultural/linguistic specificity is maintained (e.g., if topic is "Korean onomatopoeias", each point should mention Korean specifically)
+ABSOLUTE REQUIREMENTS:
+- Every single learning point MUST explicitly mention "${topic}" by name
+- Use the EXACT terminology from "${topic}" in each point
+- If topic contains cultural/linguistic elements (Korean, Japanese, etc.), maintain that cultural specificity in EVERY point
+- NO generic points allowed - everything must be specific to "${topic}"
+- Create 4 levels: Apprentice (3 points), Journeyman (5), Senior (7), Master (9)
 
-Example format:
+${isCulturalTopic ? `
+CULTURAL SPECIFICITY ENFORCEMENT:
+- If topic is "Korean onomatopoeias", every point must mention "Korean" specifically
+- If topic is "Japanese art", every point must mention "Japanese" specifically  
+- Do NOT use generic terms like "sound effects" or "language sounds" - use the specific cultural reference
+- Include actual examples from that culture when possible
+` : ''}
+
+Example format for "${topic}":
 {
-  "Apprentice": ["Point 1 about ${topic}", "Point 2 about ${topic}", "Point 3 about ${topic}"],
-  "Journeyman": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5"],
-  "Senior": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5", "Point 6", "Point 7"],
-  "Master": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5", "Point 6", "Point 7", "Point 8", "Point 9"]
+  "Apprentice": ["Basic concepts of ${topic}", "Introduction to ${topic} fundamentals", "Understanding ${topic} basics"],
+  "Journeyman": ["Advanced ${topic} techniques", "Historical context of ${topic}", "Regional variations in ${topic}", "Practical applications of ${topic}", "Modern usage of ${topic}"],
+  "Senior": ["Expert-level ${topic} analysis", "Complex ${topic} patterns", "Professional ${topic} usage", "Cultural significance of ${topic}", "${topic} in academic context", "Research methods for ${topic}", "Teaching ${topic} effectively"],
+  "Master": ["Mastering ${topic} completely", "Original research in ${topic}", "Cross-cultural comparisons with ${topic}", "Advanced theory of ${topic}", "Historical evolution of ${topic}", "Future trends in ${topic}", "Expert ${topic} consultation", "Publishing ${topic} research", "Leading ${topic} education"]
 }
 
 Topic: "${topic}"
 
-Return ONLY the valid JSON, no other text.`;
+Return ONLY the valid JSON. Each point must contain "${topic}" terminology.`;
             const response = await this.makeRequest(prompt);
             return this.parseJSONResponse(response);
         }
@@ -101,106 +113,151 @@ Return ONLY the valid JSON, no other text.`;
         async generateSearchQueries(learningPoint) {
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
             const mainTopic = currentLessonPlan?.topic || learningPoint;
-            const prompt = `Generate 3 simple, effective Youtube queries for "${learningPoint}" in the context of "${mainTopic}". 
+            
+            // Extract key cultural/linguistic terms for stronger search focus
+            const extractKeyTerms = (topic) => {
+                const terms = [];
+                const culturalMarkers = topic.match(/\b(korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi)\b/gi);
+                if (culturalMarkers) terms.push(...culturalMarkers);
+                
+                const topicKeywords = topic.match(/\b(onomatopoeia|art|music|language|culture|history|literature|cooking|martial arts|dance|architecture)\b/gi);
+                if (topicKeywords) terms.push(...topicKeywords);
+                
+                return [...new Set(terms)]; // Remove duplicates
+            };
+            
+            const keyTerms = extractKeyTerms(mainTopic);
+            const requiredTermsStr = keyTerms.length > 0 ? keyTerms.join(' ') : mainTopic;
+            
+            const prompt = `Generate 3 highly specific YouTube search queries for "${learningPoint}" within the context of "${mainTopic}".
 
-IMPORTANT: Each query should specifically include key terms from "${mainTopic}" to ensure cultural/linguistic accuracy. For example:
-- If main topic is "Korean onomatopoeias", queries should include "Korean" 
-- If main topic is "Japanese art", queries should include "Japanese"
-- If main topic is specific to a culture/language/field, maintain that specificity
+CRITICAL REQUIREMENTS:
+- EVERY query must include these key terms: "${requiredTermsStr}"
+- Queries must be educational/tutorial focused (not entertainment or software)
+- Each query should be 3-7 words maximum
+- Target academic, educational, or instructional content
+- Avoid generic terms that could match unrelated content
 
-Each query should be 2-6 words. Focus on finding educational content like tutorials, explanations, or documentaries. 
-Return ONLY a JSON array of strings. 
+DOMAIN FILTERING:
+- If topic is linguistic/cultural, focus on language learning, cultural education, academic content
+- Avoid software names, music production tools, or technical applications
+- Prioritize "tutorial", "explained", "lesson", "guide", "learning" terms
 
-Example for "Korean onomatopoeias": ["Korean onomatopoeia sounds", "Korean language sound words", "Korean onomatopoeia tutorial"]`;
-            const response = await this.makeRequest(prompt, { temperature: 0.3 });
+Required format: ["query with ${requiredTermsStr}", "tutorial ${requiredTermsStr}", "learn ${requiredTermsStr}"]
+
+Main topic: "${mainTopic}"
+Learning point: "${learningPoint}"
+Key terms to include: "${requiredTermsStr}"
+
+Return ONLY a JSON array of 3 strings.`;
+            const response = await this.makeRequest(prompt, { temperature: 0.2 });
             return this.parseJSONResponse(response);
         }
 
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
             log(`GEMINI: Checking relevance of "${videoTitle}" for "${learningPoint}"`);
 
-            let prompt = `You are an extremely strict educational content filter. Analyze if this YouTube video is relevant for learning about "${learningPoint}" in the context of "${mainTopic}".
+            // Extract domain information for stronger filtering
+            const isLinguisticTopic = /onomatopoeia|language|linguistic|pronunciation|phonetic|sound.*word|cultural.*sound/i.test(mainTopic + ' ' + learningPoint);
+            const isCulturalTopic = /korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi|cultural|traditional/i.test(mainTopic + ' ' + learningPoint);
+            
+            // Check for obvious mismatches in the title first
+            const softwareTerms = /maschine|ableton|logic|pro tools|fl studio|cubase|reaper|audacity|audio editor|music production|daw|vst|plugin|software|app development|programming|coding/i;
+            const hasSoftwareTerms = softwareTerms.test(videoTitle);
+            
+            if ((isLinguisticTopic || isCulturalTopic) && hasSoftwareTerms) {
+                log(`RELEVANCE CHECK: Quick reject - Software video "${videoTitle}" for cultural/linguistic topic "${mainTopic}"`);
+                return { 
+                    relevant: false, 
+                    reason: `Software/technical video "${videoTitle}" is not relevant for cultural/linguistic topic "${mainTopic}"`,
+                    confidence: 9
+                };
+            }
 
-Video Title: "${videoTitle}"
-Learning Topic: "${learningPoint}"
-Main Subject: "${mainTopic}"`;
+            let prompt = `You are an ULTRA-STRICT educational content filter with domain expertise. Analyze if this YouTube video is educationally relevant for "${learningPoint}" in the context of "${mainTopic}".
 
-            // If we have a transcript, include it in the analysis
+VIDEO ANALYSIS:
+Title: "${videoTitle}"
+Learning Goal: "${learningPoint}"
+Main Subject: "${mainTopic}"
+
+DOMAIN CONTEXT:
+${isLinguisticTopic ? '- This is a LINGUISTIC/LANGUAGE topic requiring cultural authenticity' : ''}
+${isCulturalTopic ? '- This is a CULTURAL topic requiring cultural specificity' : ''}`;
+
             if (transcript && transcript.trim().length > 0) {
-                // Truncate transcript if too long (keep to reasonable length for API)
                 const truncatedTranscript = transcript.length > 2000 
                     ? transcript.substring(0, 2000) + "..." 
                     : transcript;
 
                 prompt += `
 
-Video Transcript (first 2000 characters):
+TRANSCRIPT ANALYSIS:
 "${truncatedTranscript}"
 
-ULTRA-STRICT ANALYSIS WITH TRANSCRIPT - Mark as relevant ONLY if:
-1. The transcript content directly discusses "${learningPoint}" or closely related concepts from "${mainTopic}"
-2. The video provides educational content specifically about the learning topic (not tangentially related)
-3. The transcript shows substantial educational value focused on the exact topic
-4. The content is NOT about software/tools unless the learning point is specifically about that software
-5. The content is NOT about audio production, music editing, or technical software when the topic is linguistic/cultural
-6. For linguistic topics (like onomatopoeias), reject videos about audio editing, music production, or sound effects creation
-7. For cultural topics, reject videos about unrelated technical subjects
+ULTRA-STRICT TRANSCRIPT-BASED CRITERIA - Mark as relevant ONLY if:
+1. Transcript explicitly discusses "${mainTopic}" with proper cultural/linguistic context
+2. Content is educational about the EXACT topic (not tangentially related)
+3. Video teaches about the specific subject matter, not technical tools
+4. For "${mainTopic}": Content must authentically address this exact topic
 
-DOMAIN MISMATCH DETECTION:
-- If learning topic is about language/linguistics and video is about software/music production: NOT RELEVANT
-- If learning topic is about cultural concepts and video is about technical skills: NOT RELEVANT
-- If learning topic is about academic subjects and video is about software tutorials: NOT RELEVANT
+AUTOMATIC REJECTION TRIGGERS:
+- Software/Music Production: ${isLinguisticTopic || isCulturalTopic ? 'AUTOMATIC REJECT - Wrong domain for cultural/linguistic topic' : 'Reject unless topic is specifically about that software'}
+- Generic Audio Content: REJECT for specific cultural/linguistic topics
+- Technical Tutorials: REJECT unless topic is technical
+- Wrong Cultural Context: REJECT if discussing wrong culture/language
 
-Use both the title AND transcript content to make your decision. The transcript is much more reliable than just the title.`;
+DOMAIN ENFORCEMENT:
+${isLinguisticTopic ? '- LINGUISTIC TOPIC: Must discuss language learning, phonetics, cultural language aspects - NOT audio editing or music production' : ''}
+${isCulturalTopic ? '- CULTURAL TOPIC: Must discuss cultural education, traditions, authentic cultural content - NOT software or technical subjects' : ''}`;
             } else {
                 prompt += `
 
-(No transcript available - analyzing title only)
+TITLE-ONLY ANALYSIS (Less reliable, be MORE strict):
 
-ULTRA-STRICT CRITERIA - Mark as relevant ONLY if:
-1. Video title directly mentions concepts from "${learningPoint}" or "${mainTopic}"
-2. Video appears to be educational content specifically about the learning topic
-3. Video is NOT about software/tools unless that's specifically the learning goal
-4. Video is NOT about audio production, music editing, or technical software when the topic is linguistic/cultural
-5. For linguistic topics, reject videos about "sound effects", "audio editing", "music production"
-6. For cultural topics, reject videos about technical software or unrelated subjects`;
+ULTRA-STRICT TITLE-BASED CRITERIA - Mark as relevant ONLY if:
+1. Title explicitly mentions "${mainTopic}" or direct synonyms
+2. Title indicates educational/instructional content about the exact topic
+3. Title does not contain software names, music production terms, or technical jargon
+4. Title suggests authentic cultural/educational content for the specific topic
+
+AUTOMATIC TITLE-BASED REJECTIONS:
+- Contains software names (Maschine, Ableton, Logic, etc.): ${isLinguisticTopic || isCulturalTopic ? 'AUTOMATIC REJECT' : 'REJECT unless software is the topic'}
+- Contains "audio editing", "music production", "sound effects": ${isLinguisticTopic || isCulturalTopic ? 'AUTOMATIC REJECT' : 'NEUTRAL'}
+- Generic terms without cultural specificity: REJECT for cultural topics
+- Wrong cultural context: AUTOMATIC REJECT`;
             }
 
             prompt += `
 
-Examples of RELEVANT videos:
-- "Korean Onomatopoeia in Language Learning" for "Korean onomatopoeias"
-- "Understanding Japanese Sound Words" for "onomatopoeia in Japanese"
-- "Building Gemini AI Apps Tutorial" for "Gemini app development"
+RELEVANCE EXAMPLES:
+FOR "${mainTopic}":
+✅ RELEVANT: "Korean Onomatopoeia Tutorial", "Learning Korean Sound Words", "Korean Language Sounds Explained"
+❌ NOT RELEVANT: "Maschine Beat Tutorial", "Audio Editing Tips", "Sound Effects Library", "Music Production Sounds"
 
-Examples of NOT RELEVANT videos:
-- "Sound Effects in Music Editor" for "Korean onomatopoeias" (different domain - technical vs linguistic)
-- "Audio Production Tips" for "onomatopoeia" (technical vs linguistic)
-- "How to Open Google Docs" for "creating app documentation" (too basic/generic)
-- "Music Software Tutorial" for any language/cultural topic
-- "Audio Editing Sounds" for linguistic or cultural learning topics
+CONFIDENCE SCORING:
+- 9-10: Perfect match with cultural/educational authenticity
+- 7-8: Good educational content about the exact topic
+- 5-6: Somewhat related but missing key elements
+- 1-4: Poor match or wrong domain
+- 0: Completely irrelevant
 
-DOMAIN CLASSIFICATION:
-- Language/Linguistic topics should match with language/cultural content, NOT technical/software content
-- Technical topics should match with technical content, NOT general advice
-- Cultural topics should match with cultural/educational content, NOT software tutorials
+Be EXTREMELY conservative. When in doubt, mark as NOT relevant.
 
-Be extremely strict about domain matching. When in doubt, mark as NOT relevant.
+Return ONLY: {"relevant": true/false, "reason": "detailed explanation", "confidence": 1-10}`;
 
-Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanation", "confidence": 1-10}`;
-
-            const response = await this.makeRequest(prompt, { temperature: 0.05 });
+            const response = await this.makeRequest(prompt, { temperature: 0.01 });
             const result = this.parseJSONResponse(response);
 
             if (result && typeof result.relevant === 'boolean') {
                 const transcriptNote = transcript ? " (with transcript)" : " (title only)";
-                log(`RELEVANCE CHECK: ${result.relevant ? 'RELEVANT' : 'NOT RELEVANT'} (Confidence: ${result.confidence || 'N/A'})${transcriptNote} - ${result.reason}`);
+                const domainNote = isLinguisticTopic ? " [LINGUISTIC]" : isCulturalTopic ? " [CULTURAL]" : " [GENERAL]";
+                log(`RELEVANCE CHECK${domainNote}: ${result.relevant ? 'RELEVANT' : 'NOT RELEVANT'} (Confidence: ${result.confidence || 'N/A'})${transcriptNote} - ${result.reason}`);
                 return result;
             }
 
-            // More conservative fallback: assume NOT relevant if we can't parse
-            log('RELEVANCE CHECK: Fallback to NOT relevant (parsing failed - being conservative)');
-            return { relevant: false, reason: "Could not determine relevance, being conservative" };
+            log('RELEVANCE CHECK: Fallback to NOT relevant (failed to parse - being ultra-conservative)');
+            return { relevant: false, reason: "Could not parse relevance response, defaulting to not relevant", confidence: 1 };
         }
 
         async generateNarration(learningPoint, previousPoint) {
