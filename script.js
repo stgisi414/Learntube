@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
     const CSE_ID = 'b53121b78d1c64563';
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+    const SUPADATA_API_KEY = "sd_1d4e0e4e3d5aecda115fc39d1d47a33b";
 
     const log = (message, ...args) => console.log(`[${new Date().toLocaleTimeString()}] ${message}`, ...args);
     const logError = (message, ...args) => console.error(`[${new Date().toLocaleTimeString()}] ERROR: ${message}`, ...args);
@@ -100,19 +101,48 @@ Return ONLY the valid JSON, no other text.`;
             return this.parseJSONResponse(response);
         }
 
-        async checkVideoRelevance(videoTitle, learningPoint, mainTopic) {
+        async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
             log(`GEMINI: Checking relevance of "${videoTitle}" for "${learningPoint}"`);
-            const prompt = `You are a strict educational content filter. Analyze if this YouTube video is relevant for learning about "${learningPoint}" in the context of "${mainTopic}".
+            
+            let prompt = `You are a strict educational content filter. Analyze if this YouTube video is relevant for learning about "${learningPoint}" in the context of "${mainTopic}".
 
 Video Title: "${videoTitle}"
 Learning Topic: "${learningPoint}"
-Main Subject: "${mainTopic}"
+Main Subject: "${mainTopic}"`;
+
+            // If we have a transcript, include it in the analysis
+            if (transcript && transcript.trim().length > 0) {
+                // Truncate transcript if too long (keep to reasonable length for API)
+                const truncatedTranscript = transcript.length > 2000 
+                    ? transcript.substring(0, 2000) + "..." 
+                    : transcript;
+                    
+                prompt += `
+
+Video Transcript (first 2000 characters):
+"${truncatedTranscript}"
+
+ANALYSIS WITH TRANSCRIPT - Mark as relevant ONLY if:
+1. The transcript content directly discusses "${learningPoint}" or related concepts from "${mainTopic}"
+2. The video provides educational content, tutorials, or explanations about the specific topic
+3. The transcript shows substantial educational value (not just mentions in passing)
+4. The content is NOT generic advice that could apply to any topic
+5. The content is NOT basic software usage unless that's specifically the learning goal
+
+Use both the title AND transcript content to make your decision. The transcript is much more reliable than just the title.`;
+            } else {
+                prompt += `
+
+(No transcript available - analyzing title only)
 
 STRICT CRITERIA - Mark as relevant ONLY if:
 1. Video title directly mentions concepts from "${learningPoint}" or "${mainTopic}"
 2. Video appears to be a tutorial, explanation, or educational content about the specific topic
 3. Video is NOT about basic software usage (like "how to open Google Docs") unless that's specifically what the learning point is about
-4. Video is NOT generic advice that could apply to any topic
+4. Video is NOT generic advice that could apply to any topic`;
+            }
+
+            prompt += `
 
 Examples of RELEVANT videos:
 - "Building Gemini AI Apps Tutorial" for "Gemini app development"
@@ -131,7 +161,8 @@ Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanat
             const result = this.parseJSONResponse(response);
             
             if (result && typeof result.relevant === 'boolean') {
-                log(`RELEVANCE CHECK: ${result.relevant ? 'RELEVANT' : 'NOT RELEVANT'} (Confidence: ${result.confidence || 'N/A'}) - ${result.reason}`);
+                const transcriptNote = transcript ? " (with transcript)" : " (title only)";
+                log(`RELEVANCE CHECK: ${result.relevant ? 'RELEVANT' : 'NOT RELEVANT'} (Confidence: ${result.confidence || 'N/A'})${transcriptNote} - ${result.reason}`);
                 return result;
             }
             
@@ -154,18 +185,46 @@ Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanat
             return await this.makeRequest(prompt, { temperature: 0.6, maxOutputTokens: 256 });
         }
 
-        async findVideoSegments(videoTitle, youtubeUrl, learningPoint) {
+        async findVideoSegments(videoTitle, youtubeUrl, learningPoint, transcript = null) {
             log(`SEGMENTER: Analyzing YouTube video for "${learningPoint}"`);
             try {
-                const prompt = `You are a video analyst. For a YouTube video titled "${videoTitle}", identify the most relevant segments for the learning topic: "${learningPoint}".
-- Educational videos usually have an intro (0-30s), main content, and an outro. Focus on the main content.
+                let prompt = `You are a video analyst. For a YouTube video titled "${videoTitle}", identify the most relevant segments for the learning topic: "${learningPoint}".`;
+                
+                if (transcript && transcript.trim().length > 0) {
+                    // Truncate transcript for analysis if too long
+                    const truncatedTranscript = transcript.length > 3000 
+                        ? transcript.substring(0, 3000) + "..." 
+                        : transcript;
+                    
+                    prompt += `
+
+Video Transcript:
+"${truncatedTranscript}"
+
+TRANSCRIPT-BASED ANALYSIS:
+- Use the transcript to identify specific time segments where "${learningPoint}" is discussed
+- Look for educational explanations, examples, or demonstrations related to the topic
 - Identify 1-3 key segments, each 30-120 seconds long. Total duration should be 60-240 seconds.
-- Return ONLY a valid JSON array like: [{"startTime": 45, "endTime": 135, "reason": "Explanation of core concepts"}]
-- If you can't determine specific segments, return one comprehensive segment: [{"startTime": 30, "endTime": 210, "reason": "Core educational content"}]`;
+- Prioritize segments with the most relevant and educational content
+- Avoid intro/outro segments unless they contain relevant information`;
+                } else {
+                    prompt += `
+
+(No transcript available - using general heuristics)
+- Educational videos usually have an intro (0-30s), main content, and an outro. Focus on the main content.
+- Identify 1-3 key segments, each 30-120 seconds long. Total duration should be 60-240 seconds.`;
+                }
+                
+                prompt += `
+
+Return ONLY a valid JSON array like: [{"startTime": 45, "endTime": 135, "reason": "Explanation of core concepts"}]
+If you can't determine specific segments, return one comprehensive segment: [{"startTime": 30, "endTime": 210, "reason": "Core educational content"}]`;
+
                 const response = await this.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 1024 });
                 const segments = this.parseJSONResponse(response);
                 if (Array.isArray(segments) && segments.length > 0 && typeof segments[0].startTime === 'number') {
-                    log(`SEGMENTER: Found ${segments.length} valid segments.`);
+                    const transcriptNote = transcript ? " (using transcript)" : " (using heuristics)";
+                    log(`SEGMENTER: Found ${segments.length} valid segments${transcriptNote}.`);
                     return segments;
                 }
                 log("SEGMENTER WARN: AI response invalid. Using fallback.");
@@ -208,6 +267,44 @@ Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanat
             } catch (error) {
                 logError(`SEARCH: Error for "${query}":`, error);
                 return [];
+            }
+        }
+
+        async getVideoTranscript(youtubeId) {
+            log(`TRANSCRIPT: Fetching transcript for video: ${youtubeId}`);
+            try {
+                const response = await fetch(`https://api.supadata.ai/v1/transcript?video_id=${youtubeId}`, {
+                    method: 'GET',
+                    headers: {
+                        'x-api-key': SUPADATA_API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    log(`TRANSCRIPT: API failed for ${youtubeId}: ${response.status} ${response.statusText}`);
+                    return null;
+                }
+
+                const data = await response.json();
+                
+                // Extract transcript text from the response
+                if (data && data.transcript) {
+                    const transcriptText = Array.isArray(data.transcript) 
+                        ? data.transcript.map(item => item.text || item.content || '').join(' ')
+                        : typeof data.transcript === 'string' 
+                        ? data.transcript 
+                        : JSON.stringify(data.transcript);
+                    
+                    log(`TRANSCRIPT: Successfully fetched ${transcriptText.length} characters for ${youtubeId}`);
+                    return transcriptText;
+                } else {
+                    log(`TRANSCRIPT: No transcript data found for ${youtubeId}`);
+                    return null;
+                }
+            } catch (error) {
+                logError(`TRANSCRIPT: Error fetching transcript for ${youtubeId}:`, error);
+                return null;
             }
         }
 
@@ -640,7 +737,7 @@ Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanat
                     return;
                 }
                 
-                // Step 2.5: Filter videos for relevance
+                // Step 2.5: Filter videos for relevance (with transcript analysis)
                 displayStatusMessage('🎯 Filtering relevant content...', `Checking relevance to: "${learningPoint}"`);
                 const uniqueVideos = [...new Map(allVideos.map(v => [v.youtubeId, v])).values()]
                     .sort((a, b) => b.educationalScore - a.educationalScore);
@@ -648,22 +745,43 @@ Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanat
                 const relevantVideos = [];
                 const mainTopic = currentLessonPlan.topic || learningPoint;
                 
-                // Check up to 12 top videos for relevance (increased for better selection)
-                for (const video of uniqueVideos.slice(0, 12)) {
-                    const relevanceCheck = await this.gemini.checkVideoRelevance(video.title, learningPoint, mainTopic);
+                // Check up to 8 top videos for relevance (reduced since transcript analysis is more thorough)
+                for (const video of uniqueVideos.slice(0, 8)) {
+                    displayStatusMessage('🎯 Analyzing video content...', `Checking: "${video.title}"`);
+                    
+                    // Fetch transcript for more accurate relevance checking
+                    const transcript = await this.videoSourcer.getVideoTranscript(video.youtubeId);
+                    
+                    const relevanceCheck = await this.gemini.checkVideoRelevance(
+                        video.title, 
+                        learningPoint, 
+                        mainTopic, 
+                        transcript
+                    );
+                    
                     if (relevanceCheck.relevant) {
-                        // Apply confidence-based scoring
-                        const confidenceBoost = (relevanceCheck.confidence || 5) / 2;
+                        // Apply confidence-based scoring (higher boost for transcript-based analysis)
+                        const confidenceBoost = transcript 
+                            ? (relevanceCheck.confidence || 5) / 1.5  // Higher boost with transcript
+                            : (relevanceCheck.confidence || 5) / 2;   // Lower boost without transcript
+                        
                         video.educationalScore += confidenceBoost;
                         video.relevanceConfidence = relevanceCheck.confidence || 5;
+                        video.hasTranscript = !!transcript;
+                        if (transcript) {
+                            video.transcript = transcript;
+                        }
                         relevantVideos.push(video);
-                        log(`RELEVANT VIDEO: "${video.title}" (Confidence: ${relevanceCheck.confidence || 'N/A'}) - ${relevanceCheck.reason}`);
+                        
+                        const transcriptNote = transcript ? " (with transcript)" : " (title only)";
+                        log(`RELEVANT VIDEO: "${video.title}" (Confidence: ${relevanceCheck.confidence || 'N/A'})${transcriptNote} - ${relevanceCheck.reason}`);
                     } else {
-                        log(`FILTERED OUT: "${video.title}" - ${relevanceCheck.reason}`);
+                        const transcriptNote = transcript ? " (analyzed transcript)" : " (title only)";
+                        log(`FILTERED OUT: "${video.title}"${transcriptNote} - ${relevanceCheck.reason}`);
                     }
                     
                     // Stop when we have enough HIGH-CONFIDENCE relevant videos
-                    if (relevantVideos.length >= 6) break;
+                    if (relevantVideos.length >= 5) break;
                 }
                 
                 // Further filter by confidence if we have multiple options
@@ -750,7 +868,13 @@ Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanat
             try {
                 const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
                 const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
-                currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint);
+                
+                // Use transcript if available from relevance checking
+                const transcript = video.transcript || null;
+                const transcriptNote = transcript ? " (with transcript data)" : " (title-based)";
+                displayStatusMessage('✂️ Finding best segments...', `Analyzing: "${video.title}"${transcriptNote}`);
+                
+                currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint, transcript);
                 if (!currentSegments || currentSegments.length === 0) {
                     currentSegments = [{ startTime: 30, endTime: 180, reason: "Default educational segment" }];
                 }
