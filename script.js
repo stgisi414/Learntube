@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     // =================================================================================
     // --- CORE STATE & UI REFERENCES ---
@@ -103,7 +102,7 @@ Return ONLY the valid JSON, no other text.`;
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
             const mainTopic = currentLessonPlan?.topic || learningPoint;
             const prompt = `Generate 3 simple, effective Youtube queries for "${learningPoint}" in the context of "${mainTopic}". 
-            
+
 IMPORTANT: Each query should specifically include key terms from "${mainTopic}" to ensure cultural/linguistic accuracy. For example:
 - If main topic is "Korean onomatopoeias", queries should include "Korean" 
 - If main topic is "Japanese art", queries should include "Japanese"
@@ -119,7 +118,7 @@ Example for "Korean onomatopoeias": ["Korean onomatopoeia sounds", "Korean langu
 
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
             log(`GEMINI: Checking relevance of "${videoTitle}" for "${learningPoint}"`);
-            
+
             let prompt = `You are an extremely strict educational content filter. Analyze if this YouTube video is relevant for learning about "${learningPoint}" in the context of "${mainTopic}".
 
 Video Title: "${videoTitle}"
@@ -132,7 +131,7 @@ Main Subject: "${mainTopic}"`;
                 const truncatedTranscript = transcript.length > 2000 
                     ? transcript.substring(0, 2000) + "..." 
                     : transcript;
-                    
+
                 prompt += `
 
 Video Transcript (first 2000 characters):
@@ -192,13 +191,13 @@ Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanat
 
             const response = await this.makeRequest(prompt, { temperature: 0.05 });
             const result = this.parseJSONResponse(response);
-            
+
             if (result && typeof result.relevant === 'boolean') {
                 const transcriptNote = transcript ? " (with transcript)" : " (title only)";
                 log(`RELEVANCE CHECK: ${result.relevant ? 'RELEVANT' : 'NOT RELEVANT'} (Confidence: ${result.confidence || 'N/A'})${transcriptNote} - ${result.reason}`);
                 return result;
             }
-            
+
             // More conservative fallback: assume NOT relevant if we can't parse
             log('RELEVANCE CHECK: Fallback to NOT relevant (parsing failed - being conservative)');
             return { relevant: false, reason: "Could not determine relevance, being conservative" };
@@ -207,16 +206,37 @@ Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanat
         async generateNarration(learningPoint, previousPoint) {
             log(`GEMINI: Generating narration for "${learningPoint}"`);
             const mainTopic = currentLessonPlan?.topic || learningPoint;
+
+            // Detect languages for mixed-language content generation
+            const isKorean = /korean|hangul|한국|onomatopoeia.*korean/i.test(mainTopic + ' ' + learningPoint);
+            const isJapanese = /japanese|nihongo|日本|hiragana|katakana|kanji/i.test(mainTopic + ' ' + learningPoint);
+            const isChinese = /chinese|mandarin|cantonese|中文|汉语|普通话/i.test(mainTopic + ' ' + learningPoint);
+            const isSpanish = /spanish|español|castellano|español/i.test(mainTopic + ' ' + learningPoint);
+            const isFrench = /french|français|francais/i.test(mainTopic + ' ' + learningPoint);
+
+            let languageInstruction = '';
+            if (isKorean) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use KOREAN text for Korean words/concepts (한국어). Use ENGLISH for explanations. Mark language boundaries with [LANG:ko] and [LANG:en] tags. Example: "[LANG:en]Korean onomatopoeia includes[LANG:ko] 야옹 (meow)[LANG:en] and[LANG:ko] 멍멍 (woof)[LANG:en]."';
+            } else if (isJapanese) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use JAPANESE text for Japanese words/concepts (日本語). Use ENGLISH for explanations. Mark language boundaries with [LANG:ja] and [LANG:en] tags.';
+            } else if (isChinese) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use CHINESE text for Chinese words/concepts (中文). Use ENGLISH for explanations. Mark language boundaries with [LANG:zh] and [LANG:en] tags.';
+            } else if (isSpanish) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use SPANISH text for Spanish words/concepts. Use ENGLISH for explanations. Mark language boundaries with [LANG:es] and [LANG:en] tags.';
+            } else if (isFrench) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use FRENCH text for French words/concepts. Use ENGLISH for explanations. Mark language boundaries with [LANG:fr] and [LANG:en] tags.';
+            }
+
             let prompt = previousPoint ?
                 `Write a simple 1-2 sentence transition for a lesson about "${mainTopic}". The previous topic was "${previousPoint}". Now we're learning about "${learningPoint}". 
-                
-IMPORTANT: Make sure to specifically mention "${mainTopic}" in your narration and keep the focus on this exact topic. Be specific about the cultural/linguistic context if applicable.
-                
+
+IMPORTANT: Make sure to specifically mention "${mainTopic}" in your narration and keep the focus on this exact topic. Be specific about the cultural/linguistic context if applicable.${languageInstruction}
+
 Keep it simple and educational. Just return the text.` :
                 `Write a simple 1-2 sentence welcome message for a lesson about "${mainTopic}", specifically focusing on "${learningPoint}". 
-                
-IMPORTANT: Make sure to specifically mention "${mainTopic}" in your welcome message and maintain any cultural/linguistic specificity.
-                
+
+IMPORTANT: Make sure to specifically mention "${mainTopic}" in your welcome message and maintain any cultural/linguistic specificity.${languageInstruction}
+
 Keep it friendly and educational. Just return the text.`;
             return await this.makeRequest(prompt, { temperature: 0.5, maxOutputTokens: 256 });
         }
@@ -225,9 +245,9 @@ Keep it friendly and educational. Just return the text.`;
             log(`GEMINI: Generating concluding narration for "${learningPoint}"`);
             const mainTopic = currentLessonPlan?.topic || learningPoint;
             const prompt = `Write a short, 1-sentence concluding summary for the topic "${learningPoint}" in the context of learning about "${mainTopic}". 
-            
+
 IMPORTANT: Make sure to specifically mention "${mainTopic}" and maintain any cultural/linguistic specificity in your summary.
-            
+
 This will play after the video or quiz. Keep it encouraging and specific to the exact topic. Just return the text.`;
             return await this.makeRequest(prompt, { temperature: 0.6, maxOutputTokens: 256 });
         }
@@ -236,13 +256,13 @@ This will play after the video or quiz. Keep it encouraging and specific to the 
             log(`SEGMENTER: Analyzing YouTube video for "${learningPoint}"`);
             try {
                 let prompt = `You are a video analyst. For a YouTube video titled "${videoTitle}", identify the most relevant segments for the learning topic: "${learningPoint}".`;
-                
+
                 if (transcript && transcript.trim().length > 0) {
                     // Truncate transcript for analysis if too long
                     const truncatedTranscript = transcript.length > 3000 
                         ? transcript.substring(0, 3000) + "..." 
                         : transcript;
-                    
+
                     prompt += `
 
 Video Transcript:
@@ -261,7 +281,7 @@ TRANSCRIPT-BASED ANALYSIS:
 - Educational videos usually have an intro (0-30s), main content, and an outro. Focus on the main content.
 - Identify 1-3 key segments, each 30-120 seconds long. Total duration should be 60-240 seconds.`;
                 }
-                
+
                 prompt += `
 
 Return ONLY a valid JSON array like: [{"startTime": 45, "endTime": 135, "reason": "Explanation of core concepts"}]
@@ -275,10 +295,10 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     return segments;
                 }
                 log("SEGMENTER WARN: AI response invalid. Using fallback.");
-                return [{ startTime: 30, endTime: 180, reason: "Main educational content (fallback)" }];
+                return [{ startTime: 30, endTime: 180, reason: "Main educational content" }];
             } catch (error) {
                 logError("SEGMENTER ERROR:", error);
-                return [{ startTime: 30, endTime: 180, reason: "Main educational content (fallback)" }];
+                return [{ startTime: 30, endTime: 180, reason: "Main educational content" }];
             }
         }
 
@@ -334,7 +354,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                 }
 
                 const data = await response.json();
-                
+
                 // Extract transcript text from the response
                 if (data && data.transcript) {
                     const transcriptText = Array.isArray(data.transcript) 
@@ -342,7 +362,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                         : typeof data.transcript === 'string' 
                         ? data.transcript 
                         : JSON.stringify(data.transcript);
-                    
+
                     log(`TRANSCRIPT: Successfully fetched ${transcriptText.length} characters for ${youtubeId}`);
                     return transcriptText;
                 } else {
@@ -376,221 +396,384 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
     }
 
     class SpeechEngine {
-        constructor() { this.apiKey = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8"; this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize'; this.audioElement = new Audio(); this.onCompleteCallback = null; this.onProgressCallback = null; this.isPaused = false; this.isPlaying = false; }
-        async play(text, { onProgress = null, onComplete = null } = {}) {
-            log(`SPEECH: Starting playback for text: "${text.substring(0, 50)}..."`);
-            this.stop();
-            if (!text) {
-                if (onComplete) onComplete();
-                return;
+        constructor() { 
+            this.apiKey = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8"; 
+            this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize'; 
+            this.onCompleteCallback = null; 
+            this.onProgressCallback = null; 
+            this.isPaused = false; 
+            this.isPlaying = false;
+            this.audioQueue = [];
+            this.currentAudioIndex = 0;
+            this.startTime = null;
+        }
+
+        detectLanguage(text) {
+            // Enhanced language detection
+            const patterns = {
+                'ko': /[\u3131-\u3163\uac00-\ud7a3]|korean|hangul|한국/i,
+                'ja': /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]|japanese|nihongo|日本/i,
+                'zh': /[\u4e00-\u9fff]|chinese|mandarin|中文|汉语/i,
+                'es': /spanish|español|castellano/i,
+                'fr': /french|français|francais/i,
+                'de': /german|deutsch/i,
+                'it': /italian|italiano/i,
+                'pt': /portuguese|português/i,
+                'ru': /[\u0400-\u04ff]|russian|русский/i,
+                'ar': /[\u0600-\u06ff]|arabic|عربي/i,
+                'hi': /[\u0900-\u097f]|hindi|हिन्दी/i
+            };
+
+            for (const [lang, pattern] of Object.entries(patterns)) {
+                if (pattern.test(text)) {
+                    return lang;
+                }
             }
-            this.onProgressCallback = onProgress;
-            this.onCompleteCallback = onComplete;
-            this.isPaused = false;
-            this.isPlaying = true;
-            
-            const startTime = Date.now(); // Track start time for fallback calculations
-            log('SPEECH: State set - isPlaying: true, isPaused: false');
+            return 'en'; // Default to English
+        }
+
+        getVoiceConfig(languageCode) {
+            const voices = {
+                'ko': { languageCode: 'ko-KR', name: 'ko-KR-Standard-A' },
+                'ja': { languageCode: 'ja-JP', name: 'ja-JP-Standard-A' },
+                'zh': { languageCode: 'zh-CN', name: 'zh-CN-Standard-A' },
+                'es': { languageCode: 'es-ES', name: 'es-ES-Standard-A' },
+                'fr': { languageCode: 'fr-FR', name: 'fr-FR-Standard-A' },
+                'de': { languageCode: 'de-DE', name: 'de-DE-Standard-A' },
+                'it': { languageCode: 'it-IT', name: 'it-IT-Standard-A' },
+                'pt': { languageCode: 'pt-BR', name: 'pt-BR-Standard-A' },
+                'ru': { languageCode: 'ru-RU', name: 'ru-RU-Standard-A' },
+                'ar': { languageCode: 'ar-XA', name: 'ar-XA-Standard-A' },
+                'hi': { languageCode: 'hi-IN', name: 'hi-IN-Standard-A' },
+                'en': { languageCode: 'en-US', name: 'en-US-Standard-C' }
+            };
+            return voices[languageCode] || voices['en'];
+        }
+
+        parseMultilingualText(text) {
+            // Parse text with [LANG:code] markers
+            const segments = [];
+            const langPattern = /\[LANG:(.*?)\](.*?)(?=\[LANG:|$)/g;
+            let match;
+            let lastIndex = 0;
+
+            while ((match = langPattern.exec(text)) !== null) {
+                // Add any text before the first language tag as English
+                if (lastIndex === 0 && match.index > 0) {
+                    const beforeText = text.substring(0, match.index).trim();
+                    if (beforeText) {
+                        segments.push({
+                            text: beforeText,
+                            language: 'en'
+                        });
+                    }
+                }
+
+                const lang = match[1];
+                const content = match[2].trim();
+                if (content) {
+                    segments.push({
+                        text: content,
+                        language: lang
+                    });
+                }
+                lastIndex = match.index + match[0].length;
+            }
+
+            // If no language tags found, detect language and create single segment
+            if (segments.length === 0) {
+                const detectedLang = this.detectLanguage(text);
+                segments.push({
+                    text: text.trim(),
+                    language: detectedLang
+                });
+            } else {
+                // Add any remaining text as English
+                const remainingText = text.substring(lastIndex).trim();
+                if (remainingText) {
+                    segments.push({
+                        text: remainingText,
+                        language: 'en'
+                    });
+                }
+            }
+
+            return segments.filter(segment => segment.text.length > 0);
+        }
+
+        async synthesizeSegment(text, languageCode) {
+            const voiceConfig = this.getVoiceConfig(languageCode);
+            log(`SPEECH: Synthesizing "${text.substring(0, 30)}..." in ${languageCode}`);
 
             const maxRetries = 2;
             let currentRetry = 0;
 
-            try {
-                let response;
-                while (currentRetry <= maxRetries) {
-                    try {
-                        response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                input: { text },
-                                voice: { languageCode: 'en-US', name: 'en-US-Standard-C' },
-                                audioConfig: { audioEncoding: 'MP3' }
-                            })
-                        });
+            while (currentRetry <= maxRetries) {
+                try {
+                    const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            input: { text },
+                            voice: voiceConfig,
+                            audioConfig: { audioEncoding: 'MP3' }
+                        })
+                    });
 
-                        // If the response is OK, break the retry loop and proceed.
-                        if (response.ok) {
-                            break;
-                        }
+                    if (response.ok) {
+                        const data = await response.json();
+                        return this.base64ToBlob(data.audioContent);
+                    }
 
-                        // Handle different error types
-                        if (response.status === 429 && currentRetry < maxRetries) {
-                            log(`SPEECH API: Rate limited. Retrying in ${currentRetry + 1} seconds...`);
-                            currentRetry++;
-                            await new Promise(resolve => setTimeout(resolve, (currentRetry) * 1000));
-                        } else if (response.status >= 500 && currentRetry < maxRetries) {
-                            log(`SPEECH API: Server error ${response.status}. Retrying...`);
-                            currentRetry++;
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                        } else {
-                            // For other errors or if retries are exhausted, throw an error to be caught below.
-                            const errorData = await response.json().catch(() => ({}));
-                            throw new Error(`Speech API failed with status ${response.status}: ${errorData.error?.message || 'Unknown API error'}`);
-                        }
-                    } catch (fetchError) {
-                        if (currentRetry < maxRetries) {
-                            log(`SPEECH API: Network error. Retrying...`);
-                            currentRetry++;
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                        } else {
-                            throw fetchError;
-                        }
+                    if (response.status === 429 && currentRetry < maxRetries) {
+                        log(`SPEECH API: Rate limited. Retrying in ${currentRetry + 1} seconds...`);
+                        currentRetry++;
+                        await new Promise(resolve => setTimeout(resolve, currentRetry * 1000));
+                    } else if (response.status >= 500 && currentRetry < maxRetries) {
+                        log(`SPEECH API: Server error ${response.status}. Retrying...`);
+                        currentRetry++;
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(`Speech API failed: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+                    }
+                } catch (fetchError) {
+                    if (currentRetry < maxRetries) {
+                        log(`SPEECH API: Network error. Retrying...`);
+                        currentRetry++;
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    } else {
+                        throw fetchError;
                     }
                 }
+            }
+        }
 
-                const data = await response.json();
-                const audioBlob = this.base64ToBlob(data.audioContent);
-                this.audioElement.src = URL.createObjectURL(audioBlob);
+        async play(text, { onProgress = null, onComplete = null } = {}) {
+            log(`SPEECH: Starting multilingual playback: "${text.substring(0, 50)}..."`);
+            this.stop();
 
-                // Add timeout for audio loading
-                const audioTimeout = setTimeout(() => {
-                    if (this.isPlaying) {
-                        logError('Audio loading timeout, using fallback');
-                        this.isPlaying = false;
-                        this.isPaused = false;
-                        if (this.onCompleteCallback) {
-                            log('SPEECH: Using fallback timer due to loading timeout');
-                            this.onCompleteCallback();
-                        }
-                    }
-                }, 10000); // 10 second timeout
+            if (!text) {
+                if (onComplete) onComplete();
+                return;
+            }
 
-                this.audioElement.onloadeddata = () => {
-                    clearTimeout(audioTimeout);
-                    log('SPEECH: Audio loaded successfully, attempting to play');
-                    if (this.isPlaying && !this.isPaused) {
-                        // Add a small delay to ensure audio is fully ready
-                        setTimeout(() => {
-                            if (this.isPlaying && !this.isPaused) {
-                                this.audioElement.play().then(() => {
-                                    log('SPEECH: Audio playback started successfully');
-                                }).catch(e => {
-                                    logError(`Audio play error: ${e}`);
-                                    if (this.onCompleteCallback) {
-                                        log('SPEECH: Using fallback timer due to play error');
-                                        this.onCompleteCallback();
-                                    }
-                                });
-                            }
-                        }, 100);
-                    }
-                };
+            this.onProgressCallback = onProgress;
+            this.onCompleteCallback = onComplete;
+            this.isPaused = false;
+            this.isPlaying = true;
+            this.startTime = Date.now();
 
-                this.audioElement.ontimeupdate = () => {
-                    if (this.onProgressCallback && this.audioElement.duration) this.onProgressCallback(this.audioElement.currentTime / this.audioElement.duration);
-                };
+            try {
+                // Parse text into language segments
+                const segments = this.parseMultilingualText(text);
+                log(`SPEECH: Parsed into ${segments.length} segments:`, segments.map(s => `${s.language}: "${s.text.substring(0, 20)}..."`));
 
-                this.audioElement.onended = () => {
-                    this.isPlaying = false;
-                    this.isPaused = false;
-                    if (this.onProgressCallback) this.onProgressCallback(1);
-                    if (this.onCompleteCallback) this.onCompleteCallback();
-                };
+                // Synthesize all segments in parallel for better performance
+                const audioPromises = segments.map(segment => 
+                    this.synthesizeSegment(segment.text, segment.language)
+                );
 
-                this.audioElement.oncanplay = () => {
-                    log('SPEECH: Audio can start playing');
-                };
-                
-                this.audioElement.oncanplaythrough = () => {
-                    log('SPEECH: Audio can play through without stopping');
-                };
-                
-                this.audioElement.onplay = () => {
-                    log('SPEECH: Audio play event fired');
-                };
-                
-                this.audioElement.onplaying = () => {
-                    log('SPEECH: Audio is now playing');
-                };
-                
-                this.audioElement.onerror = (e) => {
-                    clearTimeout(audioTimeout);
-                    logError(`Audio element error, falling back to timer`, e);
-                    this.isPlaying = false;
-                    this.isPaused = false;
-                    
-                    // Estimate speech duration based on text length (more realistic timing)
-                    const estimatedDuration = Math.max(3000, Math.min(text.length * 80, 15000));
-                    log(`SPEECH: Using fallback timer for ${estimatedDuration}ms`);
-                    
-                    // Simulate progress updates during fallback
-                    if (this.onProgressCallback) {
-                        const progressInterval = setInterval(() => {
-                            const elapsed = Date.now() - startTime;
-                            const progress = Math.min(elapsed / estimatedDuration, 1);
-                            this.onProgressCallback(progress);
-                            
-                            if (progress >= 1) {
-                                clearInterval(progressInterval);
-                            }
-                        }, 100);
-                        
-                        // Clean up interval when done
-                        setTimeout(() => clearInterval(progressInterval), estimatedDuration + 100);
-                    }
-                    
-                    // Call onComplete after the estimated duration
-                    if (this.onCompleteCallback) {
-                        setTimeout(() => {
-                            if (this.onCompleteCallback) {
-                                log('SPEECH: Fallback timer completed');
-                                this.onCompleteCallback();
-                            }
-                        }, estimatedDuration);
-                    }
-                };
+                const audioBlobs = await Promise.all(audioPromises);
+
+                // Create audio elements for each segment
+                this.audioQueue = audioBlobs.map((blob, index) => {
+                    const audio = new Audio();
+                    audio.src = URL.createObjectURL(blob);
+                    audio.preload = 'auto';
+                    return {
+                        audio,
+                        segment: segments[index],
+                        duration: 0 // Will be set when loaded
+                    };
+                });
+
+                this.currentAudioIndex = 0;
+
+                // Load duration for progress calculation
+                await this.loadAudioDurations();
+
+                // Start playing the first segment
+                this.playCurrentSegment();
 
             } catch (error) {
-                logError(`Speech Error: ${error}`);
-                this.isPlaying = false;
-                this.isPaused = false;
-                // Call onComplete after a delay as fallback
-                if (this.onCompleteCallback) {
+                logError(`SPEECH: Multilingual synthesis error:`, error);
+                this.fallbackTiming(text);
+            }
+        }
+
+        async loadAudioDurations() {
+            const loadPromises = this.audioQueue.map(item => 
+                new Promise(resolve => {
+                    const audio = item.audio;
+                    const onLoad = () => {
+                        item.duration = audio.duration || 2; // Fallback duration
+                        audio.removeEventListener('loadedmetadata', onLoad);
+                        audio.removeEventListener('canplaythrough', onLoad);
+                        resolve();
+                    };
+                    audio.addEventListener('loadedmetadata', onLoad);
+                    audio.addEventListener('canplaythrough', onLoad);
+                    // Timeout fallback
                     setTimeout(() => {
-                        if (this.onCompleteCallback) {
-                            log('SPEECH: Using fallback timer due to API error');
-                            this.onCompleteCallback();
-                        }
-                    }, Math.max(2000, text.length * 50)); // Estimate speech duration
+                        item.duration = 2;
+                        resolve();
+                    }, 3000);
+                })
+            );
+            await Promise.all(loadPromises);
+        }
+
+        playCurrentSegment() {
+            if (!this.isPlaying || this.currentAudioIndex >= this.audioQueue.length) {
+                this.handlePlaybackComplete();
+                return;
+            }
+
+            const currentItem = this.audioQueue[this.currentAudioIndex];
+            const audio = currentItem.audio;
+
+            log(`SPEECH: Playing segment ${this.currentAudioIndex + 1}/${this.audioQueue.length} (${currentItem.segment.language}): "${currentItem.segment.text.substring(0, 30)}..."`);
+
+            audio.onended = () => {
+                this.currentAudioIndex++;
+                setTimeout(() => this.playCurrentSegment(), 100); // Small gap between segments
+            };
+
+            audio.onerror = () => {
+                logError(`Audio error for segment ${this.currentAudioIndex + 1}`);
+                this.currentAudioIndex++;
+                setTimeout(() => this.playCurrentSegment(), 100);
+            };
+
+            audio.ontimeupdate = () => {
+                this.updateProgress();
+            };
+
+            audio.play().catch(e => {
+                logError(`Error playing segment ${this.currentAudioIndex + 1}:`, e);
+                this.currentAudioIndex++;
+                setTimeout(() => this.playCurrentSegment(), 100);
+            });
+        }
+
+        updateProgress() {
+            if (!this.onProgressCallback || this.audioQueue.length === 0) return;
+
+            const totalDuration = this.audioQueue.reduce((sum, item) => sum + (item.duration || 0), 0);
+            if (totalDuration === 0) return;
+
+            let elapsedDuration = 0;
+
+            // Add duration of completed segments
+            for (let i = 0; i < this.currentAudioIndex; i++) {
+                elapsedDuration += this.audioQueue[i].duration || 0;
+            }
+
+            // Add current segment progress
+            if (this.currentAudioIndex < this.audioQueue.length) {
+                const currentAudio = this.audioQueue[this.currentAudioIndex].audio;
+                elapsedDuration += currentAudio.currentTime || 0;
+            }
+
+            const progress = Math.min(elapsedDuration / totalDuration, 1);
+            this.onProgressCallback(progress);
+        }
+
+        handlePlaybackComplete() {
+            this.isPlaying = false;
+            this.isPaused = false;
+
+            if (this.onProgressCallback) this.onProgressCallback(1);
+            if (this.onCompleteCallback) this.onCompleteCallback();
+
+            log('SPEECH: Multilingual playback completed');
+        }
+
+        fallbackTiming(text) {
+            const estimatedDuration = Math.max(3000, Math.min(text.length * 80, 15000));
+            log(`SPEECH: Using fallback timer for ${estimatedDuration}ms`);
+
+            if (this.onProgressCallback) {
+                const progressInterval = setInterval(() => {
+                    if (!this.isPlaying) {
+                        clearInterval(progressInterval);
+                        return;
+                    }
+                    const elapsed = Date.now() - this.startTime;
+                    const progress = Math.min(elapsed / estimatedDuration, 1);
+                    this.onProgressCallback(progress);
+
+                    if (progress >= 1) {
+                        clearInterval(progressInterval);
+                    }
+                }, 100);
+            }
+
+            setTimeout(() => {
+                if (this.isPlaying && this.onCompleteCallback) {
+                    this.handlePlaybackComplete();
                 }
+            }, estimatedDuration);
+        }
+
+        pause() {
+            if (this.isPlaying && !this.isPaused && this.currentAudioIndex < this.audioQueue.length) {
+                this.audioQueue[this.currentAudioIndex].audio.pause();
+                this.isPaused = true;
+                log('SPEECH: Multilingual playback paused');
             }
         }
-        pause() { 
-            if (this.isPlaying && !this.isPaused) { this.audioElement.pause(); this.isPaused = true; log('Speech paused'); } }
-        resume() { 
-            if (this.isPaused && this.isPlaying) { this.audioElement.play().catch(e => logError(`Resume error: ${e}`)); this.isPaused = false; log('Speech resumed'); } }
-        stop() { 
-            log('SPEECH: Stopping audio playback');
-            try {
-                this.audioElement.pause(); 
-            } catch (e) {
-                log('SPEECH: Error pausing audio:', e);
+
+        resume() {
+            if (this.isPaused && this.isPlaying && this.currentAudioIndex < this.audioQueue.length) {
+                this.audioQueue[this.currentAudioIndex].audio.play().catch(e => logError(`Resume error:`, e));
+                this.isPaused = false;
+                log('SPEECH: Multilingual playback resumed');
             }
-            this.isPlaying = false; 
-            this.isPaused = false; 
-            if (this.audioElement.src) { 
+        }
+
+        stop() {
+            log('SPEECH: Stopping multilingual playback');
+            this.isPlaying = false;
+            this.isPaused = false;
+
+            // Stop and cleanup all audio elements
+            this.audioQueue.forEach(item => {
                 try {
-                    this.audioElement.currentTime = 0; 
-                    URL.revokeObjectURL(this.audioElement.src); 
-                    this.audioElement.src = ''; 
+                    item.audio.pause();
+                    item.audio.currentTime = 0;
+                    if (item.audio.src) {
+                        URL.revokeObjectURL(item.audio.src);
+                        item.audio.src = '';
+                    }
+                    // Clear event handlers
+                    item.audio.onended = null;
+                    item.audio.onerror = null;
+                    item.audio.ontimeupdate = null;
                 } catch (e) {
-                    log('SPEECH: Error cleaning up audio source:', e);
+                    log('SPEECH: Error cleaning up audio:', e);
                 }
-            } 
-            // Clear all event handlers to prevent issues
-            this.audioElement.onloadeddata = null;
-            this.audioElement.ontimeupdate = null;
-            this.audioElement.onended = null;
-            this.audioElement.onerror = null;
-            this.audioElement.oncanplay = null;
-            this.audioElement.oncanplaythrough = null;
-            this.audioElement.onplay = null;
-            this.audioElement.onplaying = null;
-            log('Speech stopped and cleaned up'); 
+            });
+
+            this.audioQueue = [];
+            this.currentAudioIndex = 0;
+            log('SPEECH: Multilingual cleanup completed');
         }
-        base64ToBlob(base64) { 
-            const byteCharacters = atob(base64); const byteArrays = []; for (let offset = 0; offset < byteCharacters.length; offset += 512) { const slice = byteCharacters.slice(offset, offset + 512); const byteNumbers = new Array(slice.length); for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i); byteArrays.push(new Uint8Array(byteNumbers)); } return new Blob(byteArrays, { type: 'audio/mpeg' }); }
+
+        base64ToBlob(base64) {
+            const byteCharacters = atob(base64);
+            const byteArrays = [];
+            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                const slice = byteCharacters.slice(offset, offset + 512);
+                const byteNumbers = new Array(slice.length);
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+                byteArrays.push(new Uint8Array(byteNumbers));
+            }
+            return new Blob(byteArrays, { type: 'audio/mpeg' });
+        }
     }
 
     class LearningPipeline {
@@ -618,16 +801,16 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             ui.levelSelection.classList.add('hidden');
             ui.lessonProgressContainer.classList.remove('hidden');
             ui.learningCanvasContainer.classList.remove('hidden');
-            
+
             // Completely remove all potential spacing elements
             document.getElementById('progress-spacer').classList.add('hidden');
             ui.inputSection.classList.add('hidden');
             ui.loadingIndicator.classList.add('hidden');
-            
+
             // Force compact header layout
             document.querySelector('header').style.marginBottom = '0.5rem';
             document.querySelector('header').style.paddingBottom = '0.25rem';
-            
+
             this.processNextLearningPoint();
         }
 
@@ -650,7 +833,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             updateStatus('narrating');
             updatePlayPauseIcon();
             ui.nextSegmentButton.disabled = true;
-            
+
             try {
                 const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
                 if (!narrationText) {
@@ -658,13 +841,13 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     onComplete();
                     return;
                 }
-                
+
                 displayTextContent(narrationText);
-                
+
                 // Create a promise that resolves only when speech completes
                 await new Promise((resolve) => {
                     let speechCompleted = false;
-                    
+
                     // Set up a timeout as safety net
                     const timeoutId = setTimeout(() => {
                         if (!speechCompleted) {
@@ -674,7 +857,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                             resolve();
                         }
                     }, 15000); // 15 second timeout
-                    
+
                     this.speechEngine.play(narrationText, {
                         onProgress: (progress) => {
                             if (lessonState === 'narrating') {
@@ -691,7 +874,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                         }
                     });
                 });
-                
+
                 // Only proceed if still in narrating state
                 if (lessonState === 'narrating') {
                     onComplete();
@@ -707,23 +890,23 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             updateStatus('narrating');
             updatePlayPauseIcon();
             ui.nextSegmentButton.disabled = true;
-            
+
             try {
                 const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
                 if (!narrationText) {
                     log("CONCLUDING NARRATION: No text generated, skipping to next step");
                     return;
                 }
-                
+
                 // Ensure text display is visible and force display the content
                 showTextDisplay();
                 displayTextContent(narrationText);
                 log("CONCLUDING NARRATION: Text content displayed on teleprompter");
-                
+
                 // Create a promise that resolves only when speech completes
                 await new Promise((resolve) => {
                     let speechCompleted = false;
-                    
+
                     // Set up a timeout as safety net
                     const timeoutId = setTimeout(() => {
                         if (!speechCompleted) {
@@ -733,7 +916,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                             resolve();
                         }
                     }, 20000); // Increased timeout for concluding narration
-                    
+
                     this.speechEngine.play(narrationText, {
                         onProgress: (progress) => {
                             if (lessonState === 'narrating') {
@@ -751,7 +934,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                         }
                     });
                 });
-                
+
                 // Only proceed if still in narrating state
                 if (lessonState === 'narrating') {
                     log("CONCLUDING NARRATION: Completed successfully");
@@ -783,35 +966,35 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     await this.createFallbackContent(learningPoint);
                     return;
                 }
-                
+
                 // Step 2.5: Filter videos for relevance (with transcript analysis)
                 displayStatusMessage('🎯 Filtering relevant content...', `Checking relevance to: "${learningPoint}"`);
                 const uniqueVideos = [...new Map(allVideos.map(v => [v.youtubeId, v])).values()]
                     .sort((a, b) => b.educationalScore - a.educationalScore);
-                
+
                 const relevantVideos = [];
                 const mainTopic = currentLessonPlan.topic || learningPoint;
-                
+
                 // Check up to 8 top videos for relevance (reduced since transcript analysis is more thorough)
                 for (const video of uniqueVideos.slice(0, 8)) {
                     displayStatusMessage('🎯 Analyzing video content...', `Checking: "${video.title}"`);
-                    
+
                     // Fetch transcript for more accurate relevance checking
                     const transcript = await this.videoSourcer.getVideoTranscript(video.youtubeId);
-                    
+
                     const relevanceCheck = await this.gemini.checkVideoRelevance(
                         video.title, 
                         learningPoint, 
                         mainTopic, 
                         transcript
                     );
-                    
+
                     if (relevanceCheck.relevant) {
                         // Apply confidence-based scoring (higher boost for transcript-based analysis)
                         const confidenceBoost = transcript 
                             ? (relevanceCheck.confidence || 5) / 1.5  // Higher boost with transcript
                             : (relevanceCheck.confidence || 5) / 2;   // Lower boost without transcript
-                        
+
                         video.educationalScore += confidenceBoost;
                         video.relevanceConfidence = relevanceCheck.confidence || 5;
                         video.hasTranscript = !!transcript;
@@ -819,18 +1002,18 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                             video.transcript = transcript;
                         }
                         relevantVideos.push(video);
-                        
+
                         const transcriptNote = transcript ? " (with transcript)" : " (title only)";
                         log(`RELEVANT VIDEO: "${video.title}" (Confidence: ${relevanceCheck.confidence || 'N/A'})${transcriptNote} - ${relevanceCheck.reason}`);
                     } else {
                         const transcriptNote = transcript ? " (analyzed transcript)" : " (title only)";
                         log(`FILTERED OUT: "${video.title}"${transcriptNote} - ${relevanceCheck.reason}`);
                     }
-                    
+
                     // Stop when we have enough HIGH-CONFIDENCE relevant videos
                     if (relevantVideos.length >= 5) break;
                 }
-                
+
                 // Further filter by confidence if we have multiple options
                 if (relevantVideos.length > 3) {
                     relevantVideos.sort((a, b) => {
@@ -840,9 +1023,9 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     });
                     relevantVideos = relevantVideos.slice(0, 4); // Keep only top 4 most relevant
                 }
-                
+
                 log(`Relevant videos after filtering: ${relevantVideos.length}`);
-                
+
                 // If no relevant videos found, fall back to original top videos with warning
                 if (relevantVideos.length === 0) {
                     log("WARNING: No relevant videos found, using top search results as fallback");
@@ -850,12 +1033,12 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                 } else {
                     currentVideoChoices = relevantVideos.sort((a, b) => b.educationalScore - a.educationalScore);
                 }
-                
+
                 if (currentVideoChoices.length === 0) {
                     await this.createFallbackContent(learningPoint);
                     return;
                 }
-                
+
                 log(`FLOW: Found ${currentVideoChoices.length} relevant videos for "${learningPoint}"`);
                 this.autoSelectBestVideo(learningPoint);
             } catch (error) {
@@ -867,13 +1050,13 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
         async autoSelectBestVideo(learningPoint) {
             log("FLOW: Step 4 - Auto-selecting best video with final validation");
             updateStatus('choosing_video');
-            
+
             // Get the top candidate
             let bestVideo = currentVideoChoices[0];
-            
+
             // Double-check the selected video with an even stricter prompt
             const finalCheck = await this.gemini.checkVideoRelevance(bestVideo.title, learningPoint, currentLessonPlan.topic);
-            
+
             // If the best video fails the final check, try the next one
             if (!finalCheck.relevant && currentVideoChoices.length > 1) {
                 log(`FINAL CHECK: Best video "${bestVideo.title}" failed final relevance check. Trying next option.`);
@@ -884,7 +1067,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     log(`FINAL CHECK: Trying third option: "${bestVideo.title}"`);
                 }
             }
-            
+
             log(`FLOW: Final selected video: ${bestVideo.title} (ID: ${bestVideo.youtubeId})`);
             displayStatusMessage('✅ Video selected!', `"${bestVideo.title}"`);
             setTimeout(() => this.generateSegments(bestVideo), 1500);
@@ -915,12 +1098,12 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             try {
                 const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
                 const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
-                
+
                 // Use transcript if available from relevance checking
                 const transcript = video.transcript || null;
                 const transcriptNote = transcript ? " (with transcript data)" : " (title-based)";
                 displayStatusMessage('✂️ Finding best segments...', `Analyzing: "${video.title}"${transcriptNote}`);
-                
+
                 currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint, transcript);
                 if (!currentSegments || currentSegments.length === 0) {
                     currentSegments = [{ startTime: 30, endTime: 180, reason: "Default educational segment" }];
@@ -1048,16 +1231,16 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
         async handleVideoEnd() {
             log('Video playbook finished');
             ui.skipVideoButton.style.display = 'none';
-            
+
             // Cleanup video player first
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} this.youtubePlayer = null; }
             ui.youtubePlayerContainer.innerHTML = '';
-            
+
             // Force show text display for concluding narration
             showTextDisplay();
-            
+
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-            
+
             // Show the teleprompter with concluding narration
             log('FLOW: Starting concluding narration sequence for:', learningPoint);
             console.log('DEBUG: Pre-narration state check:', {
@@ -1068,13 +1251,13 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     isPaused: this.speechEngine.isPaused
                 }
             });
-            
+
             // Show initial text while generating narration
             displayStatusMessage('🎯 Wrapping up...', `Summarizing: "${learningPoint}"`);
-            
+
             // Wait for concluding narration to complete before showing quiz
             await this.playConcludingNarration(learningPoint);
-            
+
             console.log('DEBUG: Post-narration state check:', {
                 lessonState,
                 speechEngineState: {
@@ -1082,7 +1265,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     isPaused: this.speechEngine.isPaused
                 }
             });
-            
+
             this.showQuiz();
         }
 
@@ -1193,53 +1376,52 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
 
     function showTextDisplay() {
         if (!ui.canvas) return;
-        
+
         // Make canvas visible and interactive
         ui.canvas.style.display = 'block';
         ui.canvas.style.opacity = '1';
         ui.canvas.style.pointerEvents = 'auto';
         ui.canvas.style.zIndex = '25';
-        
+
         // Hide YouTube player completely during text display
         ui.youtubePlayerContainer.style.display = 'none';
         ui.youtubePlayerContainer.innerHTML = '';
-        
+
         log('TEXT DISPLAY: Canvas is now visible');
     }
 
     function hideTextDisplay() {
         if (!ui.canvas) return;
-        
+
         // Hide canvas
         ui.canvas.style.opacity = '0';
         ui.canvas.style.pointerEvents = 'none';
         ui.canvas.style.zIndex = '20';
-        
+
         // Show YouTube player area
         ui.youtubePlayerContainer.style.display = 'block';
-        
-        log('TEXT DISPLAY: Canvas is now hidden');
-    }
+
+        log('TEXT DISPLAY: Canvas is now hidden');    }
 
     function displayTextContent(text) {
         if (!ui.canvas || !text) {
             log('TEXT DISPLAY: Missing canvas or text');
             return;
         }
-        
+
         // Ensure text display is visible
         showTextDisplay();
-        
+
         // Force canvas to proper size
         const containerRect = ui.canvas.parentElement.getBoundingClientRect();
         ui.canvas.width = containerRect.width;
         ui.canvas.height = containerRect.height;
-        
+
         const ctx = ui.canvas.getContext('2d');
-        
+
         // Clear entire canvas
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
-        
+
         // Create dark background with gradient
         const bgGradient = ctx.createLinearGradient(0, 0, 0, ui.canvas.height);
         bgGradient.addColorStop(0, '#1e293b');
@@ -1247,12 +1429,12 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
         bgGradient.addColorStop(1, '#1e1b4b');
         ctx.fillStyle = bgGradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
-        
+
         // Configure text rendering with enhanced mobile optimization
         const isMobile = ui.canvas.width <= 768;
         const isVerySmall = ui.canvas.width <= 400;
         const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
-        
+
         let fontSize, lineHeight, maxWidth, padding;
         if (isVerySmall) {
             // Very small screen optimization
@@ -1273,31 +1455,31 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             maxWidth = ui.canvas.width * 0.88;
             padding = ui.canvas.width * 0.06;
         }
-        
+
         ctx.font = `600 ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
+
         // White text with optimized shadow for mobile
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
         ctx.shadowBlur = isMobile ? 3 : 8;
         ctx.shadowOffsetX = isMobile ? 1 : 3;
         ctx.shadowOffsetY = isMobile ? 1 : 3;
-        
+
         // Enhanced word wrapping for mobile
         const words = text.split(' ');
         const lines = [];
         let currentLine = '';
-        
+
         for (let i = 0; i < words.length; i++) {
             const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
             const metrics = ctx.measureText(testLine);
-            
+
             if (metrics.width > maxWidth && currentLine) {
                 lines.push(currentLine);
                 currentLine = words[i];
-                
+
                 // Handle very long words on mobile
                 if (isMobile && ctx.measureText(currentLine).width > maxWidth) {
                     // Break very long words
@@ -1321,7 +1503,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
         if (currentLine) {
             lines.push(currentLine);
         }
-        
+
         // Calculate vertical positioning with better mobile spacing
         const totalTextHeight = lines.length * lineHeight;
         const availableHeight = ui.canvas.height - (padding * 2);
@@ -1329,7 +1511,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             padding + (lineHeight / 2),
             (ui.canvas.height / 2) - (totalTextHeight / 2) + (lineHeight / 2)
         );
-        
+
         // Draw each line with mobile optimization
         lines.forEach((line, index) => {
             const lineY = startY + (index * lineHeight);
@@ -1338,43 +1520,43 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                 ctx.fillText(line, ui.canvas.width / 2, lineY);
             }
         });
-        
+
         // Reset shadow settings
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
-        
+
         log(`TEXT DISPLAY: Rendered "${text.substring(0, 50)}..." for ${isVerySmall ? 'very small' : isMobile ? 'mobile' : 'desktop'}`);
     }
 
     function animateTextProgress(fullText, progress) {
         if (!ui.canvas || !fullText) return;
-        
+
         // Ensure text display is visible
         showTextDisplay();
-        
+
         // Force canvas to proper size
         const containerRect = ui.canvas.parentElement.getBoundingClientRect();
         ui.canvas.width = containerRect.width;
         ui.canvas.height = containerRect.height;
-        
+
         const ctx = ui.canvas.getContext('2d');
-        
+
         // Clear and setup background
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
-        
+
         const bgGradient = ctx.createLinearGradient(0, 0, 0, ui.canvas.height);
         bgGradient.addColorStop(0, '#1e293b');
         bgGradient.addColorStop(0.5, '#0f172a');
         bgGradient.addColorStop(1, '#1e1b4b');
         ctx.fillStyle = bgGradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
-        
+
         // Configure text with mobile optimization
         const isMobile = ui.canvas.width <= 768;
         const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
-        
+
         let fontSize, lineHeight, maxWidth, padding;
         if (isMobile) {
             fontSize = Math.max(18, Math.min(baseSize / 20, 32));
@@ -1387,7 +1569,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             maxWidth = ui.canvas.width * 0.88;
             padding = ui.canvas.width * 0.06;
         }
-        
+
         ctx.font = `600 ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1395,16 +1577,16 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
         ctx.shadowBlur = isMobile ? 4 : 8;
         ctx.shadowOffsetX = isMobile ? 1 : 3;
         ctx.shadowOffsetY = isMobile ? 1 : 3;
-        
+
         // Split into lines
         const words = fullText.split(' ');
         const lines = [];
         let currentLine = '';
-        
+
         for (let i = 0; i < words.length; i++) {
             const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
             const metrics = ctx.measureText(testLine);
-            
+
             if (metrics.width > maxWidth && currentLine) {
                 lines.push(currentLine);
                 currentLine = words[i];
@@ -1415,7 +1597,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
         if (currentLine) {
             lines.push(currentLine);
         }
-        
+
         // Calculate positioning with mobile-optimized scroll effect
         const totalTextHeight = lines.length * lineHeight;
         const availableHeight = ui.canvas.height - (padding * 2);
@@ -1423,27 +1605,27 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             padding + (lineHeight / 2),
             (ui.canvas.height / 2) - (totalTextHeight / 2) + (lineHeight / 2)
         );
-        
+
         // Apply scroll based on progress with mobile optimization
         const scrollDistance = Math.max(0, totalTextHeight - availableHeight + lineHeight * (isMobile ? 2 : 3));
         const currentScroll = progress * scrollDistance;
-        
+
         // Draw lines with highlighting and fade effects
         lines.forEach((line, index) => {
             const lineY = startY + (index * lineHeight) - currentScroll;
-            
+
             // Only render visible lines
             if (lineY > -lineHeight && lineY < ui.canvas.height + lineHeight) {
                 // Calculate opacity based on position
                 let opacity = 1;
                 const fadeZone = lineHeight * (isMobile ? 1 : 1.5);
-                
+
                 if (lineY < fadeZone + padding) {
                     opacity = Math.max(0.2, (lineY - padding) / fadeZone);
                 } else if (lineY > ui.canvas.height - fadeZone - padding) {
                     opacity = Math.max(0.2, (ui.canvas.height - lineY - padding) / fadeZone);
                 }
-                
+
                 // Highlight current reading position
                 const lineProgress = Math.max(0, Math.min(1, (progress * lines.length) - index));
                 if (lineProgress > 0.8) {
@@ -1456,33 +1638,33 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     // Not yet read
                     ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.8})`;
                 }
-                
+
                 ctx.fillText(line, ui.canvas.width / 2, lineY);
             }
         });
-        
+
         // Reset shadow
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
-        
+
         log(`TEXT ANIMATION: Progress ${(progress * 100).toFixed(1)}% (${isMobile ? 'mobile' : 'desktop'})`);
     }
 
     function displayStatusMessage(mainText, subText = '') {
         showTextDisplay();
-        
+
         if (!ui.canvas) return;
-        
+
         // Force proper canvas sizing
         const containerRect = ui.canvas.parentElement.getBoundingClientRect();
         ui.canvas.width = containerRect.width;
         ui.canvas.height = containerRect.height;
-        
+
         const ctx = ui.canvas.getContext('2d');
         ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
-        
+
         // Dark background with blue gradient
         const gradient = ctx.createLinearGradient(0, 0, 0, ui.canvas.height);
         gradient.addColorStop(0, '#1e3a8a');
@@ -1490,12 +1672,12 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
         gradient.addColorStop(1, '#7c3aed');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
-        
+
         // Enhanced mobile text styling
         const isMobile = ui.canvas.width <= 768;
         const isVerySmall = ui.canvas.width <= 400;
         const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
-        
+
         let fontSize, maxWidth, spacing;
         if (isVerySmall) {
             fontSize = Math.max(20, Math.min(baseSize / 20, 32));
@@ -1510,7 +1692,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             maxWidth = ui.canvas.width * 0.85;
             spacing = 40;
         }
-        
+
         ctx.font = `bold ${fontSize}px Inter, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1525,7 +1707,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             const words = mainText.split(' ');
             const lines = [];
             let currentLine = '';
-            
+
             for (let i = 0; i < words.length; i++) {
                 const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
                 if (ctx.measureText(testLine).width > maxWidth && currentLine) {
@@ -1536,12 +1718,12 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                 }
             }
             if (currentLine) lines.push(currentLine);
-            
+
             // Draw wrapped main text
             const lineHeight = fontSize * 1.2;
             const totalHeight = lines.length * lineHeight;
             const startY = (ui.canvas.height / 2) - (totalHeight / 2) + (lineHeight / 2) - (subText ? spacing/2 : 0);
-            
+
             lines.forEach((line, index) => {
                 ctx.fillText(line, ui.canvas.width / 2, startY + (index * lineHeight));
             });
@@ -1555,13 +1737,13 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
             const subFontSize = Math.max(isMobile ? 14 : 20, fontSize * (isMobile ? 0.55 : 0.6)); 
             ctx.font = `${subFontSize}px Inter, sans-serif`; 
             ctx.fillStyle = 'rgba(200, 200, 200, 0.9)'; 
-            
+
             // Handle word wrapping for sub text on mobile
             if (isMobile && ctx.measureText(subText).width > maxWidth) {
                 const words = subText.split(' ');
                 const lines = [];
                 let currentLine = '';
-                
+
                 for (let i = 0; i < words.length; i++) {
                     const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
                     if (ctx.measureText(testLine).width > maxWidth && currentLine) {
@@ -1572,11 +1754,11 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     }
                 }
                 if (currentLine) lines.push(currentLine);
-                
+
                 // Draw wrapped sub text
                 const lineHeight = subFontSize * 1.2;
                 const startY = ui.canvas.height / 2 + spacing/2;
-                
+
                 lines.forEach((line, index) => {
                     ctx.fillText(line, ui.canvas.width / 2, startY + (index * lineHeight));
                 });
@@ -1584,13 +1766,13 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                 ctx.fillText(subText, ui.canvas.width / 2, ui.canvas.height / 2 + spacing);
             }
         }
-        
+
         // Reset shadow
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
-        
+
         log(`STATUS MESSAGE: "${mainText}"`);
     }
 
