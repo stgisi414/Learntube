@@ -104,7 +104,7 @@ Return ONLY the valid JSON, no other text.`;
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
             log(`GEMINI: Checking relevance of "${videoTitle}" for "${learningPoint}"`);
             
-            let prompt = `You are a strict educational content filter. Analyze if this YouTube video is relevant for learning about "${learningPoint}" in the context of "${mainTopic}".
+            let prompt = `You are an extremely strict educational content filter. Analyze if this YouTube video is relevant for learning about "${learningPoint}" in the context of "${mainTopic}".
 
 Video Title: "${videoTitle}"
 Learning Topic: "${learningPoint}"
@@ -122,12 +122,19 @@ Main Subject: "${mainTopic}"`;
 Video Transcript (first 2000 characters):
 "${truncatedTranscript}"
 
-ANALYSIS WITH TRANSCRIPT - Mark as relevant ONLY if:
-1. The transcript content directly discusses "${learningPoint}" or related concepts from "${mainTopic}"
-2. The video provides educational content, tutorials, or explanations about the specific topic
-3. The transcript shows substantial educational value (not just mentions in passing)
-4. The content is NOT generic advice that could apply to any topic
-5. The content is NOT basic software usage unless that's specifically the learning goal
+ULTRA-STRICT ANALYSIS WITH TRANSCRIPT - Mark as relevant ONLY if:
+1. The transcript content directly discusses "${learningPoint}" or closely related concepts from "${mainTopic}"
+2. The video provides educational content specifically about the learning topic (not tangentially related)
+3. The transcript shows substantial educational value focused on the exact topic
+4. The content is NOT about software/tools unless the learning point is specifically about that software
+5. The content is NOT about audio production, music editing, or technical software when the topic is linguistic/cultural
+6. For linguistic topics (like onomatopoeias), reject videos about audio editing, music production, or sound effects creation
+7. For cultural topics, reject videos about unrelated technical subjects
+
+DOMAIN MISMATCH DETECTION:
+- If learning topic is about language/linguistics and video is about software/music production: NOT RELEVANT
+- If learning topic is about cultural concepts and video is about technical skills: NOT RELEVANT
+- If learning topic is about academic subjects and video is about software tutorials: NOT RELEVANT
 
 Use both the title AND transcript content to make your decision. The transcript is much more reliable than just the title.`;
             } else {
@@ -135,29 +142,39 @@ Use both the title AND transcript content to make your decision. The transcript 
 
 (No transcript available - analyzing title only)
 
-STRICT CRITERIA - Mark as relevant ONLY if:
+ULTRA-STRICT CRITERIA - Mark as relevant ONLY if:
 1. Video title directly mentions concepts from "${learningPoint}" or "${mainTopic}"
-2. Video appears to be a tutorial, explanation, or educational content about the specific topic
-3. Video is NOT about basic software usage (like "how to open Google Docs") unless that's specifically what the learning point is about
-4. Video is NOT generic advice that could apply to any topic`;
+2. Video appears to be educational content specifically about the learning topic
+3. Video is NOT about software/tools unless that's specifically the learning goal
+4. Video is NOT about audio production, music editing, or technical software when the topic is linguistic/cultural
+5. For linguistic topics, reject videos about "sound effects", "audio editing", "music production"
+6. For cultural topics, reject videos about technical software or unrelated subjects`;
             }
 
             prompt += `
 
 Examples of RELEVANT videos:
+- "Korean Onomatopoeia in Language Learning" for "Korean onomatopoeias"
+- "Understanding Japanese Sound Words" for "onomatopoeia in Japanese"
 - "Building Gemini AI Apps Tutorial" for "Gemini app development"
-- "JavaScript Functions Explained" for "JavaScript functions"
 
 Examples of NOT RELEVANT videos:
+- "Sound Effects in Music Editor" for "Korean onomatopoeias" (different domain - technical vs linguistic)
+- "Audio Production Tips" for "onomatopoeia" (technical vs linguistic)
 - "How to Open Google Docs" for "creating app documentation" (too basic/generic)
-- "General Productivity Tips" for any specific technical topic
-- "WordPress Basics" for "React development"
+- "Music Software Tutorial" for any language/cultural topic
+- "Audio Editing Sounds" for linguistic or cultural learning topics
 
-Be very strict. When in doubt, mark as NOT relevant.
+DOMAIN CLASSIFICATION:
+- Language/Linguistic topics should match with language/cultural content, NOT technical/software content
+- Technical topics should match with technical content, NOT general advice
+- Cultural topics should match with cultural/educational content, NOT software tutorials
+
+Be extremely strict about domain matching. When in doubt, mark as NOT relevant.
 
 Return ONLY a JSON object: {"relevant": true/false, "reason": "specific explanation", "confidence": 1-10}`;
 
-            const response = await this.makeRequest(prompt, { temperature: 0.1 });
+            const response = await this.makeRequest(prompt, { temperature: 0.05 });
             const result = this.parseJSONResponse(response);
             
             if (result && typeof result.relevant === 'boolean') {
