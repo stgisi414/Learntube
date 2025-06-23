@@ -100,6 +100,38 @@ Return ONLY the valid JSON, no other text.`;
             return this.parseJSONResponse(response);
         }
 
+        async checkVideoRelevance(videoTitle, learningPoint, mainTopic) {
+            log(`GEMINI: Checking relevance of "${videoTitle}" for "${learningPoint}"`);
+            const prompt = `Analyze if this YouTube video is relevant for learning about "${learningPoint}" in the context of "${mainTopic}".
+
+Video Title: "${videoTitle}"
+Learning Topic: "${learningPoint}"
+Main Subject: "${mainTopic}"
+
+Consider:
+- Does the video title directly relate to the learning topic?
+- Would this video help someone learn about "${learningPoint}"?
+- Is it educational content (not entertainment, ads, or unrelated topics)?
+
+Return ONLY a JSON object: {"relevant": true/false, "reason": "brief explanation"}
+
+Examples:
+- Video: "Photoshop Tutorial" for Learning: "comedic persona" → {"relevant": false, "reason": "Photoshop is not related to developing comedy skills"}
+- Video: "Stand-up Comedy Basics" for Learning: "comedic persona" → {"relevant": true, "reason": "Directly teaches comedy fundamentals"}`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.2 });
+            const result = this.parseJSONResponse(response);
+            
+            if (result && typeof result.relevant === 'boolean') {
+                log(`RELEVANCE CHECK: ${result.relevant ? 'RELEVANT' : 'NOT RELEVANT'} - ${result.reason}`);
+                return result;
+            }
+            
+            // Fallback: assume relevant if we can't parse the response
+            log('RELEVANCE CHECK: Fallback to relevant (parsing failed)');
+            return { relevant: true, reason: "Could not determine relevance" };
+        }
+
         async generateNarration(learningPoint, previousPoint) {
             log(`GEMINI: Generating narration for "${learningPoint}"`);
             let prompt = previousPoint ?
@@ -592,22 +624,54 @@ Return ONLY the valid JSON, no other text.`;
                     displayStatusMessage('🔎 Searching educational videos...', `Query: "${query}"`);
                     const results = await this.videoSourcer.searchYouTube(query);
                     allVideos.push(...results);
-                    if (allVideos.length >= 10) break;
+                    if (allVideos.length >= 15) break; // Get more videos for filtering
                 }
                 log(`Total videos found: ${allVideos.length}`);
                 if (allVideos.length === 0) {
                     await this.createFallbackContent(learningPoint);
                     return;
                 }
+                
+                // Step 2.5: Filter videos for relevance
+                displayStatusMessage('🎯 Filtering relevant content...', `Checking relevance to: "${learningPoint}"`);
                 const uniqueVideos = [...new Map(allVideos.map(v => [v.youtubeId, v])).values()]
                     .sort((a, b) => b.educationalScore - a.educationalScore);
-                log(`Unique videos after filtering: ${uniqueVideos.length}`);
-                currentVideoChoices = uniqueVideos.slice(0, 5);
+                
+                const relevantVideos = [];
+                const mainTopic = currentLessonPlan.topic || learningPoint;
+                
+                // Check up to 8 top videos for relevance
+                for (const video of uniqueVideos.slice(0, 8)) {
+                    const relevanceCheck = await this.gemini.checkVideoRelevance(video.title, learningPoint, mainTopic);
+                    if (relevanceCheck.relevant) {
+                        // Boost relevance score for relevant videos
+                        video.educationalScore += 2;
+                        relevantVideos.push(video);
+                        log(`RELEVANT VIDEO: "${video.title}" - ${relevanceCheck.reason}`);
+                    } else {
+                        log(`FILTERED OUT: "${video.title}" - ${relevanceCheck.reason}`);
+                    }
+                    
+                    // Stop when we have enough relevant videos
+                    if (relevantVideos.length >= 5) break;
+                }
+                
+                log(`Relevant videos after filtering: ${relevantVideos.length}`);
+                
+                // If no relevant videos found, fall back to original top videos with warning
+                if (relevantVideos.length === 0) {
+                    log("WARNING: No relevant videos found, using top search results as fallback");
+                    currentVideoChoices = uniqueVideos.slice(0, 3);
+                } else {
+                    currentVideoChoices = relevantVideos.sort((a, b) => b.educationalScore - a.educationalScore);
+                }
+                
                 if (currentVideoChoices.length === 0) {
                     await this.createFallbackContent(learningPoint);
                     return;
                 }
-                log(`FLOW: Found ${currentVideoChoices.length} potential videos`);
+                
+                log(`FLOW: Found ${currentVideoChoices.length} relevant videos for "${learningPoint}"`);
                 this.autoSelectBestVideo(learningPoint);
             } catch (error) {
                 logError('Video search failed:', error);
