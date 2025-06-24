@@ -1,0 +1,377 @@
+[9:06:31 PM] YouTube IFrame API is ready.
+script.js:51 [9:06:42 PM] Resetting UI state
+script.js:51 [9:06:42 PM] SPEECH: Stopping multilingual playback
+script.js:51 [9:06:42 PM] SPEECH: Multilingual cleanup completed
+script.js:51 [9:06:42 PM] STATE: idle
+script.js:51 [9:06:42 PM] FLOW: Step 1 - Generate lesson plan
+script.js:51 [9:06:42 PM] GEMINI: Starting comprehensive lesson plan generation...
+script.js:51 [9:06:42 PM] GEMINI: Step 1 - Analyzing topic context and requirements
+script.js:51 [9:06:42 PM] GEMINI: Analyzing context for "korean idioms"
+script.js:51 [9:06:48 PM] GEMINI: Step 2 - Developing curriculum strategy
+script.js:51 [9:06:48 PM] GEMINI: Developing curriculum strategy for "korean idioms"
+script.js:51 [9:06:55 PM] GEMINI: Step 3 - Generating difficulty-specific lesson plans
+script.js:51 [9:06:55 PM] GEMINI: Generating learning points for all difficulty levels
+script.js:51 [9:07:02 PM] GEMINI: Step 4 - Quality assurance and refinement
+script.js:51 [9:07:02 PM] GEMINI: Conducting quality assurance review
+script.js:51 [9:07:14 PM] GEMINI: Lesson plan generation completed with AI oversight
+script.js:51 [9:07:15 PM] FLOW: Starting level Apprentice
+script.js:51 [9:07:15 PM] FLOW: Play intro narration
+script.js:51 [9:07:15 PM] STATE: narrating
+script.js:51 [9:07:15 PM] GEMINI: Generating narration for "Learn 10 common Korean idioms used in greetings and daily conversations. Focus on pronunciation, literal translations, and basic grammatical structures (particle usage and verb conjugation)."
+script.js:51 [9:07:25 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:25 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:25 PM] TEXT DISPLAY: Rendered "[LANG:en]Annyeonghaseyo! Welcome to our lesson on ..." for mobile
+script.js:51 [9:07:25 PM] NARRATION: Text displayed on teleprompter
+script.js:51 [9:07:25 PM] SPEECH: Starting multilingual playback: "[LANG:en]Annyeonghaseyo! Welcome to our lesson on ..."
+script.js:51 [9:07:25 PM] SPEECH: Stopping multilingual playback
+script.js:51 [9:07:25 PM] SPEECH: Multilingual cleanup completed
+script.js:51 [9:07:25 PM] SPEECH: Parsed into 3 segments: (3) ['en: "Annyeonghaseyo! Welc..."', 'ko: "한국어 속담 (Hangug-eo so..."', `en: "Today, we'll learn 1..."`]
+script.js:51 [9:07:25 PM] SPEECH: Synthesizing "Annyeonghaseyo! Welcome to our..." in en using voice en-US-Standard-H
+script.js:51 [9:07:25 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:25 PM] SPEECH: Synthesizing "한국어 속담 (Hangug-eo sokdam)..." in ko using voice ko-KR-Standard-C
+script.js:51 [9:07:25 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:25 PM] SPEECH: Synthesizing "Today, we'll learn 10 common K..." in en using voice en-US-Standard-H
+script.js:51 [9:07:25 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:26 PM] SPEECH: Successfully synthesized ko audio
+2script.js:51 [9:07:26 PM] SPEECH: Successfully synthesized en audio
+script.js:51 [9:07:26 PM] SPEECH: Playing segment 1/3 (en): "Annyeonghaseyo! Welcome to our..."
+script.js:51 [9:07:28 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:28 PM] TEXT ANIMATION: Progress 0.1% (mobile)
+script.js:51 [9:07:28 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:28 PM] TEXT ANIMATION: Progress 1.3% (mobile)
+script.js:51 [9:07:29 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:29 PM] TEXT ANIMATION: Progress 3.0% (mobile)
+script.js:51 [9:07:29 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:29 PM] TEXT ANIMATION: Progress 4.7% (mobile)
+script.js:51 [9:07:29 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:29 PM] TEXT ANIMATION: Progress 6.4% (mobile)
+script.js:51 [9:07:29 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:29 PM] TEXT ANIMATION: Progress 20.9% (mobile)
+script.js:51 [9:07:30 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:30 PM] TEXT ANIMATION: Progress 25.6% (mobile)
+script.js:51 [9:07:30 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:30 PM] TEXT ANIMATION: Progress 30.0% (mobile)
+script.js:51 [9:07:30 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:30 PM] TEXT ANIMATION: Progress 34.3% (mobile)
+script.js:51 [9:07:31 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:31 PM] TEXT ANIMATION: Progress 38.8% (mobile)
+script.js:51 [9:07:31 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:31 PM] TEXT ANIMATION: Progress 43.1% (mobile)
+script.js:51 [9:07:31 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:31 PM] TEXT ANIMATION: Progress 47.6% (mobile)
+script.js:51 [9:07:31 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:31 PM] TEXT ANIMATION: Progress 52.2% (mobile)
+script.js:51 [9:07:32 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:32 PM] TEXT ANIMATION: Progress 56.7% (mobile)
+script.js:51 [9:07:32 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:32 PM] TEXT ANIMATION: Progress 61.0% (mobile)
+script.js:51 [9:07:32 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:32 PM] TEXT ANIMATION: Progress 61.2% (mobile)
+script.js:51 [9:07:32 PM] SPEECH: Playing segment 2/3 (ko): "한국어 속담 (Hangug-eo sokdam)..."
+script.js:51 [9:07:32 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:32 PM] TEXT ANIMATION: Progress 37.1% (mobile)
+script.js:51 [9:07:33 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:33 PM] TEXT ANIMATION: Progress 41.5% (mobile)
+script.js:51 [9:07:33 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:33 PM] TEXT ANIMATION: Progress 45.9% (mobile)
+script.js:51 [9:07:33 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:33 PM] TEXT ANIMATION: Progress 50.2% (mobile)
+script.js:51 [9:07:33 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:33 PM] TEXT ANIMATION: Progress 54.5% (mobile)
+script.js:51 [9:07:34 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:34 PM] TEXT ANIMATION: Progress 59.4% (mobile)
+script.js:51 [9:07:34 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:34 PM] TEXT ANIMATION: Progress 63.6% (mobile)
+script.js:51 [9:07:34 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:34 PM] TEXT ANIMATION: Progress 68.1% (mobile)
+script.js:51 [9:07:34 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:34 PM] TEXT ANIMATION: Progress 72.6% (mobile)
+script.js:51 [9:07:35 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:35 PM] TEXT ANIMATION: Progress 76.9% (mobile)
+script.js:51 [9:07:35 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:35 PM] TEXT ANIMATION: Progress 81.3% (mobile)
+script.js:51 [9:07:35 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:35 PM] TEXT ANIMATION: Progress 86.0% (mobile)
+script.js:51 [9:07:35 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:35 PM] TEXT ANIMATION: Progress 86.5% (mobile)
+script.js:51 [9:07:35 PM] SPEECH: Playing segment 3/3 (en): "Today, we'll learn 10 common K..."
+script.js:51 [9:07:36 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:36 PM] TEXT ANIMATION: Progress 70.3% (mobile)
+script.js:51 [9:07:36 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:36 PM] TEXT ANIMATION: Progress 74.6% (mobile)
+script.js:51 [9:07:36 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:36 PM] TEXT ANIMATION: Progress 78.8% (mobile)
+script.js:51 [9:07:36 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:36 PM] TEXT ANIMATION: Progress 83.5% (mobile)
+script.js:51 [9:07:37 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:37 PM] TEXT ANIMATION: Progress 88.2% (mobile)
+script.js:51 [9:07:37 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:37 PM] TEXT ANIMATION: Progress 92.9% (mobile)
+script.js:51 [9:07:37 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:37 PM] TEXT ANIMATION: Progress 97.3% (mobile)
+script.js:51 [9:07:38 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:38 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:38 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:38 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:38 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:38 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:38 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:38 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:39 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:39 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:39 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:39 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:39 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:39 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:39 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:39 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:40 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:40 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:40 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:40 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:40 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:40 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [9:07:40 PM] NARRATION: Timeout reached, forcing completion
+script.js:51 [9:07:40 PM] SPEECH: Stopping multilingual playback
+script.js:51 [9:07:40 PM] SPEECH: Multilingual cleanup completed
+script.js:51 [9:07:40 PM] FLOW: Step 2 - Search educational videos
+script.js:51 [9:07:40 PM] STATE: searching_videos
+script.js:51 [9:07:40 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:40 PM] STATUS MESSAGE: "🔎 Finding educational content..."
+script.js:51 [9:07:40 PM] GEMINI: Generating search queries for "Learn 10 common Korean idioms used in greetings and daily conversations. Focus on pronunciation, literal translations, and basic grammatical structures (particle usage and verb conjugation)."
+script.js:51 [9:07:43 PM] Generated search queries: (6) ['learn korean idioms', 'korean idioms explained', 'korean idioms tutorial', 'korean idioms lesson', 'korean language tutorial', 'how to korean']
+script.js:51 [9:07:43 PM] Generated search queries: (6) ['learn korean idioms', 'korean idioms explained', 'korean idioms tutorial', 'korean idioms lesson', 'korean language tutorial', 'how to korean']
+script.js:51 [9:07:43 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:43 PM] STATUS MESSAGE: "🔎 Searching educational videos..."
+script.js:51 [9:07:43 PM] SEARCH: Using Custom Search for: "learn korean idioms"
+script.js:51 [9:07:43 PM] SEARCH: Found 10 valid videos for "learn korean idioms"
+script.js:51 [9:07:43 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:43 PM] STATUS MESSAGE: "🔎 Searching educational videos..."
+script.js:51 [9:07:43 PM] SEARCH: Using Custom Search for: "korean idioms explained"
+script.js:51 [9:07:44 PM] SEARCH: Found 2 valid videos for "korean idioms explained"
+script.js:51 [9:07:44 PM] Total videos found: 12
+script.js:51 [9:07:44 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:44 PM] STATUS MESSAGE: "🎯 Filtering relevant content..."
+script.js:51 [9:07:44 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:44 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [9:07:44 PM] TRANSCRIPT: Fetching transcript for video: jXofKO87g6o
+script.js:51 [9:07:46 PM] TRANSCRIPT: No transcript data found for jXofKO87g6o
+script.js:51 [9:07:46 PM] RELEVANCE CHECKER: Analyzing "Everyday Korean Idioms You Should Learn! - YouTube" for "Learn 10 common Korean idioms used in greetings and daily conversations. Focus on pronunciation, literal translations, and basic grammatical structures (particle usage and verb conjugation)." in context of "korean idioms"
+script.js:51 [9:07:46 PM] RELEVANCE: "Everyday Korean Idioms You Should Learn! - YouTube" - ACCEPTED (topic match + educational)
+script.js:51 [9:07:46 PM] RELEVANT VIDEO: "Everyday Korean Idioms You Should Learn! - YouTube" (Confidence: 9) (title only) - Topic match with educational content
+script.js:51 [9:07:46 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:46 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [9:07:46 PM] TRANSCRIPT: Fetching transcript for video: QOcfezfIxQE
+script.js:51 [9:07:49 PM] TRANSCRIPT: No transcript data found for QOcfezfIxQE
+script.js:51 [9:07:49 PM] RELEVANCE CHECKER: Analyzing "Run BTS Korean Phrases #5 (Learn Korean expressions; Study ..." for "Learn 10 common Korean idioms used in greetings and daily conversations. Focus on pronunciation, literal translations, and basic grammatical structures (particle usage and verb conjugation)." in context of "korean idioms"
+script.js:51 [9:07:49 PM] RELEVANCE: "Run BTS Korean Phrases #5 (Learn Korean expressions; Study ..." - ACCEPTED (topic match + educational)
+script.js:51 [9:07:49 PM] RELEVANT VIDEO: "Run BTS Korean Phrases #5 (Learn Korean expressions; Study ..." (Confidence: 9) (title only) - Topic match with educational content
+script.js:51 [9:07:49 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:49 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [9:07:49 PM] TRANSCRIPT: Fetching transcript for video: hedeKxI0RUc
+script.js:51 [9:07:51 PM] TRANSCRIPT: No transcript data found for hedeKxI0RUc
+script.js:51 [9:07:51 PM] RELEVANCE CHECKER: Analyzing "Funny Korean Idioms You Should Know! - Part 1 (ft. Korean Jream ..." for "Learn 10 common Korean idioms used in greetings and daily conversations. Focus on pronunciation, literal translations, and basic grammatical structures (particle usage and verb conjugation)." in context of "korean idioms"
+script.js:51 [9:07:51 PM] RELEVANCE: "Funny Korean Idioms You Should Know! - Part 1 (ft. Korean Jream ..." - ACCEPTED (topic match + educational)
+script.js:51 [9:07:51 PM] RELEVANT VIDEO: "Funny Korean Idioms You Should Know! - Part 1 (ft. Korean Jream ..." (Confidence: 9) (title only) - Topic match with educational content
+script.js:51 [9:07:51 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:51 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [9:07:51 PM] TRANSCRIPT: Fetching transcript for video: Ng8wDFeFTxc
+script.js:51 [9:07:54 PM] TRANSCRIPT: No transcript data found for Ng8wDFeFTxc
+script.js:51 [9:07:54 PM] RELEVANCE CHECKER: Analyzing "Funny Korean Idioms You Should Know! - Part 2 (ft. Korean Jream ..." for "Learn 10 common Korean idioms used in greetings and daily conversations. Focus on pronunciation, literal translations, and basic grammatical structures (particle usage and verb conjugation)." in context of "korean idioms"
+script.js:51 [9:07:54 PM] RELEVANCE: "Funny Korean Idioms You Should Know! - Part 2 (ft. Korean Jream ..." - ACCEPTED (topic match + educational)
+script.js:51 [9:07:54 PM] RELEVANT VIDEO: "Funny Korean Idioms You Should Know! - Part 2 (ft. Korean Jream ..." (Confidence: 9) (title only) - Topic match with educational content
+script.js:51 [9:07:54 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:54 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [9:07:54 PM] TRANSCRIPT: Fetching transcript for video: Ozavfdb8eJE
+script.js:51 [9:07:55 PM] TRANSCRIPT: No transcript data found for Ozavfdb8eJE
+script.js:51 [9:07:55 PM] RELEVANCE CHECKER: Analyzing "5 Idioms with "먹다" - NOT Related to Eating (Intermediate Korean ..." for "Learn 10 common Korean idioms used in greetings and daily conversations. Focus on pronunciation, literal translations, and basic grammatical structures (particle usage and verb conjugation)." in context of "korean idioms"
+script.js:51 [9:07:55 PM] RELEVANCE: "5 Idioms with "먹다" - NOT Related to Eating (Intermediate Korean ..." - ACCEPTED (topic match + educational)
+script.js:51 [9:07:55 PM] RELEVANT VIDEO: "5 Idioms with "먹다" - NOT Related to Eating (Intermediate Korean ..." (Confidence: 9) (title only) - Topic match with educational content
+script.js:52 [9:07:55 PM] ERROR: Video search failed: TypeError: Assignment to constant variable.
+    at LearningPipeline.searchVideos (script.js:1366:36)
+logError @ script.js:52
+searchVideos @ script.js:1387
+await in searchVideos
+(anonymous) @ script.js:1167
+playNarration @ script.js:1222
+await in playNarration
+processNextLearningPoint @ script.js:1167
+startLevel @ script.js:1153
+button.onclick @ script.js:2181Understand this error
+script.js:51 [9:07:55 PM] FLOW: Step 4B - Creating fallback content
+script.js:51 [9:07:55 PM] STATE: generating_segments
+script.js:51 [9:07:55 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:55 PM] STATUS MESSAGE: "🤖 Creating custom content..."
+script.js:51 [9:07:55 PM] GEMINI: Generating detailed explanation for "Learn 10 common Korean idioms used in greetings and daily conversations. Focus on pronunciation, literal translations, and basic grammatical structures (particle usage and verb conjugation)."
+script.js:51 [9:07:59 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:59 PM] STATUS MESSAGE: "📚 Learning segment"
+script.js:51 [9:07:59 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:07:59 PM] TEXT DISPLAY: Rendered "Annyeonghaseyo! Let's learn some common Korean idi..." for mobile
+script.js:51 [9:07:59 PM] SPEECH: Starting multilingual playback: "Annyeonghaseyo! Let's learn some common Korean idi..."
+script.js:51 [9:07:59 PM] SPEECH: Stopping multilingual playback
+script.js:51 [9:07:59 PM] SPEECH: Multilingual cleanup completed
+script.js:51 [9:07:59 PM] SPEECH: Parsed into 15 segments: (15) [`en: "Annyeonghaseyo! Let'..."`, 'ko: ", 은/는 – subject mark..."', 'en: "Idioms often have sp..."', 'ko: "**잘 지내세요?..."', 'en: "(jal jinaeseyo? )** ..."', 'ko: ""  The verb "지내다 (ji..."', 'en: "2...."', 'ko: "**오랜만이에요!..."', 'en: "(oraenmanieyo! )** L..."', 'ko: "" This greeting uses..."', 'en: "3...."', 'ko: "**밥 먹었어요?..."', 'en: "(bab meogeosseoyo? )..."', 'ko: ""  The verb "먹다 (meo..."', 'en: "Learning these idiom..."']
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "Annyeonghaseyo! Let's learn so..." in en using voice en-US-Standard-H
+script.js:51 [9:07:59 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing ", 은/는 – subject marker, 이/가 – ..." in ko using voice ko-KR-Standard-C
+script.js:51 [9:07:59 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "Idioms often have specific gra..." in en using voice en-US-Standard-H
+script.js:51 [9:07:59 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "**잘 지내세요?..." in ko using voice ko-KR-Standard-C
+script.js:51 [9:07:59 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "(jal jinaeseyo? )**  Literal: ..." in en using voice en-US-Standard-H
+script.js:51 [9:07:59 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing ""  The verb "지내다 (jinaeda)" – ..." in ko using voice ko-KR-Standard-C
+script.js:51 [9:07:59 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "2...." in en using voice en-US-Standard-H
+script.js:51 [9:07:59 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "**오랜만이에요!..." in ko using voice ko-KR-Standard-C
+script.js:51 [9:07:59 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "(oraenmanieyo! )** Literal: "I..." in en using voice en-US-Standard-H
+script.js:51 [9:07:59 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "" This greeting uses the noun ..." in ko using voice ko-KR-Standard-C
+script.js:51 [9:07:59 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "3...." in en using voice en-US-Standard-H
+script.js:51 [9:07:59 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "**밥 먹었어요?..." in ko using voice ko-KR-Standard-C
+script.js:51 [9:07:59 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "(bab meogeosseoyo? )** Literal..." in en using voice en-US-Standard-H
+script.js:51 [9:07:59 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing ""  The verb "먹다 (meokda)" – to..." in ko using voice ko-KR-Standard-C
+script.js:51 [9:07:59 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:07:59 PM] SPEECH: Synthesizing "Learning these idioms, along w..." in en using voice en-US-Standard-H
+script.js:51 [9:07:59 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [9:08:00 PM] SPEECH: Successfully synthesized ko audio
+script.js:51 [9:08:00 PM] SPEECH: Successfully synthesized en audio
+2script.js:51 [9:08:00 PM] SPEECH: Successfully synthesized ko audio
+script.js:51 [9:08:00 PM] SPEECH: Successfully synthesized en audio
+4script.js:51 [9:08:00 PM] SPEECH: Successfully synthesized ko audio
+4script.js:51 [9:08:00 PM] SPEECH: Successfully synthesized en audio
+2script.js:51 [9:08:01 PM] SPEECH: Successfully synthesized en audio
+script.js:51 [9:08:01 PM] SPEECH: Playing segment 1/15 (en): "Annyeonghaseyo! Let's learn so..."
+script.js:51 [9:08:02 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:02 PM] TEXT ANIMATION: Progress 0.0% (mobile)
+script.js:51 [9:08:03 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:03 PM] TEXT ANIMATION: Progress 0.3% (mobile)
+script.js:51 [9:08:03 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:03 PM] TEXT ANIMATION: Progress 0.5% (mobile)
+script.js:51 [9:08:03 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:03 PM] TEXT ANIMATION: Progress 0.8% (mobile)
+script.js:51 [9:08:03 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:03 PM] TEXT ANIMATION: Progress 1.0% (mobile)
+script.js:51 [9:08:04 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:04 PM] TEXT ANIMATION: Progress 1.2% (mobile)
+script.js:51 [9:08:04 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:04 PM] TEXT ANIMATION: Progress 1.5% (mobile)
+script.js:51 [9:08:04 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:04 PM] TEXT ANIMATION: Progress 6.3% (mobile)
+script.js:51 [9:08:05 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:05 PM] TEXT ANIMATION: Progress 7.3% (mobile)
+script.js:51 [9:08:05 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:05 PM] TEXT ANIMATION: Progress 8.1% (mobile)
+script.js:51 [9:08:05 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:05 PM] TEXT ANIMATION: Progress 9.0% (mobile)
+script.js:51 [9:08:05 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:05 PM] TEXT ANIMATION: Progress 9.9% (mobile)
+script.js:51 [9:08:06 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:06 PM] TEXT ANIMATION: Progress 10.7% (mobile)
+script.js:51 [9:08:06 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:06 PM] TEXT ANIMATION: Progress 11.6% (mobile)
+script.js:51 [9:08:06 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:06 PM] TEXT ANIMATION: Progress 12.6% (mobile)
+script.js:51 [9:08:06 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:06 PM] TEXT ANIMATION: Progress 13.5% (mobile)
+script.js:51 [9:08:07 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:07 PM] TEXT ANIMATION: Progress 14.4% (mobile)
+script.js:51 [9:08:07 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:07 PM] TEXT ANIMATION: Progress 15.2% (mobile)
+script.js:51 [9:08:07 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:07 PM] TEXT ANIMATION: Progress 16.1% (mobile)
+script.js:51 [9:08:07 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:07 PM] TEXT ANIMATION: Progress 17.0% (mobile)
+script.js:51 [9:08:08 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:08 PM] TEXT ANIMATION: Progress 17.9% (mobile)
+script.js:51 [9:08:08 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:08 PM] TEXT ANIMATION: Progress 18.8% (mobile)
+script.js:51 [9:08:08 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:08 PM] TEXT ANIMATION: Progress 19.6% (mobile)
+script.js:51 [9:08:09 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:09 PM] TEXT ANIMATION: Progress 20.5% (mobile)
+script.js:51 [9:08:09 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:09 PM] TEXT ANIMATION: Progress 21.4% (mobile)
+script.js:51 [9:08:09 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:09 PM] TEXT ANIMATION: Progress 22.3% (mobile)
+script.js:51 [9:08:09 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:09 PM] TEXT ANIMATION: Progress 23.2% (mobile)
+script.js:51 [9:08:10 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:10 PM] TEXT ANIMATION: Progress 24.1% (mobile)
+script.js:51 [9:08:10 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:10 PM] TEXT ANIMATION: Progress 25.0% (mobile)
+script.js:51 [9:08:10 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:10 PM] TEXT ANIMATION: Progress 25.8% (mobile)
+script.js:51 [9:08:10 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:10 PM] TEXT ANIMATION: Progress 26.7% (mobile)
+script.js:51 [9:08:11 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:11 PM] TEXT ANIMATION: Progress 27.7% (mobile)
+script.js:51 [9:08:11 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:11 PM] TEXT ANIMATION: Progress 28.5% (mobile)
+script.js:51 [9:08:11 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:11 PM] TEXT ANIMATION: Progress 29.4% (mobile)
+script.js:51 [9:08:11 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:11 PM] TEXT ANIMATION: Progress 30.3% (mobile)
+script.js:51 [9:08:12 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:12 PM] TEXT ANIMATION: Progress 31.1% (mobile)
+script.js:51 [9:08:12 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:12 PM] TEXT ANIMATION: Progress 32.0% (mobile)
+script.js:51 [9:08:12 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:12 PM] TEXT ANIMATION: Progress 33.0% (mobile)
+script.js:51 [9:08:13 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:13 PM] TEXT ANIMATION: Progress 33.8% (mobile)
+script.js:51 [9:08:13 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:13 PM] TEXT ANIMATION: Progress 34.7% (mobile)
+script.js:51 [9:08:13 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:13 PM] TEXT ANIMATION: Progress 35.6% (mobile)
+script.js:51 [9:08:13 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:13 PM] TEXT ANIMATION: Progress 36.4% (mobile)
+script.js:51 [9:08:14 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:14 PM] TEXT ANIMATION: Progress 37.3% (mobile)
+script.js:51 [9:08:14 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:14 PM] TEXT ANIMATION: Progress 38.3% (mobile)
+script.js:51 [9:08:14 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:14 PM] TEXT ANIMATION: Progress 39.2% (mobile)
+script.js:51 [9:08:14 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:14 PM] TEXT ANIMATION: Progress 40.0% (mobile)
+script.js:51 [9:08:15 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:15 PM] TEXT ANIMATION: Progress 40.9% (mobile)
+script.js:51 [9:08:15 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:15 PM] TEXT ANIMATION: Progress 41.7% (mobile)
+script.js:51 [9:08:15 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:15 PM] TEXT ANIMATION: Progress 42.6% (mobile)
+script.js:51 [9:08:15 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:15 PM] TEXT ANIMATION: Progress 43.6% (mobile)
+script.js:51 [9:08:16 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:16 PM] TEXT ANIMATION: Progress 44.5% (mobile)
+script.js:51 [9:08:16 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:16 PM] TEXT ANIMATION: Progress 45.3% (mobile)
+script.js:51 [9:08:16 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:16 PM] TEXT ANIMATION: Progress 46.2% (mobile)
+script.js:51 [9:08:16 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:16 PM] TEXT ANIMATION: Progress 47.1% (mobile)
+script.js:51 [9:08:17 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:17 PM] TEXT ANIMATION: Progress 47.9% (mobile)
+script.js:51 [9:08:17 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:17 PM] TEXT ANIMATION: Progress 48.9% (mobile)
+script.js:51 [9:08:17 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:17 PM] TEXT ANIMATION: Progress 49.8% (mobile)
+script.js:51 [9:08:18 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:18 PM] TEXT ANIMATION: Progress 50.6% (mobile)
+script.js:51 [9:08:18 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:18 PM] TEXT ANIMATION: Progress 51.5% (mobile)
+script.js:51 [9:08:18 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:18 PM] TEXT ANIMATION: Progress 52.4% (mobile)
+script.js:51 [9:08:18 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:18 PM] TEXT ANIMATION: Progress 53.3% (mobile)
+script.js:51 [9:08:19 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:19 PM] TEXT ANIMATION: Progress 54.2% (mobile)
+script.js:51 [9:08:19 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:08:19 PM] TEXT ANIMATION: Progress 55
