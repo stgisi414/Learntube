@@ -42,11 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================================
     // --- API & CONFIGURATION ---
     // =================================================================================
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-    const CSE_ID = process.env.CSE_ID;
+    const GEMINI_API_KEY = "__GEMINI_API_KEY__";
+    const YOUTUBE_API_KEY = "__YOUTUBE_API_KEY__";
+    const CSE_ID = "__CSE_ID__";
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
-    const SUPADATA_API_KEY = process.env.SUPADATA_API_KEY;
+    const SUPADATA_API_KEY = "__SUPADATA_API_KEY__";
 
     const log = (message, ...args) => console.log(`[${new Date().toLocaleTimeString()}] ${message}`, ...args);
     const logError = (message, ...args) => console.error(`[${new Date().toLocaleTimeString()}] ERROR: ${message}`, ...args);
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Using your original, full SpeechEngine with multilingual support
     class SpeechEngine {
         constructor() { 
-            this.apiKey = process.env.GOOGLE_TTS_API_KEY; 
+            this.apiKey = "__GOOGLE_TTS_API_KEY__"; 
             this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize'; 
             this.onCompleteCallback = null; this.onProgressCallback = null; 
             this.isPaused = false; this.isPlaying = false;
