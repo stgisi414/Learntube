@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
     const CSE_ID = "b53121b78d1c64563";
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
-    const SUPADATA_API_KEY = "sd_1d4e0e4e3d5aecda115fc39d1d47a33b";
+    const SUPADATA_API_KEY = "sd_8f84f1ec20cd0065c05f36acf8efc4a4";
 
     const log = (message, ...args) => console.log(`[${new Date().toLocaleTimeString()}] ${message}`, ...args);
     const logError = (message, ...args) => console.error(`[${new Date().toLocaleTimeString()}] ERROR: ${message}`, ...args);
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 Keywords:`;
                 try {
                     const response = await this.makeRequest(prompt, { temperature: 0.2 });
-                    if (typeof response === 'string' && response.length > 10) {
+                    if (typeof response === 'string' && response.length > 5) {
                         log("GEMINI (V4): Brainstormed keywords:", response);
                         return response.split(',').map(k => k.trim());
                     }
@@ -219,14 +219,19 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) { logError(`SEARCH: Error for "${query}":`, error); return []; }
         }
         async getVideoTranscript(youtubeId) {
-            log(`TRANSCRIPT: Fetching for ${youtubeId}`);
-            const SUPADATA_API_KEY = "sd_1d4e0e4e3d5aecda115fc39d1d47a33b";
-            if (!SUPADATA_API_KEY || SUPADATA_API_KEY === "sd_1d4e0e4e3d5aecda115fc39d1d47a33b") {
-                log(`TRANSCRIPT: No API key available, skipping transcript for ${youtubeId}`);
+            log(`TRANSCRIPT: Fetching transcript for video: ${youtubeId}`);
+
+            // First, verify that the API key constant exists and is not a placeholder.
+            if (!SUPADATA_API_KEY || SUPADATA_API_KEY === "YOUR_SUPADATA_API_KEY") {
+                logError(`TRANSCRIPT: Supadata API key is missing or is still a placeholder.`);
                 return null;
             }
+
             try {
-                const apiUrl = `https://api.supadata.ai/v1/transcript?video_id=${youtubeId}`;
+                const apiUrl = `https://api.supadata.ai/v1/youtube/video?id=${youtubeId}`;
+
+                // --- CORRECTED PART ---
+                // Using the 'x-api-key' header as specified by the Supadata documentation
                 const response = await fetch(apiUrl, { 
                     method: 'GET',
                     headers: { 
@@ -234,17 +239,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         'Content-Type': 'application/json'
                     } 
                 });
+                // --- END OF CORRECTION ---
+
                 if (!response.ok) { 
-                    log(`TRANSCRIPT: API failed for ${youtubeId}: ${response.status}`); 
-                    if (response.status === 401) {
-                        log(`TRANSCRIPT: Invalid or expired API key`);
-                    }
+                    const errorBody = await response.text();
+                    logError(`TRANSCRIPT: API request failed for ${youtubeId}. Status: ${response.status}. Response: ${errorBody}`);
                     return null; 
                 }
+
                 const data = await response.json();
-                if (data && Array.isArray(data.transcript)) { return data.transcript.map(item => item.text || '').join(' '); }
+                if (data && Array.isArray(data.transcript)) {
+                    log(`TRANSCRIPT: Successfully fetched transcript for ${youtubeId}`);
+                    return data.transcript.map(item => item.text || '').join(' ');
+                }
                 return null;
-            } catch (error) { logError(`TRANSCRIPT: Fetch error for ${youtubeId}:`, error); return null; }
+
+            } catch (error) {
+                logError(`TRANSCRIPT: A network or other unexpected error occurred during fetch for ${youtubeId}:`, error);
+                return null;
+            }
         }
         processSearchResults(data) {
             if (!data.items) return [];
@@ -388,7 +401,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         onComplete: () => { if (lessonState === 'narrating') resolve(); }
                     });
                 });
-                if (lessonState === 'narrating') onComplete();
+                if (lessonState === 'narrating') {
+                    ui.nextSegmentButton.disabled = false;
+                    onComplete();
+                }
             } catch (error) { logError("NARRATION: Error during playback", error); onComplete(); }
         }
 
@@ -511,6 +527,11 @@ document.addEventListener('DOMContentLoaded', () => {
             this.showQuiz();
         }
 
+        handleVideoError() { 
+            logError('Video error, creating fallback.');
+            this.createFallbackContent(currentLessonPlan[currentLearningPath][currentSegmentIndex]);
+        }
+
         async showQuiz() {
             log("FLOW: Show quiz");
             updateStatus('quiz');
@@ -522,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         displayQuiz(quiz) {
-            ui.youtubePlayerContainer.innerHTML = `<div class="p-6 md:p-8 text-white h-full flex flex-col justify-start"><div class="flex-grow flex flex-col justify-center max-w-3xl mx-auto w-full"><div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6 border border-white/20"><p class="text-xl lg:text-2xl leading-relaxed">${quiz.question}</p></div><div class="space-y-4 mb-6">${quiz.options.map((option, index) => `<button class="quiz-option w-full text-left p-4 bg-blue-600 hover:bg-blue-700 rounded-xl transition-all" data-index="${index}"><span>${String.fromCharCode(65 + index)})</span> <span class="ml-3">${option}</span></button>`).join('')}</div><div id="quiz-result" class="hidden opacity-0 transition-opacity duration-500"><div id="quiz-explanation-container" class="border rounded-xl p-4 mb-4"><p id="quiz-explanation"></p></div><div class="text-center"><button id="continue-button" class="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-xl font-semibold">Continue →</button></div></div></div></div>`;
+            ui.youtubePlayerContainer.innerHTML = `<div class="p-6 md:p-8 text-white h-full flex flex-col justify-center"><div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6 border border-white/20"><p class="text-xl lg:text-2xl">${quiz.question}</p></div><div class="space-y-4 mb-6">${quiz.options.map((option, index) => `<button class="quiz-option w-full text-left p-4 bg-blue-600 hover:bg-blue-700 rounded-xl" data-index="${index}"><span>${String.fromCharCode(65 + index)})</span> ${option}</button>`).join('')}</div><div id="quiz-result" class="hidden opacity-0 duration-500"><div id="quiz-explanation-container" class="border rounded-xl p-4 mb-4"><p id="quiz-explanation"></p></div><div class="text-center"><button id="continue-button" class="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-xl">Continue →</button></div></div></div>`;
             ui.youtubePlayerContainer.querySelectorAll('.quiz-option').forEach(option => {
                 option.addEventListener('click', () => {
                     const selectedIndex = parseInt(option.dataset.index);

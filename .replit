@@ -6,9 +6,9 @@ channel = "stable-24_11"
 packages = ["static-web-server"]
 
 [deployment]
-publicDir = "./"
+publicDir = "/"
 deploymentTarget = "static"
-build = ["sh", "-c", "./build.sh"]
+run = ["sh", "-c", "static-web-server -w ./.config/static-web-server.toml"]
 
 [[deployment.responseHeaders]]
 path = "/*"
