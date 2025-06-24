@@ -73,23 +73,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async generateLessonPlan(topic) {
             log("GEMINI: Starting comprehensive lesson plan generation...");
-            
+
             // Step 1: AI-driven topic analysis and context detection
             log("GEMINI: Step 1 - Analyzing topic context and requirements");
             const contextAnalysis = await this.analyzeTopicContext(topic);
-            
+
             // Step 2: AI-driven curriculum strategy planning
             log("GEMINI: Step 2 - Developing curriculum strategy");
             const curriculumStrategy = await this.developCurriculumStrategy(topic, contextAnalysis);
-            
+
             // Step 3: AI-generated lesson plans for each difficulty level
             log("GEMINI: Step 3 - Generating difficulty-specific lesson plans");
             const lessonPlan = await this.generateDifficultyLevels(topic, contextAnalysis, curriculumStrategy);
-            
+
             // Step 4: AI-driven quality assurance and refinement
             log("GEMINI: Step 4 - Quality assurance and refinement");
             const finalPlan = await this.qualityAssuranceReview(topic, lessonPlan, contextAnalysis);
-            
+
             log("GEMINI: Lesson plan generation completed with AI oversight");
             return finalPlan;
         }
@@ -245,13 +245,13 @@ If the plan is already excellent, return it unchanged but add quality notes expl
 
             const response = await this.makeRequest(prompt, { temperature: 0.3 });
             const reviewedPlan = this.parseJSONResponse(response);
-            
+
             // If AI review indicates low confidence, do one more iteration
             if (reviewedPlan?.qualityNotes?.confidence === 'low') {
                 log("GEMINI: Low confidence detected, performing additional refinement");
                 return await this.performAdditionalRefinement(topic, reviewedPlan, contextAnalysis);
             }
-            
+
             return reviewedPlan;
         }
 
@@ -287,78 +287,40 @@ Return ONLY JSON:
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
             const mainTopic = currentLessonPlan?.topic || learningPoint;
 
-            // Re-use extractCulturalContext logic (or make it a shared utility)
-            // For now, defining it locally for clarity during refactor
-            const extractCulturalContextForQuery = (topicText) => {
-                const text = topicText.toLowerCase();
-                const languagePatterns = {
-                    korean: /\b(korean|korea|hangul|한국)\b/gi,
-                    japanese: /\b(japanese|japan|nihongo|日本)\b/gi,
-                    chinese: /\b(chinese|china|mandarin|中文)\b/gi,
-                    spanish: /\b(spanish|español)\b/gi,
-                    french: /\b(french|français)\b/gi,
-                };
-                const detectedLanguages = [];
-                for (const [lang, pattern] of Object.entries(languagePatterns)) {
-                    if (pattern.test(text)) detectedLanguages.push(lang);
-                }
-                return {
-                    languages: [...new Set(detectedLanguages)],
-                    hasSpecificLanguage: detectedLanguages.length > 0,
-                };
-            };
-            
-            // Get forbidden terms based on main topic + learning point
-            const getForbiddenTermsForQuery = (topic) => {
-                const keywords = { languages: [], subjects: [], forbidden: [] };
-                const langMatches = topic.match(/\b(korean|japanese|chinese|spanish|french)\b/gi);
-                if (langMatches) keywords.languages = [...new Set(langMatches.map(l => l.toLowerCase()))];
-                const subjectMatches = topic.match(/\b(onomatopoeia|language|linguistics)\b/gi);
-                if (subjectMatches) keywords.subjects = [...new Set(subjectMatches.map(s => s.toLowerCase()))];
+            const prompt = `You are an expert YouTube search strategist. Create the most effective search queries to find high-quality educational videos about "${learningPoint}" in the context of learning "${mainTopic}".
 
-                if (keywords.languages.includes('korean') && keywords.subjects.includes('onomatopoeia')) {
-                    keywords.forbidden = ['music production', 'sound design', 'audio editing', 'daw', 'fl studio', 'ableton', 'logic pro'];
-                }
-                // Add more rules as needed for other contexts
-                return keywords.forbidden;
-            };
+ANALYSIS TASK:
+1. Analyze "${mainTopic}" and "${learningPoint}" to understand:
+   - What specific cultural, linguistic, or domain context exists?
+   - What types of content would be most educational?
+   - What irrelevant content should be avoided?
 
-            const culturalContext = extractCulturalContextForQuery(mainTopic);
-            const forbiddenTerms = getForbiddenTermsForQuery(mainTopic + " " + learningPoint);
+2. Generate 4-6 highly targeted YouTube search queries that will find the BEST educational content.
 
-            let requiredTermsStr = `"${learningPoint}"`;
-            if (culturalContext.hasSpecificLanguage) {
-                requiredTermsStr += ` ${culturalContext.languages.join(' ')}`;
-            }
+QUERY OPTIMIZATION PRINCIPLES:
+- Each query should be 3-7 words maximum
+- Focus on educational keywords: "learn", "tutorial", "guide", "explained", "how to"
+- Include specific cultural/linguistic terms when relevant (e.g., "Korean" for Korean language topics)
+- Avoid generic terms that attract non-educational content
+- Target different aspects of the learning point for variety
 
-            let prompt = `Generate 3-5 YouTube search queries for a video about: "${learningPoint}".
-The overall lesson topic is: "${mainTopic}".
+DOMAIN INTELLIGENCE:
+- If this is about a specific language or culture, ensure queries reflect that authenticity
+- If this could attract technical/production content instead of educational content, actively avoid those terms
+- Consider what a student would search for vs what a professional would search for
 
-CRITICAL INSTRUCTIONS FOR QUERIES:
-1.  SPECIFICITY: Queries MUST be highly specific to "${learningPoint}". If "${mainTopic}" includes a language (e.g., Korean, Japanese), ensure the queries reflect this. For example, for "Korean onomatopoeia", queries should be like "learn Korean onomatopoeia", "Korean onomatopoeia examples".
-2.  CONTENT TYPE: Target educational content, tutorials, lessons, explanations, or "how-to" guides.
-3.  LENGTH: Each query should be 3-7 words.
-4.  KEYWORDS: Queries MUST include core terms from "${learningPoint}" and relevant cultural/linguistic terms from "${mainTopic}" if applicable (e.g., ${culturalContext.languages.join(', ') || 'specific cultural terms'}).
-5.  AVOID GENERIC: Do not generate overly broad queries.
-
-${forbiddenTerms.length > 0 ? `
-NEGATIVE KEYWORDS: Queries should actively AVOID terms related to: "${forbiddenTerms.join('", "')}".
-Focus strictly on the educational and cultural aspects, not these unrelated domains.
-Example: If learning "Korean onomatopoeia", AVOID queries like "sound design tutorial" or "music production software".
-` : ''}
-
-Examples of GOOD queries for "Learning Korean Vowel Sounds":
-- "Korean vowel pronunciation guide"
-- "learn basic Korean vowels"
-- "how to pronounce Korean vowels for beginners"
+EXAMPLE DECISION MAKING:
+- For "Korean onomatopoeia": Focus on language learning, not music production
+- For "photosynthesis": Focus on biology education, not laboratory equipment
+- For "Renaissance art": Focus on art history, not art supplies
 
 Main Topic: "${mainTopic}"
-Current Learning Point: "${learningPoint}"
-${culturalContext.hasSpecificLanguage ? `Language Context: ${culturalContext.languages.join(', ')}` : ''}
+Learning Point: "${learningPoint}"
 
-Return ONLY a valid JSON array of 3-5 unique query strings.`;
+Think through the context, then provide ONLY a JSON array of 4-6 optimized search query strings:
+["query1", "query2", "query3", "query4", "query5", "query6"]`;
 
-            const response = await this.makeRequest(prompt, { temperature: 0.25 });
+            const response = await this.makeRequest(prompt, { temperature: 0.3 });
             return this.parseJSONResponse(response);
         }
 
@@ -836,17 +798,17 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
         smartLanguageSplit(text) {
             // Smart splitting for mixed-language content without explicit tags
             const segments = [];
-            
+
             // Split by sentences first
             const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
-            
+
             for (const sentence of sentences) {
                 const cleanSentence = sentence.trim();
                 if (!cleanSentence) continue;
 
                 // Detect language for each sentence
                 const detectedLang = this.detectLanguage(cleanSentence);
-                
+
                 // If we have a previous segment with the same language, combine them
                 if (segments.length > 0 && segments[segments.length - 1].language === detectedLang) {
                     segments[segments.length - 1].text += ' ' + cleanSentence;
