@@ -662,11 +662,10 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                 return [];
             }
         }
-
         async getVideoTranscript(youtubeId) {
             log(`TRANSCRIPT: Fetching transcript for video: ${youtubeId}`);
             try {
-                const response = await fetch(`https://api.supadata.ai/v1/transcript?video_id=${youtubeId}`, {
+                const response = await fetch(`https://api.supadata.ai/v1/youtube/video?id=${youtubeId}`, {
                     method: 'GET',
                     headers: {
                         'x-api-key': SUPADATA_API_KEY,

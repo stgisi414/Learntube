@@ -1,0 +1,78 @@
+async generateSearchQueries(learningPoint) {
+            log(`GEMINI: Generating search queries for "${learningPoint}"`);
+            const mainTopic = currentLessonPlan?.topic || learningPoint;
+
+            // Re-use extractCulturalContext logic (or make it a shared utility)
+            // For now, defining it locally for clarity during refactor
+            const extractCulturalContextForQuery = (topicText) => {
+                const text = topicText.toLowerCase();
+                const languagePatterns = {
+                    korean: /\b(korean|korea|hangul|한국)\b/gi,
+                    japanese: /\b(japanese|japan|nihongo|日本)\b/gi,
+                    chinese: /\b(chinese|china|mandarin|中文)\b/gi,
+                    spanish: /\b(spanish|español)\b/gi,
+                    french: /\b(french|français)\b/gi,
+                };
+                const detectedLanguages = [];
+                for (const [lang, pattern] of Object.entries(languagePatterns)) {
+                    if (pattern.test(text)) detectedLanguages.push(lang);
+                }
+                return {
+                    languages: [...new Set(detectedLanguages)],
+                    hasSpecificLanguage: detectedLanguages.length > 0,
+                };
+            };
+            
+            // Get forbidden terms based on main topic + learning point
+            const getForbiddenTermsForQuery = (topic) => {
+                const keywords = { languages: [], subjects: [], forbidden: [] };
+                const langMatches = topic.match(/\b(korean|japanese|chinese|spanish|french)\b/gi);
+                if (langMatches) keywords.languages = [...new Set(langMatches.map(l => l.toLowerCase()))];
+                const subjectMatches = topic.match(/\b(onomatopoeia|language|linguistics)\b/gi);
+                if (subjectMatches) keywords.subjects = [...new Set(subjectMatches.map(s => s.toLowerCase()))];
+
+                if (keywords.languages.includes('korean') && keywords.subjects.includes('onomatopoeia')) {
+                    keywords.forbidden = ['music production', 'sound design', 'audio editing', 'daw', 'fl studio', 'ableton', 'logic pro'];
+                }
+                // Add more rules as needed for other contexts
+                return keywords.forbidden;
+            };
+
+            const culturalContext = extractCulturalContextForQuery(mainTopic);
+            const forbiddenTerms = getForbiddenTermsForQuery(mainTopic + " " + learningPoint);
+
+            let requiredTermsStr = `"${learningPoint}"`;
+            if (culturalContext.hasSpecificLanguage) {
+                requiredTermsStr += ` ${culturalContext.languages.join(' ')}`;
+            }
+
+            let prompt = `Generate 3-5 YouTube search queries for a video about: "${learningPoint}".
+The overall lesson topic is: "${mainTopic}".
+
+CRITICAL INSTRUCTIONS FOR QUERIES:
+1.  SPECIFICITY: Queries MUST be highly specific to "${learningPoint}". If "${mainTopic}" includes a language (e.g., Korean, Japanese), ensure the queries reflect this. For example, for "Korean onomatopoeia", queries should be like "learn Korean onomatopoeia", "Korean onomatopoeia examples".
+2.  CONTENT TYPE: Target educational content, tutorials, lessons, explanations, or "how-to" guides.
+3.  LENGTH: Each query should be 3-7 words.
+4.  KEYWORDS: Queries MUST include core terms from "${learningPoint}" and relevant cultural/linguistic terms from "${mainTopic}" if applicable (e.g., ${culturalContext.languages.join(', ') || 'specific cultural terms'}).
+5.  AVOID GENERIC: Do not generate overly broad queries.
+
+${forbiddenTerms.length > 0 ? `
+NEGATIVE KEYWORDS: Queries should actively AVOID terms related to: "${forbiddenTerms.join('", "')}".
+Focus strictly on the educational and cultural aspects, not these unrelated domains.
+Example: If learning "Korean onomatopoeia", AVOID queries like "sound design tutorial" or "music production software".
+` : ''}
+
+Examples of GOOD queries for "Learning Korean Vowel Sounds":
+- "Korean vowel pronunciation guide"
+- "learn basic Korean vowels"
+- "how to pronounce Korean vowels for beginners"
+
+Main Topic: "${mainTopic}"
+Current Learning Point: "${learningPoint}"
+${culturalContext.hasSpecificLanguage ? `Language Context: ${culturalContext.languages.join(', ')}` : ''}
+
+Return ONLY a valid JSON array of 3-5 unique query strings.`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.25 });
+            return this.parseJSONResponse(response);
+        }
