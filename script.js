@@ -44,15 +44,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================================
     const GEMINI_API_KEY = "AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA";
     const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
-    const CSE_ID = "b53121b78d1c64563";
+    const CSE_ID = 'b53121b78d1c64563';
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
-    const SUPADATA_API_KEY = "sd_8f84f1ec20cd0065c05f36acf8efc4a4";
+    const SUPADATA_API_KEY = "sd_1d4e0e4e3d5aecda115fc39d1d47a33b";
 
     const log = (message, ...args) => console.log(`[${new Date().toLocaleTimeString()}] ${message}`, ...args);
     const logError = (message, ...args) => console.error(`[${new Date().toLocaleTimeString()}] ERROR: ${message}`, ...args);
 
     // =================================================================================
-    // --- CLASS DEFINITIONS (MERGED) ---
+    // --- CLASS DEFINITIONS ---
     // =================================================================================
 
     class GeminiOrchestrator {
@@ -66,584 +66,1123 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) { const errorData = await response.json().catch(() => ({})); throw new Error(`Gemini API failed: ${response.status} ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`); }
             const data = await response.json();
             const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!content) { log('Gemini response data:', data); throw new Error('No content in Gemini response'); }
+            if (!content) { log('Gemini response data:', data); throw new Error('No content in Gemini response - content may have been blocked by safety filters'); }
             return content.trim();
         }
         parseJSONResponse(response) { if (!response) return null; try { let cleanedResponse = response.trim().replace(/```json\s*/g, '').replace(/```\s*/g, ''); const jsonMatch = cleanedResponse.match(/(\{[\s\S]*\}|\[[\s\S]*\])/); if (jsonMatch) { return JSON.parse(jsonMatch[0]); } logError(`No valid JSON found in response:`, response); return null; } catch (error) { logError(`Failed to parse JSON:`, error, `Raw response: "${response}"`); return null; } }
 
-        // =========================================================================
-        // --- V4 ARCHITECTURE: CONTEXT-AWARE CONTENT GENERATION (SURGICALLY INSERTED) ---
-        // =========================================================================
-
         async generateLessonPlan(topic) {
-            log("GEMINI (V5 Architecture): Generating culturally-aware lesson plan for:", topic);
-
-            // Analyze cultural context first
-            const context = this.analyzeCulturalContext(topic);
-            log(`GEMINI (V5): Detected context - Culture: ${context.primaryCulture}, Domain: ${context.domain}, Level: ${context.specificityLevel}`);
-
-            const brainstormCulturalKeywords = async (topicForBrainstorm, culturalContext) => {
-                log("GEMINI (V5): Step 1 - Brainstorming culturally-specific keywords for:", topicForBrainstorm);
+            log("GEMINI: Generating lesson plan...");
+            
+            // Extract language/cultural context with enhanced detection
+            const extractCulturalContext = (topicText) => {
+                const text = topicText.toLowerCase();
                 
-                const prompt = `You are an expert curriculum designer specializing in culturally-accurate educational content.
+                // Enhanced language detection with variations
+                const languagePatterns = {
+                    korean: /\b(korean|korea|hangul|한국|k-pop|kimchi|seoul)\b/gi,
+                    japanese: /\b(japanese|japan|nihongo|日本|hiragana|katakana|kanji|tokyo|anime|manga)\b/gi,
+                    chinese: /\b(chinese|china|mandarin|cantonese|中文|汉语|普通话|beijing|shanghai)\b/gi,
+                    spanish: /\b(spanish|spain|español|castellano|madrid|mexico|latin america)\b/gi,
+                    french: /\b(french|france|français|francais|paris|quebec)\b/gi,
+                    german: /\b(german|germany|deutsch|berlin|austria|swiss)\b/gi,
+                    italian: /\b(italian|italy|italiano|rome|milan)\b/gi,
+                    portuguese: /\b(portuguese|portugal|português|brazil|brasil|rio)\b/gi,
+                    russian: /\b(russian|russia|русский|moscow|soviet)\b/gi,
+                    arabic: /\b(arabic|arab|العربية|middle east|egypt|saudi)\b/gi,
+                    hindi: /\b(hindi|india|हिंदी|bollywood|delhi|mumbai)\b/gi
+                };
+                
+                // Cultural/linguistic terms
+                const culturalTerms = /\b(onomatopoeia|onomatopoeic|sound words|phonetic|linguistic|language|dialect|accent|pronunciation|grammar|syntax|vocabulary|idiom|phrase|expression|cultural|traditional|folk|native|indigenous)\b/gi;
+                
+                const detectedLanguages = [];
+                const detectedCultures = [];
+                
+                // Check for language matches
+                for (const [lang, pattern] of Object.entries(languagePatterns)) {
+                    if (pattern.test(text)) {
+                        detectedLanguages.push(lang);
+                    }
+                }
+                
+                // Check for cultural/linguistic terms
+                const culturalMatches = text.match(culturalTerms);
+                if (culturalMatches) {
+                    detectedCultures.push(...culturalMatches);
+                }
+                
+                return {
+                    languages: [...new Set(detectedLanguages)],
+                    culturalTerms: [...new Set(culturalMatches || [])],
+                    hasSpecificLanguage: detectedLanguages.length > 0,
+                    hasCulturalContext: culturalMatches && culturalMatches.length > 0
+                };
+            };
+            
+            const context = extractCulturalContext(topic);
+            const requiresStrictCulturalMaintenance = context.hasSpecificLanguage || context.hasCulturalContext;
+            
+            let prompt = `You are creating a learning plan for the EXACT topic: "${topic}"
 
-TOPIC ANALYSIS TASK:
-Topic: "${topicForBrainstorm}"
-Cultural Context: ${culturalContext.primaryCulture || 'General'}
-Subject Domain: ${culturalContext.domain}
-Required Specificity: ${culturalContext.specificityLevel}
+ABSOLUTE TOPIC FIDELITY RULES:
+1. NEVER generalize or substitute terms
+2. EVERY learning point must contain the complete original topic phrase "${topic}"
+3. NO broader categories or generic alternatives allowed
+4. Maintain 100% specificity to the original request
 
-KEYWORD EXTRACTION REQUIREMENTS:
-1. PRIMARY CULTURAL TERMS: Extract authentic native language terms and concepts
-2. SPECIFIC SUBJECT VOCABULARY: Domain-specific terminology and concepts
-3. CULTURAL EXAMPLES: Real-world applications and cultural manifestations
-4. LEARNING PROGRESSION: Terms suitable for different learning levels
-5. AVOID GENERIC TERMS: Do not include broad, non-specific concepts
+${requiresStrictCulturalMaintenance ? `
+🚨 CRITICAL CULTURAL/LINGUISTIC SPECIFICITY REQUIRED 🚨
+This topic contains specific cultural/linguistic elements that MUST be preserved:
+- Detected languages: ${context.languages.join(', ') || 'None'}
+- Cultural terms: ${context.culturalTerms.join(', ') || 'None'}
 
-${culturalContext.primaryCulture ? `
-CULTURAL FOCUS REQUIREMENTS for ${culturalContext.primaryCulture}:
-- Include native language terminology
-- Reference authentic cultural practices and examples
-- Avoid westernized or generic interpretations
-- Include cultural context that gives meaning to the concepts
+MANDATORY REQUIREMENTS:
+- If topic mentions "Korean onomatopoeia" → ALL points must say "Korean onomatopoeia" 
+- If topic mentions "Japanese martial arts" → ALL points must say "Japanese martial arts"
+- If topic mentions "Chinese calligraphy" → ALL points must say "Chinese calligraphy"
+- NO generic substitutions like "sound words", "Asian fighting", "writing systems"
+- Include authentic cultural examples when possible
+- Reference specific cultural contexts and traditions
+
+FORBIDDEN GENERALIZATIONS:
+❌ "sound categories" instead of "Korean onomatopoeia"
+❌ "animal sounds" instead of "Korean onomatopoeia" 
+❌ "noise patterns" instead of "Korean onomatopoeia"
+❌ Any term that removes the cultural/linguistic specificity
 ` : ''}
 
-OUTPUT FORMAT:
-Return a comma-separated list of 8-12 highly specific keywords that will enable creation of authentic, culturally-accurate learning content.
+Create exactly 4 difficulty levels with these point counts:
+- Apprentice: 3 learning points
+- Journeyman: 5 learning points  
+- Senior: 7 learning points
+- Master: 9 learning points
 
-Example for "Korean onomatopoeia":
-의성어 (uiseongeo), 의태어 (uitaeeo), Korean sound symbolism, webtoon sound effects, K-drama expressions, Korean phonetic aesthetics, mimetic words in Korean, Korean comic book sounds, traditional Korean sound words, modern Korean slang sounds
+EVERY SINGLE LEARNING POINT MUST:
+✅ Include the complete phrase "${topic}" exactly as written
+✅ Be educationally progressive (easy → advanced)
+✅ Maintain cultural authenticity if applicable
+✅ Use specific, not generic terminology
 
-Topic: "${topicForBrainstorm}"
-Keywords:`;
+EXAMPLE FORMAT for "${topic}":
+{
+  "Apprentice": [
+    "Introduction to ${topic}",
+    "Basic understanding of ${topic}",
+    "Fundamental concepts in ${topic}"
+  ],
+  "Journeyman": [
+    "Historical development of ${topic}",
+    "Cultural significance of ${topic}",
+    "Traditional techniques in ${topic}",
+    "Regional variations of ${topic}",
+    "Modern applications of ${topic}"
+  ],
+  [... continue with Senior and Master levels]
+}
 
-                try {
-                    const response = await this.makeRequest(prompt, { temperature: 0.3 });
-                    if (typeof response === 'string' && response.length > 10) {
-                        const keywords = response.split(',').map(k => k.trim()).filter(k => k.length > 0);
-                        log("GEMINI (V5): Brainstormed culturally-specific keywords:", keywords);
-                        return keywords;
-                    }
-                    throw new Error("Brainstorming returned invalid keyword format.");
-                } catch (error) {
-                    logError("GEMINI (V5): Cultural keyword brainstorming failed. Using fallback.", error);
-                    return topicForBrainstorm.split(' ').concat(context.nativeTerms || []); 
+FINAL VERIFICATION - Each point must pass this test:
+- Does it contain "${topic}" exactly? ✓
+- Is it culturally/linguistically authentic? ✓
+- No generic substitutions? ✓
+
+Return ONLY valid JSON. Topic: "${topic}"`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.3 });
+            const parsed = this.parseJSONResponse(response);
+            
+            // Additional validation to catch any generalization failures
+            if (parsed && requiresStrictCulturalMaintenance) {
+                const allPoints = [
+                    ...(parsed.Apprentice || []),
+                    ...(parsed.Journeyman || []),
+                    ...(parsed.Senior || []),
+                    ...(parsed.Master || [])
+                ];
+                
+                // Check if any points are missing the specific cultural/linguistic terms
+                const topicKeyTerms = topic.toLowerCase();
+                const failedPoints = allPoints.filter(point => {
+                    const pointLower = point.toLowerCase();
+                    return !context.languages.some(lang => pointLower.includes(lang)) && 
+                           !pointLower.includes(topicKeyTerms);
+                });
+                
+                if (failedPoints.length > 0) {
+                    log(`LESSON PLAN VALIDATION: Found ${failedPoints.length} points missing cultural specificity. Regenerating...`);
+                    
+                    // Retry with even more specific prompt
+                    const retryPrompt = `RETRY - Previous attempt failed cultural specificity validation.
+
+Topic: "${topic}"
+
+ABSOLUTE REQUIREMENT: Every learning point must contain these exact words from the original topic.
+
+Create learning points that ALL include "${topic}" exactly as written. No exceptions, no alternatives, no generalizations.
+
+Return valid JSON with 4 levels: Apprentice (3), Journeyman (5), Senior (7), Master (9).
+
+Each point format: "[Learning action] + ${topic}"`;
+
+                    const retryResponse = await this.makeRequest(retryPrompt, { temperature: 0.1 });
+                    return this.parseJSONResponse(retryResponse);
                 }
-            };
-
-            const createCulturallyAwarePlan = (topic, keywords, culturalContext) => {
-                log("GEMINI (V5): Step 2 - Building culturally-aware lesson plan from keywords.");
-                
-                const usedKeywords = new Set();
-                const pickKeyword = () => {
-                    const available = keywords.filter(k => 
-                        !usedKeywords.has(k) && 
-                        k.toLowerCase() !== topic.toLowerCase() &&
-                        k.length > 2
-                    );
-                    if (available.length === 0) {
-                        return keywords[Math.floor(Math.random() * keywords.length)] || 'advanced concepts';
-                    }
-                    const keyword = available[0]; 
-                    usedKeywords.add(keyword);
-                    return keyword;
-                };
-
-                // Create culturally-specific learning points
-                const culturePrefix = culturalContext.primaryCulture ? `${culturalContext.primaryCulture.charAt(0).toUpperCase() + culturalContext.primaryCulture.slice(1)} ` : '';
-                
-                const apprenticePoints = [
-                    `Introduction to ${culturePrefix}${topic}: Understanding the Core Concepts`,
-                    `Exploring fundamental aspects: ${pickKeyword()}`,
-                    `Basic examples and applications of ${topic} in ${culturalContext.primaryCulture || 'practical'} contexts`
-                ];
-
-                const journeymanPoints = [
-                    ...apprenticePoints,
-                    `Deeper understanding: The role of ${pickKeyword()} in ${topic}`,
-                    `Cultural significance and variations: ${pickKeyword()}`,
-                    `Comparing traditional and modern expressions of ${topic}`
-                ];
-
-                const seniorPoints = [
-                    ...journeymanPoints,
-                    `Historical development and cultural evolution of ${topic}`,
-                    `Advanced analysis: How ${pickKeyword()} shapes understanding`,
-                    `Cross-cultural perspectives and influences on ${topic}`
-                ];
-
-                const masterPoints = [
-                    ...seniorPoints,
-                    `Expert synthesis: The intersection of ${topic} and ${pickKeyword()}`,
-                    `Creative applications and contemporary innovations in ${topic}`,
-                    `Teaching and preserving ${culturePrefix}${topic} for future generations`
-                ];
-
-                const lessonPlan = { 
-                    "Apprentice": apprenticePoints, 
-                    "Journeyman": journeymanPoints, 
-                    "Senior": seniorPoints, 
-                    "Master": masterPoints 
-                };
-                
-                log("GEMINI (V5): Culturally-aware lesson plan created successfully.");
-                return lessonPlan;
-            };
-
-            try {
-                const culturalKeywords = await brainstormCulturalKeywords(topic, context);
-                const finalLessonPlan = createCulturallyAwarePlan(topic, culturalKeywords, context);
-                
-                // Validate cultural specificity in lesson plan
-                if (context.primaryCulture) {
-                    const hasSpecificity = this.validateLessonPlanCulturalSpecificity(finalLessonPlan, context);
-                    if (!hasSpecificity) {
-                        log("GEMINI (V5): Warning - Lesson plan lacks cultural specificity, regenerating...");
-                        // Add fallback cultural terms
-                        culturalKeywords.push(...(context.nativeTerms || []));
-                        return createCulturallyAwarePlan(topic, culturalKeywords, context);
-                    }
-                }
-                
-                return finalLessonPlan;
-            } catch (error) {
-                logError("generateLessonPlan (V5) failed. Returning null.", error);
-                return null;
             }
+            
+            return parsed;
         }
 
-        validateLessonPlanCulturalSpecificity(lessonPlan, context) {
-            if (!context.primaryCulture) return true;
-            
-            const allPoints = Object.values(lessonPlan).flat().join(' ').toLowerCase();
-            const requiredTerms = [context.primaryCulture];
-            if (context.nativeTerms) requiredTerms.push(...context.nativeTerms);
-            
-            return requiredTerms.some(term => allPoints.includes(term.toLowerCase()));
-        }
-        
-        async generateNarration(learningPoint, previousPoint, mainTopic) {
-            log(`GEMINI: Generating narration for "${learningPoint}"`);
-            const coreConcept = learningPoint.replace(/\s*\(e\.g\..*\)/i, '').trim();
-            const prompt = `You are a curriculum narrator. Your task is to create a simple, 1-2 sentence narration.
-            - Main Lesson Topic: "${mainTopic}"
-            - Previous Learning Point: "${previousPoint || 'None'}"
-            - Core Concept to Explain: "${coreConcept}"
-            - Full Learning Point (for context): "${learningPoint}"
-            Instructions: Your narration must be about the Core Concept, framed within the Main Lesson Topic. Keep it friendly and educational. Return only the text.`;
-            return await this.makeRequest(prompt, { temperature: 0.5, maxOutputTokens: 256 });
-        }
-
-        async generateSearchQueries(learningPoint, mainTopic) {
+        async generateSearchQueries(learningPoint) {
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
+            const mainTopic = currentLessonPlan?.topic || learningPoint;
             
-            // Dynamic cultural and linguistic context extraction
-            const contextAnalysis = this.analyzeCulturalContext(mainTopic + ' ' + learningPoint);
+            // Extract key cultural/linguistic terms for stronger search focus
+            const extractKeyTerms = (topic) => {
+                const terms = [];
+                const culturalMarkers = topic.match(/\b(korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi)\b/gi);
+                if (culturalMarkers) terms.push(...culturalMarkers);
+                
+                const topicKeywords = topic.match(/\b(onomatopoeia|art|music|language|culture|history|literature|cooking|martial arts|dance|architecture)\b/gi);
+                if (topicKeywords) terms.push(...topicKeywords);
+                
+                return [...new Set(terms)]; // Remove duplicates
+            };
             
-            const prompt = `You are a specialized educational search query generator. Create 4-6 highly specific YouTube search queries for: "${learningPoint}" within the context of: "${mainTopic}".
+            const keyTerms = extractKeyTerms(mainTopic);
+            const requiredTermsStr = keyTerms.length > 0 ? keyTerms.join(' ') : mainTopic;
+            
+            const prompt = `Generate 3 highly specific YouTube search queries for "${learningPoint}" within the context of "${mainTopic}".
 
-CONTEXT ANALYSIS:
-- Primary Language/Culture: ${contextAnalysis.primaryCulture || 'General'}
-- Subject Domain: ${contextAnalysis.domain}
-- Specificity Level: ${contextAnalysis.specificityLevel}
-- Educational Focus: ${contextAnalysis.educationalFocus}
+CRITICAL REQUIREMENTS:
+- EVERY query must include these key terms: "${requiredTermsStr}"
+- Queries must be educational/tutorial focused (not entertainment or software)
+- Each query should be 3-7 words maximum
+- Target academic, educational, or instructional content
+- Avoid generic terms that could match unrelated content
 
-DYNAMIC QUERY GENERATION RULES:
-1. If cultural/linguistic context detected: ALL queries MUST include the specific culture/language terms
-2. Include educational keywords: "tutorial", "lesson", "learn", "how to", "explained"
-3. Avoid generic content that could match unrelated domains
-4. Use native language terms when culturally appropriate
-5. Target beginner-friendly educational content
+DOMAIN FILTERING:
+- If topic is linguistic/cultural, focus on language learning, cultural education, academic content
+- Avoid software names, music production tools, or technical applications
+- Prioritize "tutorial", "explained", "lesson", "guide", "learning" terms
 
-FORBIDDEN PATTERNS (dynamic based on context):
-${contextAnalysis.forbiddenPatterns.length > 0 ? `- Avoid: ${contextAnalysis.forbiddenPatterns.join(', ')}` : '- No specific forbidden patterns detected'}
+Required format: ["query with ${requiredTermsStr}", "tutorial ${requiredTermsStr}", "learn ${requiredTermsStr}"]
 
-EXAMPLE FORMAT:
-If topic is "Korean onomatopoeia":
-✓ "Korean onomatopoeia 의성어 tutorial for beginners"
-✓ "Learn Korean sound words 의성어 explained"
-✗ "onomatopoeia sound design" (too generic)
+Main topic: "${mainTopic}"
+Learning point: "${learningPoint}"
+Key terms to include: "${requiredTermsStr}"
 
-Return ONLY a valid JSON array of 4-6 specific search query strings.`;
-
+Return ONLY a JSON array of 3 strings.`;
             const response = await this.makeRequest(prompt, { temperature: 0.2 });
-            const queries = this.parseJSONResponse(response);
-            
-            // Validate queries for cultural specificity
-            if (queries && contextAnalysis.primaryCulture) {
-                const validatedQueries = queries.filter(query => 
-                    this.validateCulturalSpecificity(query, contextAnalysis)
-                );
-                if (validatedQueries.length > 0) {
-                    log(`SEARCH: Validated ${validatedQueries.length}/${queries.length} culturally specific queries`);
-                    return validatedQueries;
-                }
-            }
-            
-            return queries || [];
-        }
-
-        analyzeCulturalContext(text) {
-            const textLower = text.toLowerCase();
-            
-            // Dynamic language/culture detection
-            const cultures = {
-                korean: { patterns: ['korean', '한국', 'hangul', '의성어', '의태어'], native: ['의성어', '의태어'] },
-                japanese: { patterns: ['japanese', '日本', 'hiragana', 'katakana', 'onomatopoeia'], native: ['擬音語', '擬態語'] },
-                chinese: { patterns: ['chinese', '中文', 'mandarin', 'cantonese'], native: ['象声词'] },
-                spanish: { patterns: ['spanish', 'español', 'castellano'], native: ['onomatopeya'] },
-                french: { patterns: ['french', 'français'], native: ['onomatopée'] },
-                german: { patterns: ['german', 'deutsch'], native: ['lautmalerei'] },
-                arabic: { patterns: ['arabic', 'عربي'], native: ['محاكاة الأصوات'] }
-            };
-
-            // Subject domain detection
-            const domains = {
-                linguistics: ['onomatopoeia', 'phonetics', 'language', 'sound symbolism', 'linguistics'],
-                music: ['music', 'sound design', 'audio', 'production'],
-                history: ['history', 'historical', 'ancient', 'medieval'],
-                science: ['physics', 'chemistry', 'biology', 'quantum'],
-                art: ['art', 'painting', 'sculpture', 'renaissance']
-            };
-
-            let primaryCulture = null;
-            let detectedDomain = 'general';
-            
-            // Find primary culture
-            for (const [culture, data] of Object.entries(cultures)) {
-                if (data.patterns.some(pattern => textLower.includes(pattern))) {
-                    primaryCulture = culture;
-                    break;
-                }
-            }
-
-            // Find domain
-            for (const [domain, keywords] of Object.entries(domains)) {
-                if (keywords.some(keyword => textLower.includes(keyword))) {
-                    detectedDomain = domain;
-                    break;
-                }
-            }
-
-            // Generate forbidden patterns dynamically
-            const forbiddenPatterns = this.generateForbiddenPatterns(detectedDomain, primaryCulture);
-
-            return {
-                primaryCulture,
-                domain: detectedDomain,
-                specificityLevel: primaryCulture ? 'high' : 'medium',
-                educationalFocus: this.determineEducationalFocus(text),
-                forbiddenPatterns,
-                nativeTerms: primaryCulture ? cultures[primaryCulture].native : []
-            };
-        }
-
-        generateForbiddenPatterns(domain, culture) {
-            const forbiddenMap = {
-                linguistics: ['music production', 'sound design', 'audio engineering', 'daw', 'mixing'],
-                music: ['language learning', 'linguistics'],
-                history: ['modern politics', 'current events'],
-                science: ['pseudoscience', 'conspiracy']
-            };
-
-            const generalForbidden = ['compilation', 'reaction', 'meme', 'funny', 'compilation'];
-            return [...(forbiddenMap[domain] || []), ...generalForbidden];
-        }
-
-        determineEducationalFocus(text) {
-            if (text.includes('beginner') || text.includes('basic') || text.includes('introduction')) return 'beginner';
-            if (text.includes('advanced') || text.includes('expert') || text.includes('master')) return 'advanced';
-            return 'intermediate';
-        }
-
-        validateCulturalSpecificity(query, context) {
-            if (!context.primaryCulture) return true; // No specific culture requirement
-            
-            const queryLower = query.toLowerCase();
-            const culturePatterns = {
-                korean: ['korean', '한국', '의성어', '의태어'],
-                japanese: ['japanese', '日本', '擬音語', '擬態語'],
-                chinese: ['chinese', '中文', '象声词'],
-                spanish: ['spanish', 'español', 'onomatopeya'],
-                french: ['french', 'français', 'onomatopée'],
-                german: ['german', 'deutsch', 'lautmalerei'],
-                arabic: ['arabic', 'عربي', 'محاكاة الأصوات']
-            };
-
-            const requiredPatterns = culturePatterns[context.primaryCulture] || [];
-            return requiredPatterns.some(pattern => queryLower.includes(pattern));
+            return this.parseJSONResponse(response);
         }
 
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
-            log(`RELEVANCE V5: Analyzing "${videoTitle}" for "${learningPoint}"`);
+            log(`RELEVANCE CHECKER: Analyzing "${videoTitle}" for "${learningPoint}"`);
+
+            // Step 1: Extract key terms and context from the main topic
+            const extractTopicKeywords = (topic) => {
+                const keywords = {
+                    languages: [],
+                    subjects: [],
+                    forbidden: []
+                };
+
+                // Language detection
+                const langMatches = topic.match(/\b(korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi|mandarin|cantonese|hangul|hiragana|katakana)\b/gi);
+                if (langMatches) keywords.languages = [...new Set(langMatches.map(l => l.toLowerCase()))];
+
+                // Subject detection
+                const subjectMatches = topic.match(/\b(onomatopoeia|sound words|language|music|art|history|science|math|cooking|dance|martial arts|literature|philosophy|technology|programming)\b/gi);
+                if (subjectMatches) keywords.subjects = [...new Set(subjectMatches.map(s => s.toLowerCase()))];
+
+                // Forbidden terms for this context
+                if (keywords.languages.length > 0 && keywords.subjects.includes('onomatopoeia')) {
+                    keywords.forbidden = ['music production', 'audio editing', 'sound design', 'daw', 'ableton', 'logic', 'pro tools', 'maschine', 'fl studio', 'beats', 'mixing', 'mastering', 'recording'];
+                }
+
+                return keywords;
+            };
+
+            const topicKeywords = extractTopicKeywords(mainTopic + ' ' + learningPoint);
             
-            // Use dynamic cultural context analysis
-            const context = this.analyzeCulturalContext(mainTopic + ' ' + learningPoint);
-            const titleLower = videoTitle.toLowerCase();
-            const transcriptLower = transcript ? transcript.toLowerCase() : '';
-
-            // Pre-filtering with dynamic forbidden patterns
-            if (context.forbiddenPatterns.some(term => titleLower.includes(term) || transcriptLower.includes(term))) {
-                log(`RELEVANCE V5 REJECT (PRE-FILTER): Contains forbidden pattern from ${context.domain} domain`);
-                return { relevant: false, reason: 'forbidden_pattern' };
-            }
-
-            // Cultural specificity validation
-            if (context.primaryCulture) {
-                const hasRequiredCulture = this.validateCulturalSpecificity(videoTitle + ' ' + (transcript || ''), context);
-                if (!hasRequiredCulture) {
-                    log(`RELEVANCE V5 REJECT (PRE-FILTER): Missing required ${context.primaryCulture} cultural context`);
-                    return { relevant: false, reason: 'missing_cultural_context' };
-                }
-            }
-
-            // Enhanced AI analysis with cultural context
-            const prompt = `You are an expert Educational Content Validator specializing in cultural and linguistic accuracy.
-
-VIDEO ANALYSIS TASK:
-- Video Title: "${videoTitle}"
-- Learning Objective: "${learningPoint}"
-- Main Topic Context: "${mainTopic}"
-${transcript ? `- Transcript Sample: "${transcript.substring(0, 2000)}"` : '- (No transcript available)'}
-
-CULTURAL CONTEXT REQUIREMENTS:
-- Primary Culture/Language: ${context.primaryCulture || 'General'}
-- Subject Domain: ${context.domain}
-- Educational Level: ${context.educationalFocus}
-- Required Specificity: ${context.specificityLevel}
-
-VALIDATION CRITERIA:
-1. CULTURAL ACCURACY: ${context.primaryCulture ? `Must genuinely focus on ${context.primaryCulture} culture/language, not just mention it` : 'No specific cultural requirements'}
-2. EDUCATIONAL VALUE: Must be instructional, not entertainment or compilation
-3. DOMAIN RELEVANCE: Must be about ${context.domain}, not tangentially related topics
-4. CONTENT QUALITY: Must provide substantive learning content
-
-STRICT REJECTION TRIGGERS:
-- Generic content that doesn't address the specific cultural/linguistic context
-- Entertainment/reaction videos disguised as educational content
-- Content from wrong subject domains (e.g., music production for linguistics topics)
-- Videos that only briefly mention the topic without deep coverage
-
-Return JSON with this exact structure:
-{
-  "isRelevant": boolean,
-  "confidenceScore": number (1-10),
-  "culturalAccuracy": number (1-10),
-  "educationalValue": number (1-10),
-  "reasoning": "detailed explanation",
-  "identifiedCulturalFocus": "detected culture/language or 'general'",
-  "contentType": "educational/entertainment/mixed/unclear"
-}`;
-
-            try {
-                const aiResult = await this.makeRequest(prompt, { temperature: 0.1 }).then(this.parseJSONResponse);
+            // Step 2: Pre-filter obviously wrong videos
+            const preFilter = (title, keywords) => {
+                const titleLower = title.toLowerCase();
                 
-                if (!aiResult) {
-                    log(`RELEVANCE V5 REJECT: AI analysis failed`);
-                    return { relevant: false, reason: 'ai_analysis_failed' };
-                }
-
-                // Multi-criteria validation
-                const isRelevant = aiResult.isRelevant && 
-                                 aiResult.confidenceScore >= 7 && 
-                                 aiResult.culturalAccuracy >= 8 && 
-                                 aiResult.educationalValue >= 7 &&
-                                 aiResult.contentType === 'educational';
-
-                // Additional cultural focus validation
-                if (context.primaryCulture && aiResult.identifiedCulturalFocus) {
-                    const culturalMatch = aiResult.identifiedCulturalFocus.toLowerCase().includes(context.primaryCulture) ||
-                                        aiResult.identifiedCulturalFocus === context.primaryCulture;
-                    if (!culturalMatch) {
-                        log(`RELEVANCE V5 REJECT: Cultural focus mismatch - expected ${context.primaryCulture}, found ${aiResult.identifiedCulturalFocus}`);
-                        return { relevant: false, reason: 'cultural_mismatch' };
+                // Hard rejection rules
+                if (keywords.forbidden.length > 0) {
+                    for (const forbidden of keywords.forbidden) {
+                        if (titleLower.includes(forbidden)) {
+                            return {
+                                pass: false,
+                                reason: `Contains forbidden term "${forbidden}" which indicates wrong domain`
+                            };
                     }
                 }
 
-                if (isRelevant) {
-                    log(`RELEVANCE V5 ACCEPT: "${videoTitle}" (confidence: ${aiResult.confidenceScore}, cultural: ${aiResult.culturalAccuracy})`);
-                    return { 
-                        relevant: true, 
-                        confidence: aiResult.confidenceScore,
-                        culturalAccuracy: aiResult.culturalAccuracy,
-                        educationalValue: aiResult.educationalValue
-                    };
-                } else {
-                    log(`RELEVANCE V5 REJECT: Low scores - confidence: ${aiResult.confidenceScore}, cultural: ${aiResult.culturalAccuracy}, educational: ${aiResult.educationalValue}`);
-                    return { relevant: false, reason: 'low_quality_scores', details: aiResult };
+                // For language + subject combinations, require both
+                if (keywords.languages.length > 0 && keywords.subjects.length > 0) {
+                    const hasLanguage = keywords.languages.some(lang => titleLower.includes(lang));
+                    const hasSubject = keywords.subjects.some(subj => titleLower.includes(subj));
+                    
+                    if (!hasLanguage && !hasSubject) {
+                        return {
+                            pass: false,
+                            reason: `Missing both language (${keywords.languages.join('/')}) and subject (${keywords.subjects.join('/')}) keywords`
+                        };
+                    }
+                    
+                    // If has subject but wrong/no language, be very strict
+                    if (hasSubject && !hasLanguage) {
+                        const hasWrongLanguage = ['english', 'spanish', 'french', 'german', 'italian', 'japanese', 'chinese', 'korean']
+                            .filter(l => !keywords.languages.includes(l))
+                            .some(wrongLang => titleLower.includes(wrongLang));
+                        
+                        if (hasWrongLanguage) {
+                            return {
+                                pass: false,
+                                reason: `Has subject but wrong language context`
+                            };
+                        }
+                    }
                 }
 
+                return { pass: true, reason: "Passed pre-filter" };
+            };
+
+            const preFilterResult = preFilter(videoTitle, topicKeywords);
+            if (!preFilterResult.pass) {
+                log(`PRE-FILTER REJECT: "${videoTitle}" - ${preFilterResult.reason}`);
+                return {
+                    relevant: false,
+                    reason: `Pre-filter rejection: ${preFilterResult.reason}`,
+                    confidence: 8
+                };
+            }
+
+            // Step 3: Build context-aware prompt
+            const buildSmartPrompt = (title, learning, main, keywords, transcript) => {
+                let prompt = `STRICT VIDEO RELEVANCE ANALYSIS
+
+TASK: Determine if this YouTube video is DIRECTLY relevant for learning "${learning}" within "${main}".
+
+VIDEO: "${title}"
+TARGET LEARNING: "${learning}"
+MAIN TOPIC: "${main}"
+
+CONTEXT ANALYSIS:`;
+
+                if (keywords.languages.length > 0) {
+                    prompt += `
+LANGUAGE FOCUS: ${keywords.languages.join(', ')}
+- Video MUST discuss this specific language/culture
+- Generic content about the subject is NOT sufficient`;
+                }
+
+                if (keywords.subjects.length > 0) {
+                    prompt += `
+SUBJECT FOCUS: ${keywords.subjects.join(', ')}
+- Video MUST teach about this specific subject
+- Technical/production content is NOT suitable for educational topics`;
+                }
+
+                if (keywords.forbidden.length > 0) {
+                    prompt += `
+FORBIDDEN DOMAINS: ${keywords.forbidden.join(', ')}
+- Videos about these topics are AUTOMATICALLY rejected
+- This is an educational context, not technical production`;
+                }
+
+                if (transcript && transcript.trim().length > 0) {
+                    const cleanTranscript = transcript.length > 1500 ? transcript.substring(0, 1500) + "..." : transcript;
+                    prompt += `
+
+TRANSCRIPT ANALYSIS:
+"${cleanTranscript}"
+
+TRANSCRIPT REQUIREMENTS:
+- Must contain specific discussion of "${main}"
+- Must be educational/instructional in nature
+- Must match the cultural/linguistic context if specified
+- Generic or tangentially related content = REJECT`;
+                } else {
+                    prompt += `
+
+TITLE-ONLY ANALYSIS:
+- Must explicitly reference the target topic
+- Must indicate educational content
+- Generic or production-focused titles = REJECT`;
+                }
+
+                prompt += `
+
+STRICT DECISION CRITERIA:
+✅ ACCEPT only if:
+1. Video directly teaches about "${main}"
+2. Content matches required language/cultural context
+3. Educational/instructional approach (not entertainment/production)
+4. Title and/or transcript specifically address the learning goal
+
+❌ REJECT if:
+1. Wrong domain (production vs education)
+2. Wrong language/cultural context
+3. Generic/tangential relationship
+4. Technical tutorials unrelated to the educational topic
+5. Entertainment content without educational value
+
+SCORING:
+- 9-10: Perfect educational match with exact topic coverage
+- 7-8: Good educational content, minor context issues
+- 4-6: Somewhat related but missing key elements
+- 1-3: Poor match or wrong domain
+- 0: Completely irrelevant
+
+RESPONSE FORMAT: {"relevant": true/false, "reason": "specific explanation", "confidence": 0-10}`;
+
+                return prompt;
+            };
+
+            const smartPrompt = buildSmartPrompt(videoTitle, learningPoint, mainTopic, topicKeywords, transcript);
+
+            try {
+                const response = await this.makeRequest(smartPrompt, { temperature: 0.05 });
+                const result = this.parseJSONResponse(response);
+
+                if (result && typeof result.relevant === 'boolean') {
+                    const contextNote = topicKeywords.languages.length > 0 ? ` [${topicKeywords.languages.join('/')}]` : '';
+                    const transcriptNote = transcript ? " (transcript)" : " (title-only)";
+                    
+                    log(`RELEVANCE RESULT${contextNote}: ${result.relevant ? '✅ RELEVANT' : '❌ REJECTED'} (${result.confidence}/10)${transcriptNote}`);
+                    log(`REASON: ${result.reason}`);
+                    
+                    return result;
+                }
             } catch (error) {
-                logError(`RELEVANCE V5: Analysis error:`, error);
-                return { relevant: false, reason: 'analysis_error' };
+                logError('RELEVANCE CHECK: AI analysis failed:', error);
+            }
+
+            // Fallback: Conservative rejection
+            log('RELEVANCE CHECK: Analysis failed, defaulting to REJECT (conservative approach)');
+            return { 
+                relevant: false, 
+                reason: "Analysis failed - defaulting to rejection for safety", 
+                confidence: 1 
+            };
+        }
+
+        async generateNarration(learningPoint, previousPoint) {
+            log(`GEMINI: Generating narration for "${learningPoint}"`);
+            const mainTopic = currentLessonPlan?.topic || learningPoint;
+
+            // Detect languages for mixed-language content generation
+            const isKorean = /korean|hangul|한국|onomatopoeia.*korean/i.test(mainTopic + ' ' + learningPoint);
+            const isJapanese = /japanese|nihongo|日本|hiragana|katakana|kanji/i.test(mainTopic + ' ' + learningPoint);
+            const isChinese = /chinese|mandarin|cantonese|中文|汉语|普通话/i.test(mainTopic + ' ' + learningPoint);
+            const isSpanish = /spanish|español|castellano|español/i.test(mainTopic + ' ' + learningPoint);
+            const isFrench = /french|français|francais/i.test(mainTopic + ' ' + learningPoint);
+
+            let languageInstruction = '';
+            if (isKorean) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use KOREAN text for Korean words/concepts (한국어). Use ENGLISH for explanations. Mark language boundaries with [LANG:ko] and [LANG:en] tags. Example: "[LANG:en]Korean onomatopoeia includes[LANG:ko] 야옹 (meow)[LANG:en] and[LANG:ko] 멍멍 (woof)[LANG:en]."';
+            } else if (isJapanese) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use JAPANESE text for Japanese words/concepts (日本語). Use ENGLISH for explanations. Mark language boundaries with [LANG:ja] and [LANG:en] tags.';
+            } else if (isChinese) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use CHINESE text for Chinese words/concepts (中文). Use ENGLISH for explanations. Mark language boundaries with [LANG:zh] and [LANG:en] tags.';
+            } else if (isSpanish) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use SPANISH text for Spanish words/concepts. Use ENGLISH for explanations. Mark language boundaries with [LANG:es] and [LANG:en] tags.';
+            } else if (isFrench) {
+                languageInstruction = '\n\nMULTILINGUAL CONTENT: Create mixed-language narration. Use FRENCH text for French words/concepts. Use ENGLISH for explanations. Mark language boundaries with [LANG:fr] and [LANG:en] tags.';
+            }
+
+            let prompt = previousPoint ?
+                `Write a simple 1-2 sentence transition for a lesson about "${mainTopic}". The previous topic was "${previousPoint}". Now we're learning about "${learningPoint}". 
+
+IMPORTANT: Make sure to specifically mention "${mainTopic}" in your narration and keep the focus on this exact topic. Be specific about the cultural/linguistic context if applicable.${languageInstruction}
+
+Keep it simple and educational. Just return the text.` :
+                `Write a simple 1-2 sentence welcome message for a lesson about "${mainTopic}", specifically focusing on "${learningPoint}". 
+
+IMPORTANT: Make sure to specifically mention "${mainTopic}" in your welcome message and maintain any cultural/linguistic specificity.${languageInstruction}
+
+Keep it friendly and educational. Just return the text.`;
+            return await this.makeRequest(prompt, { temperature: 0.5, maxOutputTokens: 256 });
+        }
+
+        async generateConcludingNarration(learningPoint) {
+            log(`GEMINI: Generating concluding narration for "${learningPoint}"`);
+            const mainTopic = currentLessonPlan?.topic || learningPoint;
+            const prompt = `Write a short, 1-sentence concluding summary for the topic "${learningPoint}" in the context of learning about "${mainTopic}". 
+
+IMPORTANT: Make sure to specifically mention "${mainTopic}" and maintain any cultural/linguistic specificity in your summary.
+
+This will play after the video or quiz. Keep it encouraging and specific to the exact topic. Just return the text.`;
+            return await this.makeRequest(prompt, { temperature: 0.6, maxOutputTokens: 256 });
+        }
+
+        async findVideoSegments(videoTitle, youtubeUrl, learningPoint, transcript = null) {
+            log(`SEGMENTER: Analyzing YouTube video for "${learningPoint}"`);
+            try {
+                let prompt = `You are a video analyst. For a YouTube video titled "${videoTitle}", identify the most relevant segments for the learning topic: "${learningPoint}".`;
+
+                if (transcript && transcript.trim().length > 0) {
+                    // Truncate transcript for analysis if too long
+                    const truncatedTranscript = transcript.length > 3000 
+                        ? transcript.substring(0, 3000) + "..." 
+                        : transcript;
+
+                    prompt += `
+
+Video Transcript:
+"${truncatedTranscript}"
+
+TRANSCRIPT-BASED ANALYSIS:
+- Use the transcript to identify specific time segments where "${learningPoint}" is discussed
+- Look for educational explanations, examples, or demonstrations related to the topic
+- Identify 1-3 key segments, each 30-120 seconds long. Total duration should be 60-240 seconds.
+- Prioritize segments with the most relevant and educational content
+- Avoid intro/outro segments unless they contain relevant information`;
+                } else {
+                    prompt += `
+
+(No transcript available - using general heuristics)
+- Educational videos usually have an intro (0-30s), main content, and an outro. Focus on the main content.
+- Identify 1-3 key segments, each 30-120 seconds long. Total duration should be 60-240 seconds.`;
+                }
+
+                prompt += `
+
+Return ONLY a valid JSON array like: [{"startTime": 45, "endTime": 135, "reason": "Explanation of core concepts"}]
+If you can't determine specific segments, return one comprehensive segment: [{"startTime": 30, "endTime": 210, "reason": "Core educational content"}]`;
+
+                const response = await this.makeRequest(prompt, { temperature: 0.3, maxOutputTokens: 1024 });
+                const segments = this.parseJSONResponse(response);
+                if (Array.isArray(segments) && segments.length > 0 && typeof segments[0].startTime === 'number') {
+                    const transcriptNote = transcript ? " (using transcript)" : " (using heuristics)";
+                    log(`SEGMENTER: Found ${segments.length} valid segments${transcriptNote}.`);
+                    return segments;
+                }
+                log("SEGMENTER WARN: AI response invalid. Using fallback.");
+                return [{ startTime: 30, endTime: 180, reason: "Main educational content" }];
+            } catch (error) {
+                logError("SEGMENTER ERROR:", error);
+                return [{ startTime: 30, endTime: 180, reason: "Main educational content" }];
             }
         }
-        
-        async findVideoSegments(videoTitle, learningPoint, transcript = null) {
-            log(`SEGMENTER: Analyzing video for "${learningPoint}"`);
-            const prompt = `You are a video analyst. For a video titled "${videoTitle}", find the most relevant segments for the topic: "${learningPoint}".
-            ${transcript ? `Use this transcript:\n"${transcript.substring(0, 5000)}"` : `(No transcript available)`}
-            Find 1-3 key segments, each 30-180 seconds. Return JSON array: [{"startTime": 45, "endTime": 135, "reason": "..."}]`;
-            const response = await this.makeRequest(prompt, { temperature: 0.2 });
-            const segments = this.parseJSONResponse(response);
-            if (Array.isArray(segments) && segments.length > 0 && segments[0].startTime !== undefined) { return segments; }
-            return [{ startTime: 30, endTime: 180, reason: "Main educational content (fallback)" }];
+
+        async generateDetailedExplanation(learningPoint) {
+            log(`GEMINI: Generating detailed explanation for "${learningPoint}"`);
+            const prompt = `Create a comprehensive, educational explanation about "${learningPoint}" (150-250 words). Structure it as an engaging lesson covering: 1) What it is, 2) Why it's important, 3) Key concepts/examples. Write in a clear, teaching style. Return ONLY the explanation text.`;
+            return await this.makeRequest(prompt, { temperature: 0.8, maxOutputTokens: 1024 });
         }
-        async generateConcludingNarration(learningPoint, mainTopic) { return await this.generateNarration(learningPoint, `We just finished watching a video about ${learningPoint}`, mainTopic); }
-        async generateDetailedExplanation(learningPoint) { const prompt = `Create a comprehensive, educational explanation about "${learningPoint}" (150-250 words). Return ONLY the explanation text.`; return await this.makeRequest(prompt); }
-        async generateQuiz(learningPoint) { const prompt = `Create a single multiple-choice quiz about "${learningPoint}". Return JSON: {"question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}`; return await this.makeRequest(prompt).then(this.parseJSONResponse); }
-        async generateLessonSummary(topic, learningPoints) { const prompt = `Generate a brief, encouraging summary for a lesson on "${topic}". Covered points: ${learningPoints.join(', ')}. Return markdown bullet points.`; return await this.makeRequest(prompt); }
+
+        async generateQuiz(learningPoint) {
+            log(`GEMINI: Generating quiz for "${learningPoint}"`);
+            const prompt = `Create a single multiple-choice quiz question about "${learningPoint}". The question should test understanding of a key concept. Return ONLY valid JSON with format: {"question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}`;
+            const response = await this.makeRequest(prompt, { temperature: 0.7 });
+            return this.parseJSONResponse(response);
+        }
+
+        async generateLessonSummary(topic, learningPoints) {
+            log(`GEMINI: Generating lesson summary for "${topic}"`);
+            const prompt = `Generate a brief, encouraging summary for a lesson on "${topic}". The lesson covered these points: ${learningPoints.join(', ')}. Provide 3-5 bullet points highlighting the key takeaways. The tone should be positive and affirm the user's progress. Return ONLY the summary text in markdown format.`;
+            return await this.makeRequest(prompt, { temperature: 0.6, maxOutputTokens: 1024 });
+        }
     }
 
     class VideoSourcer {
         async searchYouTube(query) {
             log(`SEARCH: Using Custom Search for: "${query}"`);
-            const searchParams = new URLSearchParams({ key: YOUTUBE_API_KEY, cx: CSE_ID, q: query, num: 10 });
+            const searchParams = new URLSearchParams({ key: YOUTUBE_API_KEY, cx: CSE_ID, q: `${query} site:youtube.com`, num: 10, filter: '1' });
             try {
                 const response = await fetch(`https://www.googleapis.com/customsearch/v1?${searchParams}`);
-                if (!response.ok) throw new Error(`Search failed: ${response.status}`);
+                if (!response.ok) throw new Error(`Search failed: ${response.status} ${await response.text()}`);
                 const data = await response.json();
-                return this.processSearchResults(data);
-            } catch (error) { logError(`SEARCH: Error for "${query}":`, error); return []; }
+                return this.processSearchResults(data, query);
+            } catch (error) {
+                logError(`SEARCH: Error for "${query}":`, error);
+                return [];
+            }
         }
+
         async getVideoTranscript(youtubeId) {
             log(`TRANSCRIPT: Fetching transcript for video: ${youtubeId}`);
-
-            // First, verify that the API key constant exists and is not a placeholder.
-            if (!SUPADATA_API_KEY || SUPADATA_API_KEY === "YOUR_SUPADATA_API_KEY") {
-                logError(`TRANSCRIPT: Supadata API key is missing or is still a placeholder.`);
-                return null;
-            }
-
             try {
-                const apiUrl = `https://api.supadata.ai/v1/youtube/video?id=${youtubeId}`;
-
-                // --- CORRECTED PART ---
-                // Using the 'x-api-key' header as specified by the Supadata documentation
-                const response = await fetch(apiUrl, { 
+                const response = await fetch(`https://api.supadata.ai/v1/transcript?video_id=${youtubeId}`, {
                     method: 'GET',
-                    headers: { 
+                    headers: {
                         'x-api-key': SUPADATA_API_KEY,
                         'Content-Type': 'application/json'
-                    } 
+                    }
                 });
-                // --- END OF CORRECTION ---
 
-                if (!response.ok) { 
-                    const errorBody = await response.text();
-                    logError(`TRANSCRIPT: API request failed for ${youtubeId}. Status: ${response.status}. Response: ${errorBody}`);
-                    return null; 
+                if (!response.ok) {
+                    log(`TRANSCRIPT: API failed for ${youtubeId}: ${response.status} ${response.statusText}`);
+                    return null;
                 }
 
                 const data = await response.json();
-                if (data && Array.isArray(data.transcript)) {
-                    log(`TRANSCRIPT: Successfully fetched transcript for ${youtubeId}`);
-                    return data.transcript.map(item => item.text || '').join(' ');
-                }
-                return null;
 
+                // Extract transcript text from the response
+                if (data && data.transcript) {
+                    const transcriptText = Array.isArray(data.transcript) 
+                        ? data.transcript.map(item => item.text || item.content || '').join(' ')
+                        : typeof data.transcript === 'string' 
+                        ? data.transcript 
+                        : JSON.stringify(data.transcript);
+
+                    log(`TRANSCRIPT: Successfully fetched ${transcriptText.length} characters for ${youtubeId}`);
+                    return transcriptText;
+                } else {
+                    log(`TRANSCRIPT: No transcript data found for ${youtubeId}`);
+                    return null;
+                }
             } catch (error) {
-                logError(`TRANSCRIPT: A network or other unexpected error occurred during fetch for ${youtubeId}:`, error);
+                logError(`TRANSCRIPT: Error fetching transcript for ${youtubeId}:`, error);
                 return null;
             }
         }
-        processSearchResults(data) {
-            if (!data.items) return [];
-            return data.items.map(item => {
-                const videoIdMatch = (item.link || '').match(/(?:watch\?v=)([a-zA-Z0-9_-]{11})/);
-                if (videoIdMatch) return { youtubeId: videoIdMatch[1], title: item.title };
+
+        processSearchResults(data, query) {
+            if (!data.items || data.items.length === 0) { log(`SEARCH: No results found for "${query}"`); return []; }
+            const results = data.items.map(item => {
+                const videoIdMatch = item.link.match(/(?:watch\?v=)([a-zA-Z0-9_-]{11})/);
+                const videoId = videoIdMatch ? videoIdMatch[1] : null;
+                if (videoId) {
+                    let score = 1;
+                    const title = (item.title || '').toLowerCase();
+                    if (title.includes('tutorial') || title.includes('explained') || title.includes('how to')) score += 3;
+                    if (title.includes('course') || title.includes('lesson') || title.includes('learn')) score += 2;
+                    if (title.includes('lecture') || title.includes('documentary')) score += 2;
+                    return { youtubeId: videoId, title: item.title || 'Untitled', educationalScore: score };
+                }
                 return null;
-            }).filter(Boolean);
+            }).filter(item => item && item.youtubeId && item.youtubeId.length === 11); // Extra validation
+            log(`SEARCH: Found ${results.length} valid videos for "${query}"`);
+            return results;
         }
     }
-    
-    // Using your original, full SpeechEngine with multilingual support
+
     class SpeechEngine {
         constructor() { 
             this.apiKey = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8"; 
             this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize'; 
-            this.onCompleteCallback = null; this.onProgressCallback = null; 
-            this.isPaused = false; this.isPlaying = false;
-            this.audioQueue = []; this.currentAudioIndex = 0; this.startTime = null;
+            this.onCompleteCallback = null; 
+            this.onProgressCallback = null; 
+            this.isPaused = false; 
+            this.isPlaying = false;
+            this.audioQueue = [];
+            this.currentAudioIndex = 0;
+            this.startTime = null;
         }
-        detectLanguage(text) { const patterns = [ { lang: 'ko', pattern: /[\u3131-\u3163\uac00-\ud7a3]/g }, { lang: 'ja', pattern: /[\u3040-\u309f\u30a0-\u30ff]/g }, { lang: 'zh', pattern: /[\u4e00-\u9fff]/g } ]; for (const {lang, pattern} of patterns) { if (pattern.test(text)) return lang; } return 'en'; }
+
+        detectLanguage(text) {
+            // More precise language detection with priority order
+            const patterns = [
+                { lang: 'ko', pattern: /[\u3131-\u3163\uac00-\ud7a3]/g }, // Korean characters
+                { lang: 'ja', pattern: /[\u3040-\u309f\u30a0-\u30ff]/g }, // Hiragana/Katakana
+                { lang: 'zh', pattern: /[\u4e00-\u9fff]/g }, // Chinese characters
+                { lang: 'ru', pattern: /[\u0400-\u04ff]/g }, // Cyrillic
+                { lang: 'ar', pattern: /[\u0600-\u06ff]/g }, // Arabic
+                { lang: 'hi', pattern: /[\u0900-\u097f]/g }, // Devanagari
+                { lang: 'es', pattern: /\b(español|castellano|¿|¡|ñ|á|é|í|ó|ú)\b/gi },
+                { lang: 'fr', pattern: /\b(français|francais|à|é|è|ê|ë|ç|î|ï|ô|ù|û|ü|ÿ)\b/gi },
+                { lang: 'de', pattern: /\b(deutsch|ä|ö|ü|ß)\b/gi },
+                { lang: 'it', pattern: /\b(italiano|à|è|é|ì|í|î|ò|ó|ù|ú)\b/gi },
+                { lang: 'pt', pattern: /\b(português|português|ã|ç|á|à|â|é|ê|í|ó|ô|õ|ú)\b/gi }
+            ];
+
+            // Check for non-Latin scripts first (they're more definitive)
+            for (const {lang, pattern} of patterns.slice(0, 6)) {
+                const matches = text.match(pattern);
+                if (matches && matches.length > 0) {
+                    return lang;
+                }
+            }
+
+            // Check for Latin-based languages
+            for (const {lang, pattern} of patterns.slice(6)) {
+                if (pattern.test(text)) {
+                    return lang;
+                }
+            }
+
+            return 'en'; // Default to English
+        }
+
         getVoiceConfig(languageCode) {
-            const voices = { 'ko': { languageCode: 'ko-KR', name: 'ko-KR-Standard-C' }, 'ja': { languageCode: 'ja-JP', name: 'ja-JP-Standard-B' }, 'zh': { languageCode: 'zh-CN', name: 'zh-CN-Standard-A' }, 'en': { languageCode: 'en-US', name: 'en-US-Standard-H' } };
+            const voices = {
+                'ko': { languageCode: 'ko-KR', name: 'ko-KR-Standard-C', ssmlGender: 'FEMALE' },
+                'ja': { languageCode: 'ja-JP', name: 'ja-JP-Standard-B', ssmlGender: 'FEMALE' },
+                'zh': { languageCode: 'zh-CN', name: 'zh-CN-Standard-A', ssmlGender: 'FEMALE' },
+                'es': { languageCode: 'es-US', name: 'es-US-Standard-A', ssmlGender: 'FEMALE' },
+                'fr': { languageCode: 'fr-FR', name: 'fr-FR-Standard-C', ssmlGender: 'FEMALE' },
+                'de': { languageCode: 'de-DE', name: 'de-DE-Standard-A', ssmlGender: 'FEMALE' },
+                'it': { languageCode: 'it-IT', name: 'it-IT-Standard-A', ssmlGender: 'FEMALE' },
+                'pt': { languageCode: 'pt-BR', name: 'pt-BR-Standard-A', ssmlGender: 'FEMALE' },
+                'ru': { languageCode: 'ru-RU', name: 'ru-RU-Standard-C', ssmlGender: 'FEMALE' },
+                'ar': { languageCode: 'ar-XA', name: 'ar-XA-Standard-A', ssmlGender: 'FEMALE' },
+                'hi': { languageCode: 'hi-IN', name: 'hi-IN-Standard-A', ssmlGender: 'FEMALE' },
+                'en': { languageCode: 'en-US', name: 'en-US-Standard-H', ssmlGender: 'FEMALE' }
+            };
             return voices[languageCode] || voices['en'];
         }
+
         parseMultilingualText(text) {
-            const segments = []; const langPattern = /\[LANG:(.*?)\](.*?)(?=\[LANG:|$)/g; let match; let lastIndex = 0;
-            while ((match = langPattern.exec(text)) !== null) { if (lastIndex === 0 && match.index > 0) { const beforeText = text.substring(0, match.index).trim(); if (beforeText) segments.push({ text: beforeText, language: 'en' }); } const lang = match[1].toLowerCase(); const content = match[2].trim(); if (content) segments.push({ text: content, language: lang }); lastIndex = match.index + match[0].length; }
-            if (segments.length === 0) { return this.smartLanguageSplit(text); } else { const remainingText = text.substring(lastIndex).trim(); if (remainingText) { segments.push({ text: remainingText, language: this.detectLanguage(remainingText) }); } }
+            // Parse text with [LANG:code] markers
+            const segments = [];
+            const langPattern = /\[LANG:(.*?)\](.*?)(?=\[LANG:|$)/g;
+            let match;
+            let lastIndex = 0;
+
+            while ((match = langPattern.exec(text)) !== null) {
+                // Add any text before the first language tag as English
+                if (lastIndex === 0 && match.index > 0) {
+                    const beforeText = text.substring(0, match.index).trim();
+                    if (beforeText) {
+                        segments.push({
+                            text: beforeText,
+                            language: 'en'
+                        });
+                    }
+                }
+
+                const lang = match[1].toLowerCase();
+                const content = match[2].trim();
+                if (content) {
+                    segments.push({
+                        text: content,
+                        language: lang
+                    });
+                }
+                lastIndex = match.index + match[0].length;
+            }
+
+            // If no language tags found, smart split by language detection
+            if (segments.length === 0) {
+                return this.smartLanguageSplit(text);
+            } else {
+                // Add any remaining text as English
+                const remainingText = text.substring(lastIndex).trim();
+                if (remainingText) {
+                    const detectedLang = this.detectLanguage(remainingText);
+                    segments.push({
+                        text: remainingText,
+                        language: detectedLang
+                    });
+                }
+            }
+
             return segments.filter(segment => segment.text.length > 0);
         }
+
         smartLanguageSplit(text) {
-            const segments = []; const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
-            for (const sentence of sentences) { const cleanSentence = sentence.trim(); if (!cleanSentence) continue; const detectedLang = this.detectLanguage(cleanSentence); if (segments.length > 0 && segments[segments.length - 1].language === detectedLang) { segments[segments.length - 1].text += ' ' + cleanSentence; } else { segments.push({ text: cleanSentence, language: detectedLang }); } }
-            if (segments.length === 0) { segments.push({ text: text.trim(), language: this.detectLanguage(text) }); }
+            // Smart splitting for mixed-language content without explicit tags
+            const segments = [];
+            
+            // Split by sentences first
+            const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
+            
+            for (const sentence of sentences) {
+                const cleanSentence = sentence.trim();
+                if (!cleanSentence) continue;
+
+                // Detect language for each sentence
+                const detectedLang = this.detectLanguage(cleanSentence);
+                
+                // If we have a previous segment with the same language, combine them
+                if (segments.length > 0 && segments[segments.length - 1].language === detectedLang) {
+                    segments[segments.length - 1].text += ' ' + cleanSentence;
+                } else {
+                    segments.push({
+                        text: cleanSentence,
+                        language: detectedLang
+                    });
+                }
+            }
+
+            // If no sentences detected, treat as single segment
+            if (segments.length === 0) {
+                const detectedLang = this.detectLanguage(text);
+                segments.push({
+                    text: text.trim(),
+                    language: detectedLang
+                });
+            }
+
             return segments;
         }
+
         async synthesizeSegment(text, languageCode) {
             const voiceConfig = this.getVoiceConfig(languageCode);
-            const requestBody = { input: { text }, voice: voiceConfig, audioConfig: { audioEncoding: 'MP3' } };
-            const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
-            if (!response.ok) throw new Error(`Speech API failed for ${languageCode}`);
-            const data = await response.json();
-            return this.base64ToBlob(data.audioContent);
+            log(`SPEECH: Synthesizing "${text.substring(0, 30)}..." in ${languageCode} using voice ${voiceConfig.name}`);
+
+            // Language-specific audio configuration
+            const audioConfig = {
+                audioEncoding: 'MP3',
+                speakingRate: this.getSpeakingRate(languageCode),
+                pitch: this.getPitch(languageCode),
+                volumeGainDb: 0.0
+            };
+
+            const maxRetries = 3;
+            let currentRetry = 0;
+
+            while (currentRetry <= maxRetries) {
+                try {
+                    const requestBody = {
+                        input: { text: this.preprocessTextForLanguage(text, languageCode) },
+                        voice: voiceConfig,
+                        audioConfig: audioConfig
+                    };
+
+                    log(`SPEECH API: Request for ${languageCode}:`, requestBody);
+
+                    const response = await fetch(`${this.apiUrl}?key=${this.apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        log(`SPEECH: Successfully synthesized ${languageCode} audio`);
+                        return this.base64ToBlob(data.audioContent);
+                    }
+
+                    const errorData = await response.json().catch(() => ({}));
+                    log(`SPEECH API ERROR: ${response.status} - ${JSON.stringify(errorData)}`);
+
+                    if (response.status === 429 && currentRetry < maxRetries) {
+                        log(`SPEECH API: Rate limited. Retrying in ${(currentRetry + 1) * 2} seconds...`);
+                        currentRetry++;
+                        await new Promise(resolve => setTimeout(resolve, (currentRetry) * 2000));
+                    } else if (response.status >= 500 && currentRetry < maxRetries) {
+                        log(`SPEECH API: Server error ${response.status}. Retrying...`);
+                        currentRetry++;
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                    } else {
+                        throw new Error(`Speech API failed: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+                    }
+                } catch (fetchError) {
+                    if (currentRetry < maxRetries) {
+                        log(`SPEECH API: Network error. Retrying... (${currentRetry + 1}/${maxRetries})`);
+                        currentRetry++;
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    } else {
+                        logError(`SPEECH: Final synthesis error for ${languageCode}:`, fetchError);
+                        throw fetchError;
+                    }
+                }
+            }
         }
+
+        getSpeakingRate(languageCode) {
+            // Adjust speaking rate for different languages
+            const rates = {
+                'ko': 0.9,  // Korean slightly slower
+                'ja': 0.9,  // Japanese slightly slower
+                'zh': 0.9,  // Chinese slightly slower
+                'es': 1.0,  // Spanish normal
+                'fr': 1.0,  // French normal
+                'de': 0.95, // German slightly slower
+                'it': 1.0,  // Italian normal
+                'pt': 1.0,  // Portuguese normal
+                'ru': 0.9,  // Russian slightly slower
+                'ar': 0.9,  // Arabic slightly slower
+                'hi': 0.9,  // Hindi slightly slower
+                'en': 1.0   // English normal
+            };
+            return rates[languageCode] || 1.0;
+        }
+
+        getPitch(languageCode) {
+            // Adjust pitch for different languages
+            const pitches = {
+                'ko': 0.0,   // Korean neutral
+                'ja': 0.0,   // Japanese neutral
+                'zh': 0.0,   // Chinese neutral
+                'es': 0.0,   // Spanish neutral
+                'fr': 0.0,   // French neutral
+                'de': -1.0,  // German slightly lower
+                'it': 1.0,   // Italian slightly higher
+                'pt': 0.0,   // Portuguese neutral
+                'ru': -1.0,  // Russian slightly lower
+                'ar': 0.0,   // Arabic neutral
+                'hi': 0.0,   // Hindi neutral
+                'en': 0.0    // English neutral
+            };
+            return pitches[languageCode] || 0.0;
+        }
+
+        preprocessTextForLanguage(text, languageCode) {
+            // Add language-specific preprocessing for better pronunciation
+            let processedText = text.trim();
+
+            switch (languageCode) {
+                case 'ko':
+                    // Korean text preprocessing
+                    processedText = processedText.replace(/\s+/g, ' ');
+                    break;
+                case 'ja':
+                    // Japanese text preprocessing
+                    processedText = processedText.replace(/\s+/g, ' ');
+                    break;
+                case 'zh':
+                    // Chinese text preprocessing
+                    processedText = processedText.replace(/\s+/g, '');
+                    break;
+                case 'es':
+                    // Spanish text preprocessing - add pronunciation hints
+                    processedText = processedText.replace(/ñ/g, 'ñ');
+                    break;
+                default:
+                    processedText = processedText.replace(/\s+/g, ' ');
+            }
+
+            return processedText;
+        }
+
         async play(text, { onProgress = null, onComplete = null } = {}) {
-            this.stop(); if (!text) { if (onComplete) onComplete(); return; }
-            this.onProgressCallback = onProgress; this.onCompleteCallback = onComplete; this.isPaused = false; this.isPlaying = true; this.startTime = Date.now();
+            log(`SPEECH: Starting multilingual playback: "${text.substring(0, 50)}..."`);
+            this.stop();
+
+            if (!text) {
+                if (onComplete) onComplete();
+                return;
+            }
+
+            this.onProgressCallback = onProgress;
+            this.onCompleteCallback = onComplete;
+            this.isPaused = false;
+            this.isPlaying = true;
+            this.startTime = Date.now();
+
             try {
+                // Parse text into language segments
                 const segments = this.parseMultilingualText(text);
-                const audioPromises = segments.map(segment => this.synthesizeSegment(segment.text, segment.language));
+                log(`SPEECH: Parsed into ${segments.length} segments:`, segments.map(s => `${s.language}: "${s.text.substring(0, 20)}..."`));
+
+                // Synthesize all segments in parallel for better performance
+                const audioPromises = segments.map(segment => 
+                    this.synthesizeSegment(segment.text, segment.language)
+                );
+
                 const audioBlobs = await Promise.all(audioPromises);
-                this.audioQueue = audioBlobs.map((blob, index) => { const audio = new Audio(); audio.src = URL.createObjectURL(blob); return { audio, segment: segments[index], duration: 0 }; });
+
+                // Create audio elements for each segment
+                this.audioQueue = audioBlobs.map((blob, index) => {
+                    const audio = new Audio();
+                    audio.src = URL.createObjectURL(blob);
+                    audio.preload = 'auto';
+                    return {
+                        audio,
+                        segment: segments[index],
+                        duration: 0 // Will be set when loaded
+                    };
+                });
+
+                this.currentAudioIndex = 0;
+
+                // Load duration for progress calculation
                 await this.loadAudioDurations();
+
+                // Start playing the first segment
                 this.playCurrentSegment();
-            } catch (error) { logError(`SPEECH: Multilingual synthesis error:`, error); this.fallbackTiming(text); }
+
+            } catch (error) {
+                logError(`SPEECH: Multilingual synthesis error:`, error);
+                this.fallbackTiming(text);
+            }
         }
-        async loadAudioDurations() { const loadPromises = this.audioQueue.map(item => new Promise(resolve => { const audio = item.audio; const onLoad = () => { item.duration = audio.duration || 2; audio.removeEventListener('loadedmetadata', onLoad); resolve(); }; audio.addEventListener('loadedmetadata', onLoad); setTimeout(() => { item.duration = item.duration || 2; resolve(); }, 3000); })); await Promise.all(loadPromises); }
+
+        async loadAudioDurations() {
+            const loadPromises = this.audioQueue.map(item => 
+                new Promise(resolve => {
+                    const audio = item.audio;
+                    const onLoad = () => {
+                        item.duration = audio.duration || 2; // Fallback duration
+                        audio.removeEventListener('loadedmetadata', onLoad);
+                        audio.removeEventListener('canplaythrough', onLoad);
+                        resolve();
+                    };
+                    audio.addEventListener('loadedmetadata', onLoad);
+                    audio.addEventListener('canplaythrough', onLoad);
+                    // Timeout fallback
+                    setTimeout(() => {
+                        item.duration = 2;
+                        resolve();
+                    }, 3000);
+                })
+            );
+            await Promise.all(loadPromises);
+        }
+
         playCurrentSegment() {
-            if (!this.isPlaying || this.currentAudioIndex >= this.audioQueue.length) { this.handlePlaybackComplete(); return; }
+            if (!this.isPlaying || this.currentAudioIndex >= this.audioQueue.length) {
+                this.handlePlaybackComplete();
+                return;
+            }
+
             const currentItem = this.audioQueue[this.currentAudioIndex];
             const audio = currentItem.audio;
-            audio.onended = () => { this.currentAudioIndex++; this.playCurrentSegment(); };
-            audio.onerror = () => { this.currentAudioIndex++; this.playCurrentSegment(); };
-            audio.ontimeupdate = () => this.updateProgress();
-            audio.play().catch(e => { logError(`Error playing segment`, e); this.currentAudioIndex++; this.playCurrentSegment(); });
+
+            log(`SPEECH: Playing segment ${this.currentAudioIndex + 1}/${this.audioQueue.length} (${currentItem.segment.language}): "${currentItem.segment.text.substring(0, 30)}..."`);
+
+            audio.onended = () => {
+                this.currentAudioIndex++;
+                setTimeout(() => this.playCurrentSegment(), 100); // Small gap between segments
+            };
+
+            audio.onerror = () => {
+                logError(`Audio error for segment ${this.currentAudioIndex + 1}`);
+                this.currentAudioIndex++;
+                setTimeout(() => this.playCurrentSegment(), 100);
+            };
+
+            audio.ontimeupdate = () => {
+                this.updateProgress();
+            };
+
+            audio.play().catch(e => {
+                logError(`Error playing segment ${this.currentAudioIndex + 1}:`, e);
+                this.currentAudioIndex++;
+                setTimeout(() => this.playCurrentSegment(), 100);
+            });
         }
+
         updateProgress() {
             if (!this.onProgressCallback || this.audioQueue.length === 0) return;
-            const totalDuration = this.audioQueue.reduce((sum, item) => sum + item.duration, 0);
+
+            const totalDuration = this.audioQueue.reduce((sum, item) => sum + (item.duration || 0), 0);
             if (totalDuration === 0) return;
+
             let elapsedDuration = 0;
-            for (let i = 0; i < this.currentAudioIndex; i++) { elapsedDuration += this.audioQueue[i].duration; }
-            if (this.currentAudioIndex < this.audioQueue.length) { elapsedDuration += this.audioQueue[this.currentAudioIndex].audio.currentTime || 0; }
-            this.onProgressCallback(Math.min(elapsedDuration / totalDuration, 1));
+
+            // Add duration of completed segments
+            for (let i = 0; i < this.currentAudioIndex; i++) {
+                elapsedDuration += this.audioQueue[i].duration || 0;
+            }
+
+            // Add current segment progress
+            if (this.currentAudioIndex < this.audioQueue.length) {
+                const currentAudio = this.audioQueue[this.currentAudioIndex].audio;
+                elapsedDuration += currentAudio.currentTime || 0;
+            }
+
+            const progress = Math.min(elapsedDuration / totalDuration, 1);
+            this.onProgressCallback(progress);
         }
-        handlePlaybackComplete() { this.isPlaying = false; this.isPaused = false; if (this.onProgressCallback) this.onProgressCallback(1); if (this.onCompleteCallback) this.onCompleteCallback(); }
-        fallbackTiming(text) { const estimatedDuration = Math.max(3000, text.length * 80); if (this.onProgressCallback) { const interval = setInterval(() => { if (!this.isPlaying) { clearInterval(interval); return; } const progress = Math.min((Date.now() - this.startTime) / estimatedDuration, 1); this.onProgressCallback(progress); if (progress >= 1) clearInterval(interval); }, 100); } setTimeout(() => { if (this.isPlaying && this.onCompleteCallback) this.handlePlaybackComplete(); }, estimatedDuration); }
-        pause() { if (this.isPlaying && !this.isPaused && this.audioQueue[this.currentAudioIndex]) { this.audioQueue[this.currentAudioIndex].audio.pause(); this.isPaused = true; } }
-        resume() { if (this.isPaused && this.isPlaying && this.audioQueue[this.currentAudioIndex]) { this.audioQueue[this.currentAudioIndex].audio.play().catch(e => logError(`Resume error:`, e)); this.isPaused = false; } }
-        stop() { this.isPlaying = false; this.isPaused = false; this.audioQueue.forEach(item => { try { item.audio.pause(); item.audio.currentTime = 0; if (item.audio.src) URL.revokeObjectURL(item.audio.src); } catch (e) {} }); this.audioQueue = []; this.currentAudioIndex = 0; }
-        base64ToBlob(base64) { const byteCharacters = atob(base64); const byteArrays = []; for (let offset = 0; offset < byteCharacters.length; offset += 512) { const slice = byteCharacters.slice(offset, offset + 512); const byteNumbers = new Array(slice.length); for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i); byteArrays.push(new Uint8Array(byteNumbers)); } return new Blob(byteArrays, { type: 'audio/mpeg' }); }
+
+        handlePlaybackComplete() {
+            this.isPlaying = false;
+            this.isPaused = false;
+
+            if (this.onProgressCallback) this.onProgressCallback(1);
+            if (this.onCompleteCallback) this.onCompleteCallback();
+
+            log('SPEECH: Multilingual playback completed');
+        }
+
+        fallbackTiming(text) {
+            const estimatedDuration = Math.max(3000, Math.min(text.length * 80, 15000));
+            log(`SPEECH: Using fallback timer for ${estimatedDuration}ms`);
+
+            if (this.onProgressCallback) {
+                const progressInterval = setInterval(() => {
+                    if (!this.isPlaying) {
+                        clearInterval(progressInterval);
+                        return;
+                    }
+                    const elapsed = Date.now() - this.startTime;
+                    const progress = Math.min(elapsed / estimatedDuration, 1);
+                    this.onProgressCallback(progress);
+
+                    if (progress >= 1) {
+                        clearInterval(progressInterval);
+                    }
+                }, 100);
+            }
+
+            setTimeout(() => {
+                if (this.isPlaying && this.onCompleteCallback) {
+                    this.handlePlaybackComplete();
+                }
+            }, estimatedDuration);
+        }
+
+        pause() {
+            if (this.isPlaying && !this.isPaused && this.currentAudioIndex < this.audioQueue.length) {
+                this.audioQueue[this.currentAudioIndex].audio.pause();
+                this.isPaused = true;
+                log('SPEECH: Multilingual playback paused');
+            }
+        }
+
+        resume() {
+            if (this.isPaused && this.isPlaying && this.currentAudioIndex < this.audioQueue.length) {
+                this.audioQueue[this.currentAudioIndex].audio.play().catch(e => logError(`Resume error:`, e));
+                this.isPaused = false;
+                log('SPEECH: Multilingual playback resumed');
+            }
+        }
+
+        stop() {
+            log('SPEECH: Stopping multilingual playback');
+            this.isPlaying = false;
+            this.isPaused = false;
+
+            // Stop and cleanup all audio elements
+            this.audioQueue.forEach(item => {
+                try {
+                    item.audio.pause();
+                    item.audio.currentTime = 0;
+                    if (item.audio.src) {
+                        URL.revokeObjectURL(item.audio.src);
+                        item.audio.src = '';
+                    }
+                    // Clear event handlers
+                    item.audio.onended = null;
+                    item.audio.onerror = null;
+                    item.audio.ontimeupdate = null;
+                } catch (e) {
+                    log('SPEECH: Error cleaning up audio:', e);
+                }
+            });
+
+            this.audioQueue = [];
+            this.currentAudioIndex = 0;
+            log('SPEECH: Multilingual cleanup completed');
+        }
+
+        base64ToBlob(base64) {
+            const byteCharacters = atob(base64);
+            const byteArrays = [];
+            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                const slice = byteCharacters.slice(offset, offset + 512);
+                const byteNumbers = new Array(slice.length);
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+                byteArrays.push(new Uint8Array(byteNumbers));
+            }
+            return new Blob(byteArrays, { type: 'audio/mpeg' });
+        }
     }
 
-    // Using your original, full LearningPipeline and UI functions
     class LearningPipeline {
-        constructor() { this.gemini = new GeminiOrchestrator(); this.videoSourcer = new VideoSourcer(); this.speechEngine = new SpeechEngine(); this.youtubePlayer = null; }
+        constructor() { this.gemini = new GeminiOrchestrator(); this.videoSourcer = new VideoSourcer(); this.speechEngine = new SpeechEngine(); this.youtubePlayer = null;      this.concludingNarrationText = null; }
 
         async start(topic) {
             log("FLOW: Step 1 - Generate lesson plan");
             showLoading("Generating comprehensive lesson plan...");
-            const plan = await this.gemini.generateLessonPlan(topic);
+            const rawPlan = await this.gemini.generateLessonPlan(topic);
             hideLoading();
-            if (plan && plan.Apprentice) {
-                currentLessonPlan = { ...plan, topic };
+            currentLessonPlan = rawPlan;
+            if (currentLessonPlan && currentLessonPlan.Apprentice) {
+                currentLessonPlan.topic = topic;
                 displayLevelSelection();
             } else {
-                displayError("Failed to generate a valid lesson plan. Please try again.");
+                displayError("Failed to generate a valid lesson plan. Please try a different topic.");
                 ui.curateButton.disabled = false;
             }
         }
@@ -655,17 +1194,26 @@ Return JSON with this exact structure:
             ui.levelSelection.classList.add('hidden');
             ui.lessonProgressContainer.classList.remove('hidden');
             ui.learningCanvasContainer.classList.remove('hidden');
-            document.querySelector('header').classList.add('content-hidden');
+
+            // Completely remove all potential spacing elements
+            document.getElementById('progress-spacer').classList.add('hidden');
+            ui.inputSection.classList.add('hidden');
+            ui.loadingIndicator.classList.add('hidden');
+
+            // Force compact header layout
+            document.querySelector('header').style.marginBottom = '0.5rem';
+            document.querySelector('header').style.paddingBottom = '0.25rem';
+
             this.processNextLearningPoint();
         }
 
         async processNextLearningPoint() {
-            if (currentSegmentIndex >= currentLessonPlan[currentLearningPath].length - 1) {
+            currentSegmentIndex++;
+            const learningPoints = currentLessonPlan[currentLearningPath];
+            if (currentSegmentIndex >= learningPoints.length) {
                 this.showLessonSummary();
                 return;
             }
-            currentSegmentIndex++;
-            const learningPoints = currentLessonPlan[currentLearningPath];
             const learningPoint = learningPoints[currentSegmentIndex];
             const previousPoint = currentSegmentIndex > 0 ? learningPoints[currentSegmentIndex - 1] : null;
             updateSegmentProgress();
@@ -680,263 +1228,968 @@ Return JSON with this exact structure:
             ui.nextSegmentButton.disabled = true;
 
             try {
-                const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint, currentLessonPlan.topic);
-                if (!narrationText) { onComplete(); return; }
+                const narrationText = await this.gemini.generateNarration(learningPoint, previousPoint);
+                if (!narrationText) {
+                    log("NARRATION: No text generated, skipping to next step");
+                    onComplete();
+                    return;
+                }
+
                 displayTextContent(narrationText);
+
+                // Create a promise that resolves only when speech completes
                 await new Promise((resolve) => {
+                    let speechCompleted = false;
+
+                    // Set up a timeout as safety net
+                    const timeoutId = setTimeout(() => {
+                        if (!speechCompleted) {
+                            speechCompleted = true;
+                            log("NARRATION: Timeout reached, forcing completion");
+                            this.speechEngine.stop();
+                            resolve();
+                        }
+                    }, 15000); // 15 second timeout
+
                     this.speechEngine.play(narrationText, {
-                        onProgress: (progress) => { if (lessonState === 'narrating') animateTextProgress(narrationText, progress); },
-                        onComplete: () => { if (lessonState === 'narrating') resolve(); }
+                        onProgress: (progress) => {
+                            if (lessonState === 'narrating') {
+                                animateTextProgress(narrationText, progress);
+                            }
+                        },
+                        onComplete: () => {
+                            if (!speechCompleted && lessonState === 'narrating') {
+                                speechCompleted = true;
+                                clearTimeout(timeoutId);
+                                log("NARRATION: Speech completed successfully");
+                                resolve();
+                            }
+                        }
                     });
                 });
+
+                // Only proceed if still in narrating state
                 if (lessonState === 'narrating') {
-                    ui.nextSegmentButton.disabled = false;
                     onComplete();
                 }
-            } catch (error) { logError("NARRATION: Error during playback", error); onComplete(); }
+            } catch (error) {
+                logError("NARRATION: Error during playback", error);
+                onComplete();
+            }
         }
 
         async playConcludingNarration(learningPoint) {
             log("FLOW: Play concluding narration");
             updateStatus('narrating');
             updatePlayPauseIcon();
-            const narrationText = await this.gemini.generateConcludingNarration(learningPoint, currentLessonPlan.topic);
-            if (!narrationText) return;
-            showTextDisplay();
-            displayTextContent(narrationText);
-            await new Promise(resolve => this.speechEngine.play(narrationText, { onComplete: resolve }));
+            ui.nextSegmentButton.disabled = true;
+
+            try {
+                const narrationText = await this.gemini.generateConcludingNarration(learningPoint);
+                if (!narrationText) {
+                    log("CONCLUDING NARRATION: No text generated, skipping to next step");
+                    return;
+                }
+
+                // Ensure text display is visible and force display the content
+                showTextDisplay();
+                displayTextContent(narrationText);
+                log("CONCLUDING NARRATION: Text content displayed on teleprompter");
+
+                // Create a promise that resolves only when speech completes
+                await new Promise((resolve) => {
+                    let speechCompleted = false;
+
+                    // Set up a timeout as safety net
+                    const timeoutId = setTimeout(() => {
+                        if (!speechCompleted) {
+                            speechCompleted = true;
+                            log("CONCLUDING NARRATION: Timeout reached, forcing completion");
+                            this.speechEngine.stop();
+                            resolve();
+                        }
+                    }, 20000); // Increased timeout for concluding narration
+
+                    this.speechEngine.play(narrationText, {
+                        onProgress: (progress) => {
+                            if (lessonState === 'narrating') {
+                                animateTextProgress(narrationText, progress);
+                                log(`CONCLUDING NARRATION: Progress ${(progress * 100).toFixed(1)}%`);
+                            }
+                        },
+                        onComplete: () => {
+                            if (!speechCompleted && lessonState === 'narrating') {
+                                speechCompleted = true;
+                                clearTimeout(timeoutId);
+                                log("CONCLUDING NARRATION: Speech completed successfully");
+                                resolve();
+                            }
+                        }
+                    });
+                });
+
+                // Only proceed if still in narrating state
+                if (lessonState === 'narrating') {
+                    log("CONCLUDING NARRATION: Completed successfully");
+                }
+            } catch (error) {
+                logError("CONCLUDING NARRATION: Error during playback", error);
+            }
         }
 
         async searchVideos(learningPoint) {
-            log("FLOW: Step 2 - Search videos");
+            log("FLOW: Step 2 - Search educational videos");
             updateStatus('searching_videos');
             displayStatusMessage('🔎 Finding educational content...', `Searching for: "${learningPoint}"`);
             try {
-                const searchQueries = await this.gemini.generateSearchQueries(learningPoint, currentLessonPlan.topic);
-                if (!searchQueries || searchQueries.length === 0) throw new Error("No queries.");
+                const searchQueries = await this.gemini.generateSearchQueries(learningPoint);
+                if (!searchQueries || !Array.isArray(searchQueries) || searchQueries.length === 0) {
+                    throw new Error("Failed to generate search queries.");
+                }
+                log(`Generated search queries:`, searchQueries);
                 let allVideos = [];
-                for (const query of searchQueries.slice(0, 2)) { allVideos.push(...await this.videoSourcer.searchYouTube(query)); }
-                if (allVideos.length === 0) { await this.createFallbackContent(learningPoint); return; }
-
-                displayStatusMessage('🎯 Filtering relevant content...', `Analyzing videos...`);
-                const uniqueVideos = [...new Map(allVideos.map(v => [v.youtubeId, v])).values()];
-                const relevantVideos = [];
-                for (const video of uniqueVideos.slice(0, 5)) {
-                    const transcript = await this.videoSourcer.getVideoTranscript(video.youtubeId);
-                    const relevance = await this.gemini.checkVideoRelevance(video.title, learningPoint, currentLessonPlan.topic, transcript);
-                    if (relevance.relevant) { relevantVideos.push({ ...video, transcript, confidence: relevance.confidence }); }
+                for (const query of searchQueries.slice(0, 2)) {
+                    displayStatusMessage('🔎 Searching educational videos...', `Query: "${query}"`);
+                    const results = await this.videoSourcer.searchYouTube(query);
+                    allVideos.push(...results);
+                    if (allVideos.length >= 15) break; // Get more videos for filtering
+                }
+                log(`Total videos found: ${allVideos.length}`);
+                if (allVideos.length === 0) {
+                    await this.createFallbackContent(learningPoint);
+                    return;
                 }
 
-                if (relevantVideos.length === 0) { await this.createFallbackContent(learningPoint); return; }
-                relevantVideos.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-                this.generateSegments(relevantVideos[0]);
-            } catch (error) { logError('Video search failed:', error); await this.createFallbackContent(learningPoint); }
+                // Step 2.5: Filter videos for relevance (with transcript analysis)
+                displayStatusMessage('🎯 Filtering relevant content...', `Checking relevance to: "${learningPoint}"`);
+                const uniqueVideos = [...new Map(allVideos.map(v => [v.youtubeId, v])).values()]
+                    .sort((a, b) => b.educationalScore - a.educationalScore);
+
+                const relevantVideos = [];
+                const mainTopic = currentLessonPlan.topic || learningPoint;
+
+                // Check up to 8 top videos for relevance (reduced since transcript analysis is more thorough)
+                for (const video of uniqueVideos.slice(0, 8)) {
+                    displayStatusMessage('🎯 Analyzing video content...', `Checking: "${video.title}"`);
+
+                    // Fetch transcript for more accurate relevance checking
+                    const transcript = await this.videoSourcer.getVideoTranscript(video.youtubeId);
+
+                    const relevanceCheck = await this.gemini.checkVideoRelevance(
+                        video.title, 
+                        learningPoint, 
+                        mainTopic, 
+                        transcript
+                    );
+
+                    if (relevanceCheck.relevant) {
+                        // Apply confidence-based scoring (higher boost for transcript-based analysis)
+                        const confidenceBoost = transcript 
+                            ? (relevanceCheck.confidence || 5) / 1.5  // Higher boost with transcript
+                            : (relevanceCheck.confidence || 5) / 2;   // Lower boost without transcript
+
+                        video.educationalScore += confidenceBoost;
+                        video.relevanceConfidence = relevanceCheck.confidence || 5;
+                        video.hasTranscript = !!transcript;
+                        if (transcript) {
+                            video.transcript = transcript;
+                        }
+                        relevantVideos.push(video);
+
+                        const transcriptNote = transcript ? " (with transcript)" : " (title only)";
+                        log(`RELEVANT VIDEO: "${video.title}" (Confidence: ${relevanceCheck.confidence || 'N/A'})${transcriptNote} - ${relevanceCheck.reason}`);
+                    } else {
+                        const transcriptNote = transcript ? " (analyzed transcript)" : " (title only)";
+                        log(`FILTERED OUT: "${video.title}"${transcriptNote} - ${relevanceCheck.reason}`);
+                    }
+
+                    // Stop when we have enough HIGH-CONFIDENCE relevant videos
+                    if (relevantVideos.length >= 5) break;
+                }
+
+                // Further filter by confidence if we have multiple options
+                if (relevantVideos.length > 3) {
+                    relevantVideos.sort((a, b) => {
+                        const confidenceDiff = (b.relevanceConfidence || 5) - (a.relevanceConfidence || 5);
+                        if (Math.abs(confidenceDiff) > 2) return confidenceDiff;
+                        return b.educationalScore - a.educationalScore;
+                    });
+                    relevantVideos = relevantVideos.slice(0, 4); // Keep only top 4 most relevant
+                }
+
+                log(`Relevant videos after filtering: ${relevantVideos.length}`);
+
+                // If no relevant videos found, fall back to original top videos with warning
+                if (relevantVideos.length === 0) {
+                    log("WARNING: No relevant videos found, using top search results as fallback");
+                    currentVideoChoices = uniqueVideos.slice(0, 3);
+                } else {
+                    currentVideoChoices = relevantVideos.sort((a, b) => b.educationalScore - a.educationalScore);
+                }
+
+                if (currentVideoChoices.length === 0) {
+                    await this.createFallbackContent(learningPoint);
+                    return;
+                }
+
+                log(`FLOW: Found ${currentVideoChoices.length} relevant videos for "${learningPoint}"`);
+                this.autoSelectBestVideo(learningPoint);
+            } catch (error) {
+                logError('Video search failed:', error);
+                await this.createFallbackContent(learningPoint);
+            }
+        }
+
+        async autoSelectBestVideo(learningPoint) {
+            log("FLOW: Step 4 - Auto-selecting best video with final validation");
+            updateStatus('choosing_video');
+
+            // Get the top candidate
+            let bestVideo = currentVideoChoices[0];
+
+            // Double-check the selected video with an even stricter prompt
+            const finalCheck = await this.gemini.checkVideoRelevance(bestVideo.title, learningPoint, currentLessonPlan.topic);
+
+            // If the best video fails the final check, try the next one
+            if (!finalCheck.relevant && currentVideoChoices.length > 1) {
+                log(`FINAL CHECK: Best video "${bestVideo.title}" failed final relevance check. Trying next option.`);
+                bestVideo = currentVideoChoices[1];
+                const secondCheck = await this.gemini.checkVideoRelevance(bestVideo.title, learningPoint, currentLessonPlan.topic);
+                if (!secondCheck.relevant && currentVideoChoices.length > 2) {
+                    bestVideo = currentVideoChoices[2];
+                    log(`FINAL CHECK: Trying third option: "${bestVideo.title}"`);
+                }
+            }
+
+            log(`FLOW: Final selected video: ${bestVideo.title} (ID: ${bestVideo.youtubeId})`);
+            displayStatusMessage('✅ Video selected!', `"${bestVideo.title}"`);
+            setTimeout(() => this.generateSegments(bestVideo), 1500);
         }
 
         async createFallbackContent(learningPoint) {
-            log("FLOW: Creating fallback content");
+            log("FLOW: Step 4B - Creating fallback content");
             updateStatus('generating_segments');
-            displayStatusMessage('🤖 Creating custom content...', 'No suitable videos found.');
+            displayStatusMessage('🤖 Creating custom content...', 'No suitable videos found. Generating text explanation...');
             const explanation = await this.gemini.generateDetailedExplanation(learningPoint);
             if (explanation) {
+                displayStatusMessage('📚 Learning segment', `Topic: "${learningPoint}"`);
                 displayTextContent(explanation);
                 await this.speechEngine.play(explanation, {
-                    onProgress: animateTextProgress,
+                    onProgress: (progress) => animateTextProgress(explanation, progress),
                     onComplete: () => { if (lessonState === 'generating_segments') this.showQuiz(); }
                 });
             } else {
-                displayStatusMessage('⏭️ Skipping segment', 'Could not generate content.');
+                displayStatusMessage('⏭️ Skipping segment', 'Could not generate content. Moving on...');
                 setTimeout(() => this.processNextLearningPoint(), 2000);
             }
         }
 
         async generateSegments(video) {
-            log("FLOW: Generate segments");
+            log("FLOW: Step 7 - Generate segments");
             updateStatus('generating_segments');
             displayStatusMessage('✂️ Finding best segments...', `Analyzing: "${video.title}"`);
             try {
                 const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
-                currentSegments = await this.gemini.findVideoSegments(video.title, learningPoint, video.transcript);
+                const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
+
+                // Use transcript if available from relevance checking
+                const transcript = video.transcript || null;
+                const transcriptNote = transcript ? " (with transcript data)" : " (title-based)";
+                displayStatusMessage('✂️ Finding best segments...', `Analyzing: "${video.title}"${transcriptNote}`);
+
+                currentSegments = await this.gemini.findVideoSegments(video.title, youtubeUrl, learningPoint, transcript);
+                if (!currentSegments || currentSegments.length === 0) {
+                    currentSegments = [{ startTime: 30, endTime: 180, reason: "Default educational segment" }];
+                }
+                log(`Generated ${currentSegments.length} segments:`, currentSegments);
+                currentSegmentPlayIndex = 0;
                 this.playSegments(video);
-            } catch (error) { logError('Failed to generate segments:', error); this.playSegments(video); }
+            } catch (error) {
+                logError('Failed to generate segments:', error);
+                currentSegments = [{ startTime: 30, endTime: 180, reason: "Fallback segment due to error" }];
+                this.playSegments(video);
+            }
         }
 
         playSegments(video) {
-            log("FLOW: Play segments");
+            log("FLOW: Step 8 - Play segments");
             updateStatus('playing_video');
             updatePlayPauseIcon();
             this.createYouTubePlayer(video);
         }
 
         createYouTubePlayer(videoInfo) {
-            if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch (e) {} }
+            if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch (e) {} this.youtubePlayer = null; }
+
+            // Hide text display and show video player area
             hideTextDisplay();
             ui.skipVideoButton.style.display = 'block';
-            currentSegments = currentSegments && currentSegments.length > 0 ? currentSegments : [{ startTime: 30, endTime: 180, reason: "Default segment" }];
+
+            log(`Creating player for video: ${videoInfo.youtubeId}`);
+            if (!videoInfo || !videoInfo.youtubeId || videoInfo.youtubeId.length !== 11) {
+                logError('Invalid video info provided to player:', videoInfo);
+                this.handleVideoError();
+                return;
+            }
+            if (!currentSegments || currentSegments.length === 0) {
+                currentSegments = [{ startTime: 30, endTime: 180, reason: "Default segment" }];
+            }
             currentSegmentPlayIndex = 0;
             this.currentVideoInfo = videoInfo;
             this.playCurrentSegment();
         }
 
         playCurrentSegment() {
-            if (currentSegmentPlayIndex >= currentSegments.length) { this.handleVideoEnd(); return; }
+            if (currentSegmentPlayIndex >= currentSegments.length) {
+                log('FLOW: All segments complete');
+                this.handleVideoEnd();
+                return;
+            }
             const segment = currentSegments[currentSegmentPlayIndex];
             log(`Playing segment ${currentSegmentPlayIndex + 1}/${currentSegments.length}: ${segment.startTime}s - ${segment.endTime}s`);
+
             if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch (e) {} }
             if (this.segmentTimer) clearInterval(this.segmentTimer);
+
             const playerDivId = 'youtube-player-' + Date.now();
             ui.youtubePlayerContainer.innerHTML = `<div id="${playerDivId}" class="w-full h-full"></div>`;
-            this.youtubePlayer = new YT.Player(playerDivId, {
-                height: '100%', width: '100%', videoId: this.currentVideoInfo.youtubeId,
-                playerVars: { autoplay: 1, controls: 1, rel: 0, start: segment.startTime, modestbranding: 1, iv_load_policy: 3 },
-                events: { 'onReady': (e) => { e.target.playVideo(); this.startSegmentTimer(segment.endTime); }, 'onStateChange': (e) => { if (e.data === YT.PlayerState.ENDED) this.endCurrentSegment(); } }
-            });
+
+            let startTime = Math.max(0, segment.startTime || 30);
+            this.currentSegmentEndTime = segment.endTime || (startTime + 120);
+
+            const playerTimeout = setTimeout(() => { logError('Video loading timeout'); this.tryNextSegmentOrQuiz(); }, 12000);
+
+            try {
+                this.youtubePlayer = new YT.Player(playerDivId, {
+                    height: '100%', width: '100%', videoId: this.currentVideoInfo.youtubeId,
+                    playerVars: { autoplay: 1, controls: 1, rel: 0, start: startTime, modestbranding: 1, iv_load_policy: 3, enablejsapi: 1, origin: window.location.origin, fs: 0 },
+                    events: {
+                        'onReady': (event) => {
+                            clearTimeout(playerTimeout);
+                            log('YouTube player ready.');
+                            event.target.playVideo();
+                            this.startSegmentTimer();
+                        },
+                        'onStateChange': (event) => {
+                            if (event.data === YT.PlayerState.PLAYING) { clearTimeout(playerTimeout); updateStatus('playing_video'); }
+                            if (event.data === YT.PlayerState.PAUSED) updateStatus('paused');
+                            if (event.data === YT.PlayerState.ENDED) this.endCurrentSegment();
+                        },
+                        'onError': (event) => {
+                            clearTimeout(playerTimeout);
+                            logError(`Youtube player error: ${event.data}`);
+                            this.tryNextSegmentOrQuiz();
+                        }
+                    }
+                });
+            } catch (error) {
+                clearTimeout(playerTimeout);
+                logError('Failed to create YouTube player:', error);
+                this.tryNextSegmentOrQuiz();
+            }
         }
 
-        startSegmentTimer(endTime) {
+        startSegmentTimer() {
             if (this.segmentTimer) clearInterval(this.segmentTimer);
-            this.segmentTimer = setInterval(() => { if (this.youtubePlayer?.getCurrentTime() >= endTime) this.endCurrentSegment(); }, 1000);
+            this.segmentTimer = setInterval(() => {
+                if (this.youtubePlayer && typeof this.youtubePlayer.getCurrentTime === 'function') {
+                    const currentTime = this.youtubePlayer.getCurrentTime();
+                    if (currentTime >= this.currentSegmentEndTime) {
+                        log(`Segment timer ended segment.`);
+                        this.endCurrentSegment();
+                    }
+                }
+            }, 1000);
         }
 
         endCurrentSegment() {
             if (this.segmentTimer) clearInterval(this.segmentTimer);
+            this.segmentTimer = null;
+            log('Ending current segment');
             currentSegmentPlayIndex++;
-            this.playCurrentSegment();
+            setTimeout(() => this.playCurrentSegment(), 500);
+        }
+
+        tryNextSegmentOrQuiz() {
+            if (this.segmentTimer) clearInterval(this.segmentTimer);
+            currentSegmentPlayIndex++;
+            if (currentSegmentPlayIndex >= currentSegments.length) {
+                this.handleVideoEnd();
+            } else {
+                log('Trying next segment after error/timeout');
+                setTimeout(() => this.playCurrentSegment(), 1000);
+            }
         }
 
         async handleVideoEnd() {
             log('Video playbook finished');
             ui.skipVideoButton.style.display = 'none';
-            if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} }
+
+            // Cleanup video player first
+            if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} this.youtubePlayer = null; }
+            ui.youtubePlayerContainer.innerHTML = '';
+
+            // Force show text display for concluding narration
             showTextDisplay();
+
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
+
+            // Show the teleprompter with concluding narration
+            log('FLOW: Starting concluding narration sequence for:', learningPoint);
+            console.log('DEBUG: Pre-narration state check:', {
+                learningPoint,
+                lessonState,
+                speechEngineState: {
+                    isPlaying: this.speechEngine.isPlaying,
+                    isPaused: this.speechEngine.isPaused
+                }
+            });
+
+            // Show initial text while generating narration
             displayStatusMessage('🎯 Wrapping up...', `Summarizing: "${learningPoint}"`);
+
+            // Wait for concluding narration to complete before showing quiz
             await this.playConcludingNarration(learningPoint);
+
+            console.log('DEBUG: Post-narration state check:', {
+                lessonState,
+                speechEngineState: {
+                    isPlaying: this.speechEngine.isPlaying,
+                    isPaused: this.speechEngine.isPaused
+                }
+            });
+
             this.showQuiz();
         }
 
-        handleVideoError() { 
-            logError('Video error, creating fallback.');
-            this.createFallbackContent(currentLessonPlan[currentLearningPath][currentSegmentIndex]);
+        handleVideoError() {
+            logError('Handling video error. Creating fallback content.');
+            ui.skipVideoButton.style.display = 'none';
+            // Show text display for fallback content
+            showTextDisplay();
+            if (this.youtubePlayer) { try { this.youtubePlayer.destroy(); } catch(e){} }
+            ui.youtubePlayerContainer.innerHTML = '';
+            const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
+            displayStatusMessage('🎥 Video unavailable', 'Creating educational content instead...');
+            setTimeout(async () => { await this.createFallbackContent(learningPoint); }, 1000);
         }
 
         async showQuiz() {
-            log("FLOW: Show quiz");
+            log("FLOW: Step 9 - Show quiz");
             updateStatus('quiz');
+            ui.lessonControls.style.display = 'none';
+
+            // Hide text display for quiz
             hideTextDisplay();
+
             const learningPoint = currentLessonPlan[currentLearningPath][currentSegmentIndex];
             const quiz = await this.gemini.generateQuiz(learningPoint);
-            if (quiz?.question) { this.displayQuiz(quiz); } 
-            else { logError("Failed to generate quiz."); this.processNextLearningPoint(); }
+
+            if (quiz && quiz.question) {
+                this.displayQuiz(quiz);
+            } else {
+                logError("Failed to generate quiz. Skipping.");
+                this.processNextLearningPoint();
+            }
         }
 
         displayQuiz(quiz) {
-            ui.youtubePlayerContainer.innerHTML = `<div class="p-6 md:p-8 text-white h-full flex flex-col justify-center"><div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6 border border-white/20"><p class="text-xl lg:text-2xl">${quiz.question}</p></div><div class="space-y-4 mb-6">${quiz.options.map((option, index) => `<button class="quiz-option w-full text-left p-4 bg-blue-600 hover:bg-blue-700 rounded-xl" data-index="${index}"><span>${String.fromCharCode(65 + index)})</span> ${option}</button>`).join('')}</div><div id="quiz-result" class="hidden opacity-0 duration-500"><div id="quiz-explanation-container" class="border rounded-xl p-4 mb-4"><p id="quiz-explanation"></p></div><div class="text-center"><button id="continue-button" class="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-xl">Continue →</button></div></div></div>`;
+            ui.youtubePlayerContainer.innerHTML = `
+                <div class="p-6 md:p-8 text-white h-full flex flex-col justify-start">
+                    <div class="flex-grow flex flex-col justify-center max-w-3xl mx-auto w-full">
+                        <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6 border border-white/20">
+                            <p class="text-xl lg:text-2xl leading-relaxed">${quiz.question}</p>
+                        </div>
+                        <div class="space-y-4 mb-6">
+                            ${quiz.options.map((option, index) => `<button class="quiz-option w-full text-left p-4 bg-blue-600 hover:bg-blue-700 rounded-xl transition-all" data-index="${index}"><span>${String.fromCharCode(65 + index)})</span> <span class="ml-3">${option}</span></button>`).join('')}
+                        </div>
+                        <div id="quiz-result" class="hidden opacity-0 transition-opacity duration-500">
+                            <div id="quiz-explanation-container" class="border rounded-xl p-4 mb-4"><p id="quiz-explanation"></p></div>
+                            <div class="text-center"><button id="continue-button" class="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-xl font-semibold">Continue →</button></div>
+                        </div>
+                    </div>
+                </div>`;
+
             ui.youtubePlayerContainer.querySelectorAll('.quiz-option').forEach(option => {
                 option.addEventListener('click', () => {
                     const selectedIndex = parseInt(option.dataset.index);
                     const isCorrect = selectedIndex === quiz.correct;
-                    ui.youtubePlayerContainer.querySelectorAll('.quiz-option').forEach(opt => { opt.disabled = true; opt.classList.remove('bg-blue-600', 'hover:bg-blue-700'); if (parseInt(opt.dataset.index) === quiz.correct) opt.classList.add('bg-green-700'); });
+                    ui.youtubePlayerContainer.querySelectorAll('.quiz-option').forEach(opt => {
+                        opt.disabled = true;
+                        opt.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                        if (parseInt(opt.dataset.index) === quiz.correct) opt.classList.add('bg-green-700');
+                    });
                     if (!isCorrect) option.classList.add('bg-red-700');
+
                     const resultDiv = document.getElementById('quiz-result');
                     const explanationDiv = document.getElementById('quiz-explanation-container');
                     document.getElementById('quiz-explanation').textContent = quiz.explanation;
                     explanationDiv.className = `border rounded-xl p-4 mb-4 ${isCorrect ? 'bg-green-500/20 border-green-500/50' : 'bg-red-500/20 border-red-500/50'}`;
                     resultDiv.classList.remove('hidden');
                     setTimeout(() => resultDiv.classList.remove('opacity-0'), 10);
-                    document.getElementById('continue-button').addEventListener('click', () => { ui.lessonControls.style.display = 'flex'; this.processNextLearningPoint(); });
+
+                    document.getElementById('continue-button').addEventListener('click', () => {
+                        ui.lessonControls.style.display = 'flex';
+                        this.processNextLearningPoint();
+                    });
                 });
             });
         }
 
         async showLessonSummary() {
-            log("FLOW: Show lesson summary");
+            log("FLOW: Step 10 - Show lesson summary");
             updateStatus('summary');
+            ui.lessonControls.style.display = 'none';
+            // Hide text display for summary
             hideTextDisplay();
-            const summary = await this.gemini.generateLessonSummary(currentLessonPlan.topic, currentLessonPlan[currentLearningPath]);
-            ui.youtubePlayerContainer.innerHTML = `<div class="p-8 text-white h-full flex flex-col justify-center items-center"><h2 class="text-4xl font-bold mb-4">Congratulations!</h2><p class="text-xl mb-8">You've completed the ${currentLearningPath} level.</p><div class="bg-white/10 p-6 rounded-xl">${summary.replace(/•/g, '<li class="ml-4">')}</div><button id="finish-lesson-button" class="mt-8 bg-purple-600 px-10 py-4 rounded-xl">Finish</button></div>`;
+
+            const topic = currentLessonPlan.topic;
+            const learningPoints = currentLessonPlan[currentLearningPath];
+
+            const summary = await this.gemini.generateLessonSummary(topic, learningPoints);
+
+            ui.youtubePlayerContainer.innerHTML = `
+                <div class="p-8 text-white h-full flex flex-col justify-center items-center" style="background: linear-gradient(135deg, #16213e 0%, #0f172a 100%);">
+                    <h2 class="text-4xl font-bold mb-4 text-purple-300">Congratulations!</h2>
+                    <p class="text-xl mb-8">You've completed the ${currentLearningPath} level for "${topic}".</p>
+                    <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-8 border border-white/20 max-w-2xl w-full text-left">
+                         <h3 class="text-2xl font-semibold mb-4 text-blue-300">Key Takeaways</h3>
+                         <div id="summary-content" class="prose prose-invert max-w-none">${summary.replace(/•/g, '<li class="ml-4">')}</div>
+                    </div>
+                    <button id="finish-lesson-button" class="bg-purple-600 hover:bg-purple-700 px-10 py-4 rounded-xl font-semibold text-lg transition-transform transform hover:scale-105">Finish Lesson & Start Over</button>
+                </div>`;
+
             document.getElementById('finish-lesson-button').addEventListener('click', resetUIState);
         }
     }
 
     // =================================================================================
-    // --- UI & UTILITY FUNCTIONS (Your complete, original code) ---
+    // --- NEW TEXT DISPLAY SYSTEM ---
     // =================================================================================
 
-    function showTextDisplay() { ui.canvas.style.display = 'block'; ui.youtubePlayerContainer.style.display = 'none'; }
-    function hideTextDisplay() { ui.canvas.style.display = 'none'; ui.youtubePlayerContainer.style.display = 'block'; }
-    function displayTextContent(text) {
-        if (!ui.canvas || !text) { log('TEXT DISPLAY: Missing canvas or text'); return; }
-        showTextDisplay();
-        const { width, height } = ui.canvas.parentElement.getBoundingClientRect();
-        ui.canvas.width = width; ui.canvas.height = height;
-        const ctx = canvasCtx;
-        ctx.clearRect(0, 0, width, height);
-        const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-        bgGradient.addColorStop(0, '#1e293b'); bgGradient.addColorStop(1, '#0f172a');
-        ctx.fillStyle = bgGradient; ctx.fillRect(0, 0, width, height);
-        const isMobile = width <= 768;
-        const fontSize = isMobile ? Math.max(18, width / 25) : Math.max(28, width / 35);
-        ctx.font = `600 ${fontSize}px Inter, -apple-system, sans-serif`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffffff';
-        const lines = wrapText(ctx, text, width * 0.9);
-        const lineHeight = fontSize * 1.5;
-        const totalTextHeight = lines.length * lineHeight;
-        let startY = (height / 2) - (totalTextHeight / 2) + (lineHeight / 2);
-        lines.forEach((line, i) => ctx.fillText(line, width / 2, startY + (i * lineHeight)));
+    function showTextDisplay() {
+        if (!ui.canvas) return;
+
+        // Make canvas visible and interactive
+        ui.canvas.style.display = 'block';
+        ui.canvas.style.opacity = '1';
+        ui.canvas.style.pointerEvents = 'auto';
+        ui.canvas.style.zIndex = '25';
+
+        // Hide YouTube player completely during text display
+        ui.youtubePlayerContainer.style.display = 'none';
+        ui.youtubePlayerContainer.innerHTML = '';
+
+        log('TEXT DISPLAY: Canvas is now visible');
     }
-    function animateTextProgress(fullText, progress) {
-        if (!ui.canvas || !fullText) return;
+
+    function hideTextDisplay() {
+        if (!ui.canvas) return;
+
+        // Hide canvas
+        ui.canvas.style.opacity = '0';
+        ui.canvas.style.pointerEvents = 'none';
+        ui.canvas.style.zIndex = '20';
+
+        // Show YouTube player area
+        ui.youtubePlayerContainer.style.display = 'block';
+
+        log('TEXT DISPLAY: Canvas is now hidden');    }
+
+    function displayTextContent(text) {
+        if (!ui.canvas || !text) {
+            log('TEXT DISPLAY: Missing canvas or text');
+            return;
+        }
+
+        // Ensure text display is visible
         showTextDisplay();
-        const { width, height } = ui.canvas.parentElement.getBoundingClientRect();
-        ui.canvas.width = width; ui.canvas.height = height;
-        const ctx = canvasCtx;
-        ctx.clearRect(0, 0, width, height);
-        const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-        bgGradient.addColorStop(0, '#1e293b'); bgGradient.addColorStop(1, '#0f172a');
-        ctx.fillStyle = bgGradient; ctx.fillRect(0, 0, width, height);
-        const isMobile = width <= 768;
-        const fontSize = isMobile ? Math.max(18, width / 25) : Math.max(28, width / 35);
-        const lineHeight = fontSize * 1.5;
-        const maxWidth = width * 0.9;
-        ctx.font = `600 ${fontSize}px Inter, sans-serif`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        const lines = wrapText(ctx, fullText, maxWidth);
+
+        // Force canvas to proper size
+        const containerRect = ui.canvas.parentElement.getBoundingClientRect();
+        ui.canvas.width = containerRect.width;
+        ui.canvas.height = containerRect.height;
+
+        const ctx = ui.canvas.getContext('2d');
+
+        // Clear entire canvas
+        ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
+
+        // Create dark background with gradient
+        const bgGradient = ctx.createLinearGradient(0, 0, 0, ui.canvas.height);
+        bgGradient.addColorStop(0, '#1e293b');
+        bgGradient.addColorStop(0.5, '#0f172a');
+        bgGradient.addColorStop(1, '#1e1b4b');
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+
+        // Configure text rendering with enhanced mobile optimization
+        const isMobile = ui.canvas.width <= 768;
+        const isVerySmall = ui.canvas.width <= 400;
+        const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
+
+        let fontSize, lineHeight, maxWidth, padding;
+        if (isVerySmall) {
+            // Very small screen optimization
+            fontSize = Math.max(16, Math.min(baseSize / 25, 24));
+            lineHeight = fontSize * 1.3;
+            maxWidth = ui.canvas.width * 0.95;
+            padding = ui.canvas.width * 0.025;
+        } else if (isMobile) {
+            // Mobile-optimized text sizing
+            fontSize = Math.max(18, Math.min(baseSize / 22, 28));
+            lineHeight = fontSize * 1.35;
+            maxWidth = ui.canvas.width * 0.94;
+            padding = ui.canvas.width * 0.03;
+        } else {
+            // Desktop sizing
+            fontSize = Math.max(28, Math.min(baseSize / 18, 52));
+            lineHeight = fontSize * 1.6;
+            maxWidth = ui.canvas.width * 0.88;
+            padding = ui.canvas.width * 0.06;
+        }
+
+        ctx.font = `600 ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // White text with optimized shadow for mobile
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = isMobile ? 3 : 8;
+        ctx.shadowOffsetX = isMobile ? 1 : 3;
+        ctx.shadowOffsetY = isMobile ? 1 : 3;
+
+        // Enhanced word wrapping for mobile
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = '';
+
+        for (let i = 0; i < words.length; i++) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+            const metrics = ctx.measureText(testLine);
+
+            if (metrics.width > maxWidth && currentLine) {
+                lines.push(currentLine);
+                currentLine = words[i];
+
+                // Handle very long words on mobile
+                if (isMobile && ctx.measureText(currentLine).width > maxWidth) {
+                    // Break very long words
+                    const chars = currentLine.split('');
+                    let breakLine = '';
+                    for (let j = 0; j < chars.length; j++) {
+                        const testChar = breakLine + chars[j];
+                        if (ctx.measureText(testChar + '-').width > maxWidth && breakLine) {
+                            lines.push(breakLine + '-');
+                            breakLine = chars[j];
+                        } else {
+                            breakLine = testChar;
+                        }
+                    }
+                    currentLine = breakLine;
+                }
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+
+        // Calculate vertical positioning with better mobile spacing
         const totalTextHeight = lines.length * lineHeight;
-        const scrollDistance = Math.max(0, totalTextHeight - height * 0.7);
-        const currentScroll = progress * scrollDistance;
-        let startY = (height / 2) - (totalTextHeight / 2) + (lineHeight / 2) - currentScroll;
-        const charsToShow = fullText.length * progress;
-        let charsDrawn = 0;
+        const availableHeight = ui.canvas.height - (padding * 2);
+        const startY = Math.max(
+            padding + (lineHeight / 2),
+            (ui.canvas.height / 2) - (totalTextHeight / 2) + (lineHeight / 2)
+        );
+
+        // Draw each line with mobile optimization
         lines.forEach((line, index) => {
             const lineY = startY + (index * lineHeight);
-            if (lineY > -lineHeight && lineY < height + lineHeight) {
-                const charsInLine = line.length; let textToDraw = '';
-                if (charsDrawn + charsInLine < charsToShow) { textToDraw = line; } 
-                else if (charsDrawn < charsToShow) { textToDraw = line.substring(0, charsToShow - charsDrawn); }
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-                ctx.fillText(line, width / 2, lineY);
-                if (textToDraw) { ctx.fillStyle = '#6ee7b7'; ctx.fillText(textToDraw, width / 2, lineY); }
-                charsDrawn += charsInLine + 1;
+            // Only draw lines that are visible
+            if (lineY >= 0 && lineY <= ui.canvas.height) {
+                ctx.fillText(line, ui.canvas.width / 2, lineY);
             }
         });
+
+        // Reset shadow settings
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        log(`TEXT DISPLAY: Rendered "${text.substring(0, 50)}..." for ${isVerySmall ? 'very small' : isMobile ? 'mobile' : 'desktop'}`);
     }
-    function wrapText(context, text, maxWidth) {
-        const words = text.split(' '); let lines = []; let currentLine = words[0] || '';
-        for (let i = 1; i < words.length; i++) { const word = words[i]; const testLine = currentLine + ' ' + word; if (context.measureText(testLine).width > maxWidth && i > 0) { lines.push(currentLine); currentLine = word; } else { currentLine = testLine; } }
-        lines.push(currentLine); return lines;
+
+    function animateTextProgress(fullText, progress) {
+        if (!ui.canvas || !fullText) return;
+
+        // Ensure text display is visible
+        showTextDisplay();
+
+        // Force canvas to proper size
+        const containerRect = ui.canvas.parentElement.getBoundingClientRect();
+        ui.canvas.width = containerRect.width;
+        ui.canvas.height = containerRect.height;
+
+        const ctx = ui.canvas.getContext('2d');
+
+        // Clear and setup background
+        ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
+
+        const bgGradient = ctx.createLinearGradient(0, 0, 0, ui.canvas.height);
+        bgGradient.addColorStop(0, '#1e293b');
+        bgGradient.addColorStop(0.5, '#0f172a');
+        bgGradient.addColorStop(1, '#1e1b4b');
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+
+        // Configure text with mobile optimization
+        const isMobile = ui.canvas.width <= 768;
+        const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
+
+        let fontSize, lineHeight, maxWidth, padding;
+        if (isMobile) {
+            fontSize = Math.max(18, Math.min(baseSize / 20, 32));
+            lineHeight = fontSize * 1.4;
+            maxWidth = ui.canvas.width * 0.92;
+            padding = ui.canvas.width * 0.04;
+        } else {
+            fontSize = Math.max(28, Math.min(baseSize / 18, 52));
+            lineHeight = fontSize * 1.6;
+            maxWidth = ui.canvas.width * 0.88;
+            padding = ui.canvas.width * 0.06;
+        }
+
+        ctx.font = `600 ${fontSize}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = isMobile ? 4 : 8;
+        ctx.shadowOffsetX = isMobile ? 1 : 3;
+        ctx.shadowOffsetY = isMobile ? 1 : 3;
+
+        // Split into lines
+        const words = fullText.split(' ');
+        const lines = [];
+        let currentLine = '';
+
+        for (let i = 0; i < words.length; i++) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+            const metrics = ctx.measureText(testLine);
+
+            if (metrics.width > maxWidth && currentLine) {
+                lines.push(currentLine);
+                currentLine = words[i];
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+
+        // Calculate positioning with mobile-optimized scroll effect
+        const totalTextHeight = lines.length * lineHeight;
+        const availableHeight = ui.canvas.height - (padding * 2);
+        const startY = Math.max(
+            padding + (lineHeight / 2),
+            (ui.canvas.height / 2) - (totalTextHeight / 2) + (lineHeight / 2)
+        );
+
+        // Apply scroll based on progress with mobile optimization
+        const scrollDistance = Math.max(0, totalTextHeight - availableHeight + lineHeight * (isMobile ? 2 : 3));
+        const currentScroll = progress * scrollDistance;
+
+        // Draw lines with highlighting and fade effects
+        lines.forEach((line, index) => {
+            const lineY = startY + (index * lineHeight) - currentScroll;
+
+            // Only render visible lines
+            if (lineY > -lineHeight && lineY < ui.canvas.height + lineHeight) {
+                // Calculate opacity based on position
+                let opacity = 1;
+                const fadeZone = lineHeight * (isMobile ? 1 : 1.5);
+
+                if (lineY < fadeZone + padding) {
+                    opacity = Math.max(0.2, (lineY - padding) / fadeZone);
+                } else if (lineY > ui.canvas.height - fadeZone - padding) {
+                    opacity = Math.max(0.2, (ui.canvas.height - lineY - padding) / fadeZone);
+                }
+
+                // Highlight current reading position
+                const lineProgress = Math.max(0, Math.min(1, (progress * lines.length) - index));
+                if (lineProgress > 0.8) {
+                    // Currently reading
+                    ctx.fillStyle = `rgba(34, 197, 94, ${opacity})`;
+                } else if (lineProgress > 0) {
+                    // Partially read
+                    ctx.fillStyle = `rgba(59, 130, 246, ${opacity})`;
+                } else {
+                    // Not yet read
+                    ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.8})`;
+                }
+
+                ctx.fillText(line, ui.canvas.width / 2, lineY);
+            }
+        });
+
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        log(`TEXT ANIMATION: Progress ${(progress * 100).toFixed(1)}% (${isMobile ? 'mobile' : 'desktop'})`);
     }
-    function displayStatusMessage(mainText, subText = '') { displayTextContent(`${mainText}${subText ? `\n\n${subText}` : ''}`); }
+
+    function displayStatusMessage(mainText, subText = '') {
+        showTextDisplay();
+
+        if (!ui.canvas) return;
+
+        // Force proper canvas sizing
+        const containerRect = ui.canvas.parentElement.getBoundingClientRect();
+        ui.canvas.width = containerRect.width;
+        ui.canvas.height = containerRect.height;
+
+        const ctx = ui.canvas.getContext('2d');
+        ctx.clearRect(0, 0, ui.canvas.width, ui.canvas.height);
+
+        // Dark background with blue gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, ui.canvas.height);
+        gradient.addColorStop(0, '#1e3a8a');
+        gradient.addColorStop(0.5, '#0f172a');
+        gradient.addColorStop(1, '#7c3aed');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
+
+        // Enhanced mobile text styling
+        const isMobile = ui.canvas.width <= 768;
+        const isVerySmall = ui.canvas.width <= 400;
+        const baseSize = Math.min(ui.canvas.width, ui.canvas.height);
+
+        let fontSize, maxWidth, spacing;
+        if (isVerySmall) {
+            fontSize = Math.max(20, Math.min(baseSize / 20, 32));
+            maxWidth = ui.canvas.width * 0.95;
+            spacing = 25;
+        } else if (isMobile) {
+            fontSize = Math.max(24, Math.min(baseSize / 18, 40));
+            maxWidth = ui.canvas.width * 0.92;
+            spacing = 30;
+        } else {
+            fontSize = Math.max(32, Math.min(baseSize / 16, 56));
+            maxWidth = ui.canvas.width * 0.85;
+            spacing = 40;
+        }
+
+        ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = isMobile ? 4 : 6;
+        ctx.shadowOffsetX = isMobile ? 1 : 2;
+        ctx.shadowOffsetY = isMobile ? 1 : 2;
+
+        // Handle word wrapping for main text on mobile
+        if (isMobile && ctx.measureText(mainText).width > maxWidth) {
+            const words = mainText.split(' ');
+            const lines = [];
+            let currentLine = '';
+
+            for (let i = 0; i < words.length; i++) {
+                const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+                if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = words[i];
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            if (currentLine) lines.push(currentLine);
+
+            // Draw wrapped main text
+            const lineHeight = fontSize * 1.2;
+            const totalHeight = lines.length * lineHeight;
+            const startY = (ui.canvas.height / 2) - (totalHeight / 2) + (lineHeight / 2) - (subText ? spacing/2 : 0);
+
+            lines.forEach((line, index) => {
+                ctx.fillText(line, ui.canvas.width / 2, startY + (index * lineHeight));
+            });
+        } else {
+            // Single line main text
+            ctx.fillText(mainText, ui.canvas.width / 2, ui.canvas.height / 2 - (subText ? spacing/2 : 0));
+        }
+
+        // Sub text with mobile optimization
+        if (subText) { 
+            const subFontSize = Math.max(isMobile ? 14 : 20, fontSize * (isMobile ? 0.55 : 0.6)); 
+            ctx.font = `${subFontSize}px Inter, sans-serif`; 
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.9)'; 
+
+            // Handle word wrapping for sub text on mobile
+            if (isMobile && ctx.measureText(subText).width > maxWidth) {
+                const words = subText.split(' ');
+                const lines = [];
+                let currentLine = '';
+
+                for (let i = 0; i < words.length; i++) {
+                    const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+                    if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                        lines.push(currentLine);
+                        currentLine = words[i];
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+                if (currentLine) lines.push(currentLine);
+
+                // Draw wrapped sub text
+                const lineHeight = subFontSize * 1.2;
+                const startY = ui.canvas.height / 2 + spacing/2;
+
+                lines.forEach((line, index) => {
+                    ctx.fillText(line, ui.canvas.width / 2, startY + (index * lineHeight));
+                });
+            } else {
+                ctx.fillText(subText, ui.canvas.width / 2, ui.canvas.height / 2 + spacing);
+            }
+        }
+
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        log(`STATUS MESSAGE: "${mainText}"`);
+    }
+
+    // =================================================================================
+    // --- UTILITY & UI FUNCTIONS ---
+    // =================================================================================
+
     const learningPipeline = new LearningPipeline();
-    function updateStatus(state) { lessonState = state; log(`STATE: ${state}`); updatePlayPauseIcon(); }
+
+    function updateStatus(state) { lessonState = state; log(`STATE: ${state}`); }
+
     function initializeUI() {
         ui.curateButton.addEventListener('click', handleCurateClick);
         ui.playPauseButton.addEventListener('click', playPauseLesson);
-        ui.nextSegmentButton.addEventListener('click', () => { if (!ui.nextSegmentButton.disabled) { learningPipeline.processNextLearningPoint(); } });
+        ui.nextSegmentButton.addEventListener('click', () => { if (!ui.nextSegmentButton.disabled) { ui.nextSegmentButton.disabled = true; learningPipeline.processNextLearningPoint(); } });
         ui.skipVideoButton.addEventListener('click', () => { if (lessonState === 'playing_video' || lessonState === 'paused') { if (learningPipeline.segmentTimer) clearInterval(learningPipeline.segmentTimer); learningPipeline.handleVideoEnd(); } });
-        window.onYouTubeIframeAPIReady = () => { log("YouTube IFrame API is ready."); };
+        // The official YT API script will call this function globally
+        window.onYouTubeIframeAPIReady = () => {
+            log("YouTube IFrame API is ready.");
+        };
     }
+
     function playPauseLesson() {
+        log(`Play/Pause clicked - State: ${lessonState}`);
         switch (lessonState) {
             case 'narrating': learningPipeline.speechEngine.pause(); updateStatus("paused"); break;
             case 'playing_video': learningPipeline.youtubePlayer?.pauseVideo(); updateStatus("paused"); break;
@@ -945,21 +2198,28 @@ Return JSON with this exact structure:
                 else if (learningPipeline.youtubePlayer) { learningPipeline.youtubePlayer.playVideo(); updateStatus("playing_video"); }
                 break;
         }
+        updatePlayPauseIcon();
     }
+
     function updatePlayPauseIcon() {
         const isPlaying = lessonState === 'playing_video' || lessonState === 'narrating';
         ui.playIcon.classList.toggle('hidden', isPlaying);
         ui.pauseIcon.classList.toggle('hidden', !isPlaying);
     }
+
     async function handleCurateClick() {
         const topic = ui.topicInput.value.trim();
         if (!topic) return;
         localStorage.setItem('lastTopic', topic);
-        resetUIState(false);
+        resetUIState(false); // Don't reset to initial view yet
         ui.curateButton.disabled = true;
+        ui.headerDescription.classList.add('hidden');
+        ui.headerFeatures.classList.add('hidden');
+        // Add fallback class for browsers without :has() support
         document.querySelector('header').classList.add('content-hidden');
         await learningPipeline.start(topic);
     }
+
     function displayLevelSelection() {
         ui.inputSection.classList.add('hidden');
         ui.levelButtonsContainer.innerHTML = '';
@@ -972,36 +2232,50 @@ Return JSON with this exact structure:
             button.onclick = () => learningPipeline.startLevel(level);
             ui.levelButtonsContainer.appendChild(button);
         });
-        ui.loadingIndicator.classList.add('hidden');
         ui.levelSelection.classList.remove('hidden');
     }
+
     function updateSegmentProgress() {
         const total = currentLessonPlan[currentLearningPath].length;
         const current = currentSegmentIndex + 1;
         ui.segmentProgress.style.width = `${(current / total) * 100}%`;
         ui.segmentProgressText.textContent = `${current}/${total}`;
     }
+
     function showLoading(message) { ui.inputSection.classList.add('hidden'); ui.levelSelection.classList.add('hidden'); ui.loadingMessage.textContent = message; ui.loadingIndicator.classList.remove('hidden'); }
     function hideLoading() { ui.loadingIndicator.classList.add('hidden'); }
+
     function resetUIState(fullReset = true) {
         log("Resetting UI state");
         if(learningPipeline?.speechEngine) learningPipeline.speechEngine.stop();
         if(learningPipeline?.youtubePlayer) { try { learningPipeline.youtubePlayer.destroy(); } catch(e){} }
         if (learningPipeline?.segmentTimer) clearInterval(learningPipeline.segmentTimer);
+
         ui.learningCanvasContainer.classList.add('hidden');
         ui.lessonProgressContainer.classList.add('hidden');
         ui.levelSelection.classList.add('hidden');
-        document.querySelector('header').classList.remove('content-hidden');
+        document.getElementById('progress-spacer').classList.add('hidden');
         ui.inputSection.classList.remove('hidden');
         ui.curateButton.disabled = false;
-        if (fullReset) { 
+
+        if (fullReset) {
             ui.headerDescription.classList.remove('hidden');
             ui.headerFeatures.classList.remove('hidden');
+            // Remove fallback class
+            document.querySelector('header').classList.remove('content-hidden');
         }
-        currentLessonPlan = null; currentLearningPath = null; currentSegmentIndex = -1;
+
+        currentLessonPlan = null;
+        currentLearningPath = null;
+        currentSegmentIndex = -1;
         updateStatus('idle');
     }
+
     function displayError(message) { logError(message); ui.errorMessage.textContent = message; ui.errorDisplay.classList.remove('hidden'); setTimeout(() => ui.errorDisplay.classList.add('hidden'), 5000); }
+
+    // Initialize
     initializeUI();
-    if (localStorage.getItem('lastTopic')) { ui.topicInput.value = localStorage.getItem('lastTopic'); }
+    if (localStorage.getItem('lastTopic')) {
+        ui.topicInput.value = localStorage.getItem('lastTopic');
+    }
 });
