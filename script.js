@@ -287,207 +287,89 @@ Return ONLY JSON:
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
             const mainTopic = currentLessonPlan?.topic || learningPoint;
 
-            const prompt = `You are an expert YouTube search strategist. Create the most effective search queries to find high-quality educational videos about "${learningPoint}" in the context of learning "${mainTopic}".
+            const prompt = `You are an expert YouTube search strategist. Generate 4-6 highly specific search queries to find the BEST educational videos about "${learningPoint}" within the context of "${mainTopic}".
 
-ANALYSIS TASK:
-1. Analyze "${mainTopic}" and "${learningPoint}" to understand:
-   - What specific cultural, linguistic, or domain context exists?
-   - What types of content would be most educational?
-   - What irrelevant content should be avoided?
+CRITICAL REQUIREMENTS:
+1. Each query must be 3-7 words maximum
+2. Must include educational keywords: "learn", "tutorial", "guide", "explained", "lesson", "how to"  
+3. Must be culturally and linguistically specific when relevant
+4. Must avoid terms that attract non-educational content
+5. Focus on what students would search for, not professionals
 
-2. Generate 4-6 highly targeted YouTube search queries that will find the BEST educational content.
-
-QUERY OPTIMIZATION PRINCIPLES:
-- Each query should be 3-7 words maximum
-- Focus on educational keywords: "learn", "tutorial", "guide", "explained", "how to"
-- Include specific cultural/linguistic terms when relevant (e.g., "Korean" for Korean language topics)
-- Avoid generic terms that attract non-educational content
-- Target different aspects of the learning point for variety
-
-DOMAIN INTELLIGENCE:
-- If this is about a specific language or culture, ensure queries reflect that authenticity
-- If this could attract technical/production content instead of educational content, actively avoid those terms
-- Consider what a student would search for vs what a professional would search for
-
-EXAMPLE DECISION MAKING:
-- For "Korean onomatopoeia": Focus on language learning, not music production
-- For "photosynthesis": Focus on biology education, not laboratory equipment
-- For "Renaissance art": Focus on art history, not art supplies
-
+CONTEXTUAL ANALYSIS:
 Main Topic: "${mainTopic}"
-Learning Point: "${learningPoint}"
+Specific Learning Point: "${learningPoint}"
 
-Think through the context, then provide ONLY a JSON array of 4-6 optimized search query strings:
+EXAMPLES OF EXCELLENT QUERIES:
+- For Korean idioms: ["learn korean idioms", "korean idioms explained", "korean proverbs tutorial", "korean sayings lesson"]
+- For photosynthesis: ["photosynthesis explained simply", "how photosynthesis works", "plant photosynthesis tutorial", "photosynthesis for students"]
+- For Renaissance art: ["renaissance art explained", "renaissance painting tutorial", "italian renaissance art history", "renaissance artists lesson"]
+
+AVOID these types of queries:
+- Generic terms without educational context
+- Professional/technical jargon 
+- Terms that could match entertainment instead of education
+- Overly broad queries that lack specificity
+
+Generate 4-6 search queries that will find authentic, educational content about "${learningPoint}" in the context of "${mainTopic}".
+
+Return ONLY a JSON array:
 ["query1", "query2", "query3", "query4", "query5", "query6"]`;
 
-            const response = await this.makeRequest(prompt, { temperature: 0.3 });
+            const response = await this.makeRequest(prompt, { temperature: 0.25 });
             return this.parseJSONResponse(response);
         }
 
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
-            log(`RELEVANCE CHECKER V2: Analyzing "${videoTitle}" for learningPoint "${learningPoint}" (mainTopic: "${mainTopic}")`);
+            log(`RELEVANCE CHECKER: Analyzing "${videoTitle}" for "${learningPoint}" in context of "${mainTopic}"`);
 
-            // Step 1: Enhanced Keyword Extraction
-            const extractTopicKeywords = (topicString) => {
-                const keywords = {
-                    requiredLangs: [], // e.g., "korean" from "Korean onomatopoeia"
-                    requiredSubjects: [], // e.g., "onomatopoeia"
-                    optionalSubjects: [], // general related terms like "language", "linguistics"
-                    forbiddenDomains: [], // e.g., "music production"
-                    fullTopicPhrase: topicString
-                };
-                const topicLower = topicString.toLowerCase();
-
-                // Detect specific languages mentioned in the topic itself
-                if (/\b(korean|korea|hangul|한국)\b/gi.test(topicLower)) keywords.requiredLangs.push("korean");
-                if (/\b(japanese|japan|nihongo|日本)\b/gi.test(topicLower)) keywords.requiredLangs.push("japanese");
-                if (/\b(chinese|china|mandarin|中文)\b/gi.test(topicLower)) keywords.requiredLangs.push("chinese");
-                // Add other languages as needed
-
-                // Detect core subject
-                if (/\b(onomatopoeia|sound words)\b/gi.test(topicLower)) keywords.requiredSubjects.push("onomatopoeia");
-                if (/\b(calligraphy)\b/gi.test(topicLower)) keywords.requiredSubjects.push("calligraphy");
-                if (/\b(verb conjugation)\b/gi.test(topicLower)) keywords.requiredSubjects.push("verb conjugation");
-                 // Add other core subjects
-
-                // Optional related terms
-                if (/\b(language|linguistic|grammar|vocabulary|phonetic)\b/gi.test(topicLower)) {
-                    keywords.optionalSubjects.push("language", "linguistics");
-                }
-
-                // Define forbidden domains based on context
-                if (keywords.requiredLangs.includes("korean") && keywords.requiredSubjects.includes("onomatopoeia")) {
-                    keywords.forbiddenDomains = ['music production', 'audio editing', 'sound design', 'daw', 'ableton', 'logic pro', 'fl studio', 'sound effects library', 'sfx pack', 'game audio'];
-                }
-                if (keywords.requiredSubjects.includes("calligraphy")) {
-                    keywords.forbiddenDomains = ['graphic design software', 'digital art tutorial', 'photoshop', 'illustrator'];
-                }
-
-                keywords.requiredLangs = [...new Set(keywords.requiredLangs)];
-                keywords.requiredSubjects = [...new Set(keywords.requiredSubjects)];
-                keywords.optionalSubjects = [...new Set(keywords.optionalSubjects)];
-
-                log("Extracted keywords for relevance:", keywords);
-                return keywords;
-            };
-
-            const extractedKeywords = extractTopicKeywords(mainTopic + " " + learningPoint); // Combine for broader context
-
-            // --- Stage 1: Strict Pre-filtering (Code-based) ---
-            const titleLower = videoTitle.toLowerCase();
-            let preFilterRejectReason = null;
-
-            // Check for forbidden domain terms in title
-            if (extractedKeywords.forbiddenDomains.length > 0) {
-                for (const forbidden of extractedKeywords.forbiddenDomains) {
-                    if (titleLower.includes(forbidden)) {
-                        preFilterRejectReason = `Title contains forbidden domain term: "${forbidden}"`;
-                        break;
-                    }
-                }
-            }
-
-            // Check for required language if specified in topic
-            if (!preFilterRejectReason && extractedKeywords.requiredLangs.length > 0) {
-                if (!extractedKeywords.requiredLangs.some(lang => titleLower.includes(lang))) {
-                    preFilterRejectReason = `Title does not explicitly mention required language(s): "${extractedKeywords.requiredLangs.join(', ')}"`;
-                }
-            }
-
-            // Check for required subject if specified
-            if (!preFilterRejectReason && extractedKeywords.requiredSubjects.length > 0) {
-                if (!extractedKeywords.requiredSubjects.some(subj => titleLower.includes(subj))) {
-                     // Allow if at least one optional subject is present (e.g. "Korean language lesson" for "Korean onomatopoeia")
-                    if (!extractedKeywords.optionalSubjects.some(optSubj => titleLower.includes(optSubj))) {
-                        preFilterRejectReason = `Title missing required subject: "${extractedKeywords.requiredSubjects.join(', ')}" and no strong optional subject.`;
-                    }
-                }
-            }
-
-            if (preFilterRejectReason) {
-                log(`RELEVANCE PRE-FILTER REJECT: "${videoTitle}" for topic "${mainTopic}". Reason: ${preFilterRejectReason}`);
-                return { relevant: false, reason: `Pre-filter: ${preFilterRejectReason}`, confidence: 0 };
-            }
-            log(`RELEVANCE PRE-FILTER PASS: "${videoTitle}" for topic "${mainTopic}"`);
-
-            // --- Stage 2: AI-Assisted Relevance Check (Gemini) ---
-            let prompt = `You are a Strict Educational Content Validator.
-Your task is to determine if the YouTube video titled "${videoTitle}" is DIRECTLY and SPECIFICALLY relevant for a user learning about "${learningPoint}", which is part of the main lesson topic "${mainTopic}".
+            const prompt = `You are a strict educational content validator. Determine if this YouTube video is DIRECTLY relevant for learning about "${learningPoint}" within the context of "${mainTopic}".
 
 Video Title: "${videoTitle}"
-Learning Point: "${learningPoint}"
-Main Lesson Topic: "${mainTopic}"
+Learning Point: "${learningPoint}"  
+Main Topic: "${mainTopic}"
 
-Contextual Keywords & Rules:
-- Required Language(s) in Topic: ${extractedKeywords.requiredLangs.join(', ') || "None specified"}
-- Required Subject(s) in Topic: ${extractedKeywords.requiredSubjects.join(', ') || "None specified"}
-- Related Subject Keywords: ${extractedKeywords.optionalSubjects.join(', ') || "None"}
-- FORBIDDEN DOMAINS/TERMS (video must NOT be about these): ${extractedKeywords.forbiddenDomains.join(', ') || "None"}
+${transcript ? `Video Transcript (first 1500 chars): "${transcript.substring(0, 1500).replace(/"/g, "'")}"` : '(No transcript available - analyze based on title)'}
 
-${transcript ? `
-Video Transcript Snippet (first 1500 chars):
-"${transcript.substring(0, 1500).replace(/"/g, "'")}"
-` : `(No transcript provided for analysis - rely on title and keywords more heavily)`}
+STRICT CRITERIA:
+1. DIRECT RELEVANCE: Does the video directly teach/explain "${learningPoint}"?
+2. TOPIC ALIGNMENT: Is it clearly about "${mainTopic}"?
+3. CULTURAL/LINGUISTIC SPECIFICITY: If the topic involves a specific language/culture, the video MUST focus on that exact context
+4. EDUCATIONAL NATURE: Must be educational content (lessons, tutorials, explanations), NOT entertainment, music, or unrelated content
 
-CRITICAL EVALUATION CRITERIA:
-1.  DIRECT RELEVANCE: Does the video *directly teach or explain* "${learningPoint}"?
-2.  TOPIC ALIGNMENT: Is it clearly aligned with "${mainTopic}"?
-3.  CULTURAL/LINGUISTIC ACCURACY:
-    - If "Required Language(s)" are specified, does the video content demonstrably focus on that language/culture in relation to the subject?
-    - A video about "onomatopoeia in general" is NOT relevant if the topic is "Korean onomatopoeia". It MUST be about KOREAN onomatopoeia.
-4.  EDUCATIONAL NATURE: Is the video educational (lesson, tutorial, explanation)? It should NOT be purely entertainment, music, a software demo unrelated to learning the core topic, or a vlog.
-5.  FORBIDDEN DOMAINS: Does the video fall into any of the FORBIDDEN DOMAINS/TERMS listed above? If yes, it's an automatic REJECT.
+EXAMPLES:
+- For "Korean idioms": Video must be about Korean idioms specifically, not general idioms
+- For "photosynthesis": Video must teach photosynthesis, not just mention plants
+- For "Renaissance art": Video must focus on Renaissance art history/education
 
-Based on your analysis, provide a JSON response with the following structure:
+Respond with JSON:
 {
-  "isRelevant": boolean, // True if it meets ALL criteria, false otherwise
-  "confidenceScore": number, // From 0 (not relevant) to 10 (perfectly relevant)
-  "reasoning": "Detailed explanation for your decision, referencing specific criteria and keywords.",
-  "identifiedLanguageFocus": "e.g., korean, english, japanese, general, none_clear" // What language context does the video seem to have?
+  "isRelevant": boolean,
+  "confidenceScore": number, // 0-10 scale
+  "reasoning": "Brief explanation of decision"
 }
 
-Decision Guidance:
-- If "Required Language(s)" are specified (e.g., Korean), and the video is about the subject (e.g., onomatopoeia) but in a *different* language (e.g., English onomatopoeia) or is generic, it is NOT relevant.
-- If the video title or transcript mentions terms from FORBIDDEN DOMAINS, it is NOT relevant.
-- Be very strict. Prefer to reject if uncertain.
-`;
+Be very strict - reject if uncertain.`;
+
             try {
-                const response = await this.makeRequest(prompt, { temperature: 0.05 }); // Low temperature for rule-following
-                const aiResult = this.parseJSONResponse(response);
+                const response = await this.makeRequest(prompt, { temperature: 0.1 });
+                const result = this.parseJSONResponse(response);
 
-                if (!aiResult || typeof aiResult.isRelevant !== 'boolean' || typeof aiResult.confidenceScore !== 'number') {
-                    logError('RELEVANCE CHECKER V2: AI response malformed or incomplete.', aiResult);
-                    return { relevant: false, reason: "AI analysis failed to produce valid structured output.", confidence: 0 };
+                if (!result || typeof result.isRelevant !== 'boolean') {
+                    return { relevant: false, reason: "AI analysis failed", confidence: 0 };
                 }
 
-                log(`RELEVANCE CHECKER V2 AI RESULT for "${videoTitle}": Relevant: ${aiResult.isRelevant}, Confidence: ${aiResult.confidenceScore}, Reason: ${aiResult.reasoning}, LangFocus: ${aiResult.identifiedLanguageFocus}`);
-
-                // --- Stage 3: Final Decision Logic ---
-                if (!aiResult.isRelevant) {
-                    return { relevant: false, reason: `AI Rejection: ${aiResult.reasoning}`, confidence: aiResult.confidenceScore };
-                }
-                if (aiResult.confidenceScore < 7) { // Stricter threshold
-                    return { relevant: false, reason: `AI Confidence Low (${aiResult.confidenceScore}/10): ${aiResult.reasoning}`, confidence: aiResult.confidenceScore };
-                }
-
-                // If specific language context is required, verify AI's language identification
-                if (extractedKeywords.requiredLangs.length > 0) {
-                    const primaryRequiredLang = extractedKeywords.requiredLangs[0];
-                    if (!aiResult.identifiedLanguageFocus || !aiResult.identifiedLanguageFocus.toLowerCase().includes(primaryRequiredLang)) {
-                         // Allow if AI says 'general' but title strongly implies the language (e.g. "Learn Korean...")
-                        const titleHasLang = extractedKeywords.requiredLangs.some(lang => titleLower.includes(lang));
-                        if (!(aiResult.identifiedLanguageFocus === 'general' && titleHasLang)) {
-                            return { relevant: false, reason: `Language Mismatch: Topic requires ${primaryRequiredLang}, AI identified video focus as ${aiResult.identifiedLanguageFocus}.`, confidence: aiResult.confidenceScore };
-                        }
-                    }
-                }
-
-                log(`RELEVANCE CHECKER V2 FINAL ACCEPT: "${videoTitle}" (Confidence: ${aiResult.confidenceScore})`);
-                return { relevant: true, reason: aiResult.reasoning, confidence: aiResult.confidenceScore };
+                log(`RELEVANCE: "${videoTitle}" - Relevant: ${result.isRelevant}, Confidence: ${result.confidenceScore}`);
+                
+                return { 
+                    relevant: result.isRelevant && result.confidenceScore >= 7, 
+                    reason: result.reasoning, 
+                    confidence: result.confidenceScore || 0 
+                };
 
             } catch (error) {
-                logError('RELEVANCE CHECKER V2: AI analysis failed with error:', error);
-                return { relevant: false, reason: "AI analysis threw an exception.", confidence: 0 };
+                logError('RELEVANCE CHECK ERROR:', error);
+                return { relevant: false, reason: "Analysis error", confidence: 0 };
             }
         }
 
@@ -1255,7 +1137,10 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     return;
                 }
 
+                // Force show teleprompter and display text
+                showTextDisplay();
                 displayTextContent(narrationText);
+                log("NARRATION: Text displayed on teleprompter");
 
                 // Create a promise that resolves only when speech completes
                 await new Promise((resolve) => {
