@@ -1,0 +1,251 @@
+[8:58:02 PM] YouTube IFrame API is ready.
+script.js:51 [8:58:07 PM] Resetting UI state
+script.js:51 [8:58:07 PM] SPEECH: Stopping multilingual playback
+script.js:51 [8:58:07 PM] SPEECH: Multilingual cleanup completed
+script.js:51 [8:58:07 PM] STATE: idle
+script.js:51 [8:58:07 PM] FLOW: Step 1 - Generate lesson plan
+script.js:51 [8:58:07 PM] GEMINI: Starting comprehensive lesson plan generation...
+script.js:51 [8:58:07 PM] GEMINI: Step 1 - Analyzing topic context and requirements
+script.js:51 [8:58:07 PM] GEMINI: Analyzing context for "korean idioms"
+script.js:51 [8:58:13 PM] GEMINI: Step 2 - Developing curriculum strategy
+script.js:51 [8:58:13 PM] GEMINI: Developing curriculum strategy for "korean idioms"
+script.js:51 [8:58:21 PM] GEMINI: Step 3 - Generating difficulty-specific lesson plans
+script.js:51 [8:58:21 PM] GEMINI: Generating learning points for all difficulty levels
+script.js:51 [8:58:27 PM] GEMINI: Step 4 - Quality assurance and refinement
+script.js:51 [8:58:27 PM] GEMINI: Conducting quality assurance review
+script.js:51 [8:58:35 PM] GEMINI: Lesson plan generation completed with AI oversight
+script.js:51 [8:58:37 PM] FLOW: Starting level Apprentice
+script.js:51 [8:58:37 PM] FLOW: Play intro narration
+script.js:51 [8:58:37 PM] STATE: narrating
+script.js:51 [8:58:37 PM] GEMINI: Generating narration for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms."
+script.js:51 [8:58:39 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:39 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:39 PM] TEXT DISPLAY: Rendered "Annyeonghaseyo! [LANG:ko] 안녕하세요! [LANG:en] Welcome..." for mobile
+script.js:51 [8:58:39 PM] NARRATION: Text displayed on teleprompter
+script.js:51 [8:58:39 PM] SPEECH: Starting multilingual playback: "Annyeonghaseyo! [LANG:ko] 안녕하세요! [LANG:en] Welcome..."
+script.js:51 [8:58:39 PM] SPEECH: Stopping multilingual playback
+script.js:51 [8:58:39 PM] SPEECH: Multilingual cleanup completed
+script.js:51 [8:58:39 PM] SPEECH: Parsed into 6 segments: (6) ['en: "Annyeonghaseyo!..."', 'ko: "안녕하세요!..."', 'en: "Welcome to our lesso..."', `en: "Today, we'll focus o..."`, 'ko: "한국어..."', 'en: "grammatical structur..."']
+script.js:51 [8:58:39 PM] SPEECH: Synthesizing "Annyeonghaseyo!..." in en using voice en-US-Standard-H
+script.js:51 [8:58:39 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [8:58:39 PM] SPEECH: Synthesizing "안녕하세요!..." in ko using voice ko-KR-Standard-C
+script.js:51 [8:58:39 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [8:58:39 PM] SPEECH: Synthesizing "Welcome to our lesson on Korea..." in en using voice en-US-Standard-H
+script.js:51 [8:58:39 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [8:58:39 PM] SPEECH: Synthesizing "Today, we'll focus on learning..." in en using voice en-US-Standard-H
+script.js:51 [8:58:39 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [8:58:39 PM] SPEECH: Synthesizing "한국어..." in ko using voice ko-KR-Standard-C
+script.js:51 [8:58:39 PM] SPEECH API: Request for ko: {input: {…}, voice: {…}, audioConfig: {…}}
+script.js:51 [8:58:39 PM] SPEECH: Synthesizing "grammatical structures to bett..." in en using voice en-US-Standard-H
+script.js:51 [8:58:39 PM] SPEECH API: Request for en: {input: {…}, voice: {…}, audioConfig: {…}}
+2script.js:51 [8:58:40 PM] SPEECH: Successfully synthesized ko audio
+4script.js:51 [8:58:40 PM] SPEECH: Successfully synthesized en audio
+script.js:51 [8:58:40 PM] SPEECH: Playing segment 1/6 (en): "Annyeonghaseyo!..."
+script.js:51 [8:58:42 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:42 PM] TEXT ANIMATION: Progress 0.2% (mobile)
+script.js:51 [8:58:42 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:42 PM] TEXT ANIMATION: Progress 1.5% (mobile)
+script.js:51 [8:58:43 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:43 PM] TEXT ANIMATION: Progress 3.3% (mobile)
+script.js:51 [8:58:43 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:43 PM] TEXT ANIMATION: Progress 5.2% (mobile)
+script.js:51 [8:58:43 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:43 PM] TEXT ANIMATION: Progress 6.5% (mobile)
+script.js:51 [8:58:43 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:43 PM] TEXT ANIMATION: Progress 10.5% (mobile)
+script.js:51 [8:58:44 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:44 PM] TEXT ANIMATION: Progress 11.0% (mobile)
+script.js:51 [8:58:44 PM] SPEECH: Playing segment 2/6 (ko): "안녕하세요!..."
+script.js:51 [8:58:44 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:44 PM] TEXT ANIMATION: Progress 18.5% (mobile)
+script.js:51 [8:58:44 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:44 PM] TEXT ANIMATION: Progress 20.8% (mobile)
+script.js:51 [8:58:44 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:44 PM] TEXT ANIMATION: Progress 22.9% (mobile)
+script.js:51 [8:58:45 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:45 PM] TEXT ANIMATION: Progress 25.1% (mobile)
+script.js:51 [8:58:45 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:45 PM] TEXT ANIMATION: Progress 26.9% (mobile)
+script.js:51 [8:58:45 PM] SPEECH: Playing segment 3/6 (en): "Welcome to our lesson on Korea..."
+script.js:51 [8:58:45 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:45 PM] TEXT ANIMATION: Progress 35.4% (mobile)
+script.js:51 [8:58:46 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:46 PM] TEXT ANIMATION: Progress 37.7% (mobile)
+script.js:51 [8:58:46 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:46 PM] TEXT ANIMATION: Progress 39.8% (mobile)
+script.js:51 [8:58:46 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:46 PM] TEXT ANIMATION: Progress 42.1% (mobile)
+script.js:51 [8:58:46 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:46 PM] TEXT ANIMATION: Progress 44.3% (mobile)
+script.js:51 [8:58:47 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:47 PM] TEXT ANIMATION: Progress 46.5% (mobile)
+script.js:51 [8:58:47 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:47 PM] TEXT ANIMATION: Progress 48.9% (mobile)
+script.js:51 [8:58:47 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:47 PM] TEXT ANIMATION: Progress 51.0% (mobile)
+script.js:51 [8:58:47 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:47 PM] TEXT ANIMATION: Progress 53.1% (mobile)
+script.js:51 [8:58:48 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:48 PM] TEXT ANIMATION: Progress 53.5% (mobile)
+script.js:51 [8:58:48 PM] SPEECH: Playing segment 4/6 (en): "Today, we'll focus on learning..."
+script.js:51 [8:58:48 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:48 PM] TEXT ANIMATION: Progress 51.8% (mobile)
+script.js:51 [8:58:48 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:48 PM] TEXT ANIMATION: Progress 54.1% (mobile)
+script.js:51 [8:58:48 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:48 PM] TEXT ANIMATION: Progress 56.2% (mobile)
+script.js:51 [8:58:49 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:49 PM] TEXT ANIMATION: Progress 58.4% (mobile)
+script.js:51 [8:58:49 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:49 PM] TEXT ANIMATION: Progress 60.6% (mobile)
+script.js:51 [8:58:49 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:49 PM] TEXT ANIMATION: Progress 63.0% (mobile)
+script.js:51 [8:58:50 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:50 PM] TEXT ANIMATION: Progress 65.2% (mobile)
+script.js:51 [8:58:50 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:50 PM] TEXT ANIMATION: Progress 67.4% (mobile)
+script.js:51 [8:58:50 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:50 PM] TEXT ANIMATION: Progress 69.6% (mobile)
+script.js:51 [8:58:50 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:50 PM] TEXT ANIMATION: Progress 71.8% (mobile)
+script.js:51 [8:58:50 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:50 PM] TEXT ANIMATION: Progress 72.4% (mobile)
+script.js:51 [8:58:51 PM] SPEECH: Playing segment 5/6 (ko): "한국어..."
+script.js:51 [8:58:51 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:51 PM] TEXT ANIMATION: Progress 68.4% (mobile)
+script.js:51 [8:58:51 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:51 PM] TEXT ANIMATION: Progress 70.6% (mobile)
+script.js:51 [8:58:51 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:51 PM] TEXT ANIMATION: Progress 72.8% (mobile)
+script.js:51 [8:58:52 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:52 PM] TEXT ANIMATION: Progress 75.0% (mobile)
+script.js:51 [8:58:52 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:52 PM] TEXT ANIMATION: Progress 75.3% (mobile)
+script.js:51 [8:58:52 PM] SPEECH: Playing segment 6/6 (en): "grammatical structures to bett..."
+script.js:51 [8:58:52 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:52 PM] TEXT ANIMATION: Progress 85.1% (mobile)
+script.js:51 [8:58:52 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:52 PM] TEXT ANIMATION: Progress 87.3% (mobile)
+script.js:51 [8:58:53 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:53 PM] TEXT ANIMATION: Progress 89.5% (mobile)
+script.js:51 [8:58:53 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:53 PM] TEXT ANIMATION: Progress 91.7% (mobile)
+script.js:51 [8:58:53 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:53 PM] TEXT ANIMATION: Progress 93.8% (mobile)
+script.js:51 [8:58:53 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:53 PM] TEXT ANIMATION: Progress 96.1% (mobile)
+script.js:51 [8:58:54 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:54 PM] TEXT ANIMATION: Progress 98.4% (mobile)
+script.js:51 [8:58:54 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:54 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [8:58:54 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:54 PM] TEXT ANIMATION: Progress 100.0% (mobile)
+script.js:51 [8:58:54 PM] NARRATION: Timeout reached, forcing completion
+script.js:51 [8:58:54 PM] SPEECH: Stopping multilingual playback
+script.js:51 [8:58:54 PM] SPEECH: Multilingual cleanup completed
+script.js:51 [8:58:54 PM] FLOW: Step 2 - Search educational videos
+script.js:51 [8:58:54 PM] STATE: searching_videos
+script.js:51 [8:58:54 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:54 PM] STATUS MESSAGE: "🔎 Finding educational content..."
+script.js:51 [8:58:54 PM] GEMINI: Generating search queries for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms."
+script.js:51 [8:58:56 PM] Generated search queries: (6) ['learn Korean idiom grammar', 'Korean idiom sentence structure', 'how to understand Korean idioms', 'Korean idiom grammar lesson', 'Korean sentence structure guide', 'explained: Korean idioms grammar']
+script.js:51 [8:58:56 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:56 PM] STATUS MESSAGE: "🔎 Searching educational videos..."
+script.js:51 [8:58:56 PM] SEARCH: Using Custom Search for: "learn Korean idiom grammar"
+script.js:51 [8:58:57 PM] SEARCH: Found 9 valid videos for "learn Korean idiom grammar"
+script.js:51 [8:58:57 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:57 PM] STATUS MESSAGE: "🔎 Searching educational videos..."
+script.js:51 [8:58:57 PM] SEARCH: Using Custom Search for: "Korean idiom sentence structure"
+script.js:51 [8:58:57 PM] SEARCH: Found 9 valid videos for "Korean idiom sentence structure"
+script.js:51 [8:58:57 PM] Total videos found: 18
+script.js:51 [8:58:57 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:58 PM] STATUS MESSAGE: "🎯 Filtering relevant content..."
+script.js:51 [8:58:58 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:58:58 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [8:58:58 PM] TRANSCRIPT: Fetching transcript for video: zIwLPeRuQkM
+script.js:51 [8:59:03 PM] TRANSCRIPT: No transcript data found for zIwLPeRuQkM
+script.js:51 [8:59:03 PM] RELEVANCE CHECKER: Analyzing "How To Make Sentences in Korean (Introduction to Korean Grammar)" for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [8:59:05 PM] RELEVANCE: "How To Make Sentences in Korean (Introduction to Korean Grammar)" - Relevant: false, Confidence: 4
+script.js:51 [8:59:05 PM] FILTERED OUT: "How To Make Sentences in Korean (Introduction to Korean Grammar)" (title only) - While the video title suggests it covers basic Korean sentence structure, it does not explicitly state a focus on how this grammatical knowledge applies to understanding Korean idioms.  The title is about general sentence structure, not specifically its application within the context of idioms.  Therefore, it lacks direct relevance to the learning point, despite being potentially helpful as supplementary material. The topic alignment is weak; the video is about Korean grammar, not directly about Korean idioms.
+script.js:51 [8:59:05 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:59:05 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [8:59:05 PM] TRANSCRIPT: Fetching transcript for video: xG4eXP-n028
+script.js:51 [8:59:07 PM] TRANSCRIPT: No transcript data found for xG4eXP-n028
+script.js:51 [8:59:07 PM] RELEVANCE CHECKER: Analyzing "How to conjugate Korean Adjectives into Adverbs! [Korean ..." for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [8:59:09 PM] RELEVANCE: "How to conjugate Korean Adjectives into Adverbs! [Korean ..." - Relevant: false, Confidence: 3
+script.js:51 [8:59:09 PM] FILTERED OUT: "How to conjugate Korean Adjectives into Adverbs! [Korean ..." (title only) - The video title focuses on Korean adjective conjugation into adverbs. While this is a grammatical concept relevant to Korean sentence structure, it does not directly address the learning objective of understanding how words function *within Korean idioms*.  The title gives no indication that idioms are discussed.  The connection is too indirect to meet the strict relevance criteria.
+script.js:51 [8:59:09 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:59:09 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [8:59:09 PM] TRANSCRIPT: Fetching transcript for video: VAi7gp0oCSo
+script.js:51 [8:59:12 PM] TRANSCRIPT: No transcript data found for VAi7gp0oCSo
+script.js:51 [8:59:12 PM] RELEVANCE CHECKER: Analyzing "How to Form Korean Phrases? Sentence Order | Basic Korean ..." for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [8:59:15 PM] RELEVANCE: "How to Form Korean Phrases? Sentence Order | Basic Korean ..." - Relevant: false, Confidence: 4
+script.js:51 [8:59:15 PM] FILTERED OUT: "How to Form Korean Phrases? Sentence Order | Basic Korean ..." (title only) - While the video title suggests it covers basic Korean sentence structure, it does not explicitly state a focus on Korean idioms.  The connection between sentence structure and idioms is implied, but not guaranteed. The title mentions 'phrases,' which are related to idioms, but not directly equivalent.  Without a transcript, it's impossible to confirm if the video sufficiently connects grammatical structures to the *function* of words within idioms, which is a key part of the learning point.  Therefore, it fails to meet the strict criteria for direct relevance.
+script.js:51 [8:59:15 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:59:15 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [8:59:15 PM] TRANSCRIPT: Fetching transcript for video: Kr4apOn4gwQ
+script.js:51 [8:59:18 PM] TRANSCRIPT: No transcript data found for Kr4apOn4gwQ
+script.js:51 [8:59:18 PM] RELEVANCE CHECKER: Analyzing "Learn Korean Ep. 125: Saying “Each” Using 에 & 씩 - YouTube" for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [8:59:21 PM] RELEVANCE: "Learn Korean Ep. 125: Saying “Each” Using 에 & 씩 - YouTube" - Relevant: false, Confidence: 3
+script.js:51 [8:59:21 PM] FILTERED OUT: "Learn Korean Ep. 125: Saying “Each” Using 에 & 씩 - YouTube" (title only) - The video title focuses on the particles '에' and '씩' and how to use them to express 'each'. While understanding particles is crucial for Korean grammar, the title gives no indication that the video connects this grammatical knowledge directly to the *function of words within Korean idioms*.  It's plausible the video *could* touch upon this, but the title alone doesn't guarantee it.  The connection to Korean idioms is tenuous at best.  The video might teach Korean grammar, but not necessarily in the context of idioms.
+script.js:51 [8:59:21 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:59:21 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [8:59:21 PM] TRANSCRIPT: Fetching transcript for video: jXofKO87g6o
+script.js:51 [8:59:27 PM] TRANSCRIPT: No transcript data found for jXofKO87g6o
+script.js:51 [8:59:27 PM] RELEVANCE CHECKER: Analyzing "Everyday Korean Idioms You Should Learn! - YouTube" for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [8:59:29 PM] RELEVANCE: "Everyday Korean Idioms You Should Learn! - YouTube" - Relevant: false, Confidence: 3
+script.js:51 [8:59:29 PM] FILTERED OUT: "Everyday Korean Idioms You Should Learn! - YouTube" (title only) - The video title, "Everyday Korean Idioms You Should Learn! - YouTube," suggests a focus on the meaning and usage of Korean idioms.  However, there is no indication that it directly addresses the grammatical structures of Korean sentences and how those structures contribute to the meaning of the idioms.  While the topic aligns with "Korean idioms," the learning point regarding grammatical structures is not explicitly stated or implied by the title.  The lack of a transcript prevents a more thorough analysis, but based solely on the title, the direct relevance to the learning point is insufficient.
+script.js:51 [8:59:29 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:59:29 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [8:59:29 PM] TRANSCRIPT: Fetching transcript for video: txnGrGswqE8
+script.js:51 [8:59:42 PM] TRANSCRIPT: No transcript data found for txnGrGswqE8
+script.js:51 [8:59:42 PM] RELEVANCE CHECKER: Analyzing "Must-Know K-Pop Sentence Structure | Learn Korean LIVE @1pm ..." for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [8:59:45 PM] RELEVANCE: "Must-Know K-Pop Sentence Structure | Learn Korean LIVE @1pm ..." - Relevant: false, Confidence: 3
+script.js:51 [8:59:45 PM] FILTERED OUT: "Must-Know K-Pop Sentence Structure | Learn Korean LIVE @1pm ..." (title only) - While the video title mentions Korean sentence structure, it does not explicitly state a focus on idioms.  The inclusion of "K-Pop" suggests a potential entertainment focus, rather than a strict educational approach to grammar within the context of Korean idioms. The learning point is about understanding how words function within idioms through grammar, but the title gives no guarantee this will be covered in relation to idioms.  The connection to idioms is too tenuous based solely on the title.
+script.js:51 [8:59:45 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:59:45 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [8:59:45 PM] TRANSCRIPT: Fetching transcript for video: OMK_TvqD5xA
+script.js:51 [8:59:51 PM] TRANSCRIPT: No transcript data found for OMK_TvqD5xA
+script.js:51 [8:59:51 PM] RELEVANCE CHECKER: Analyzing "[ Intermediate Korean 5 ] Idioms, 4-character Idiom, -답다,-스럽다 ..." for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [8:59:53 PM] RELEVANCE: "[ Intermediate Korean 5 ] Idioms, 4-character Idiom, -답다,-스럽다 ..." - Relevant: false, Confidence: 4
+script.js:51 [8:59:53 PM] FILTERED OUT: "[ Intermediate Korean 5 ] Idioms, 4-character Idiom, -답다,-스럽다 ..." (title only) - While the video title mentions Korean idioms and grammatical elements ('-답다,-스럽다'), it does not explicitly state that it will teach the basic grammatical structures *to understand how words function within idioms*.  The title suggests the video focuses on specific idiom types, not the underlying grammatical structures that govern their formation and meaning.  Without a transcript, we cannot confirm if the grammatical explanations are sufficiently detailed to meet the learning point. The lack of clarity makes it impossible to confidently assert direct relevance.
+script.js:51 [8:59:53 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [8:59:53 PM] STATUS MESSAGE: "🎯 Analyzing video content..."
+script.js:51 [8:59:53 PM] TRANSCRIPT: Fetching transcript for video: zxTZlew2EUo
+script.js:51 [8:59:59 PM] TRANSCRIPT: No transcript data found for zxTZlew2EUo
+script.js:51 [8:59:59 PM] RELEVANCE CHECKER: Analyzing "Korean Idiom ‍♂️ Finding Mr Kim in Seoul? 서울에서 김서방 찾기 ..." for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [9:00:02 PM] RELEVANCE: "Korean Idiom ‍♂️ Finding Mr Kim in Seoul? 서울에서 김서방 찾기 ..." - Relevant: false, Confidence: 4
+script.js:51 [9:00:02 PM] FILTERED OUT: "Korean Idiom ‍♂️ Finding Mr Kim in Seoul? 서울에서 김서방 찾기 ..." (title only) - While the video title indicates it deals with a Korean idiom ('서울에서 김서방 찾기'), there is no indication that it directly teaches the grammatical structures of Korean sentences within the context of that idiom.  The title only presents the idiom; it doesn't promise grammatical explanation.  The lack of a transcript prevents confirmation, and thus, based on the strict criteria, the video is deemed not directly relevant.
+script.js:51 [9:00:02 PM] Relevant videos after filtering: 0
+script.js:51 [9:00:02 PM] WARNING: No relevant videos found, using top search results as fallback
+script.js:51 [9:00:02 PM] FLOW: Found 3 relevant videos for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms."
+script.js:51 [9:00:02 PM] FLOW: Step 4 - Auto-selecting best video with final validation
+script.js:51 [9:00:02 PM] STATE: choosing_video
+script.js:51 [9:00:02 PM] RELEVANCE CHECKER: Analyzing "How To Make Sentences in Korean (Introduction to Korean Grammar)" for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [9:00:04 PM] RELEVANCE: "How To Make Sentences in Korean (Introduction to Korean Grammar)" - Relevant: false, Confidence: 4
+script.js:51 [9:00:04 PM] FINAL CHECK: Best video "How To Make Sentences in Korean (Introduction to Korean Grammar)" failed final relevance check. Trying next option.
+script.js:51 [9:00:04 PM] RELEVANCE CHECKER: Analyzing "How to conjugate Korean Adjectives into Adverbs! [Korean ..." for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms." in context of "korean idioms"
+script.js:51 [9:00:06 PM] RELEVANCE: "How to conjugate Korean Adjectives into Adverbs! [Korean ..." - Relevant: false, Confidence: 3
+script.js:51 [9:00:06 PM] FINAL CHECK: Trying third option: "How to Form Korean Phrases? Sentence Order | Basic Korean ..."
+script.js:51 [9:00:06 PM] FLOW: Final selected video: How to Form Korean Phrases? Sentence Order | Basic Korean ... (ID: VAi7gp0oCSo)
+script.js:51 [9:00:06 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:00:06 PM] STATUS MESSAGE: "✅ Video selected!"
+script.js:51 [9:00:07 PM] FLOW: Step 7 - Generate segments
+script.js:51 [9:00:07 PM] STATE: generating_segments
+script.js:51 [9:00:07 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:00:07 PM] STATUS MESSAGE: "✂️ Finding best segments..."
+script.js:51 [9:00:07 PM] TEXT DISPLAY: Canvas is now visible
+script.js:51 [9:00:07 PM] STATUS MESSAGE: "✂️ Finding best segments..."
+script.js:51 [9:00:07 PM] SEGMENTER: Analyzing YouTube video for "Learn the basic grammatical structures of Korean sentences to understand how words function within idioms."
+script.js:51 [9:00:09 PM] SEGMENTER: Found 1 valid segments (using heuristics).
+script.js:51 [9:00:09 PM] Generated 1 segments: [{…}]
+script.js:51 [9:00:09 PM] FLOW: Step 8 - Play segments
+script.js:51 [9:00:09 PM] STATE: playing_video
+script.js:51 [9:00:09 PM] TEXT DISPLAY: Canvas is now hidden
+script.js:51 [9:00:09 PM] Creating player for video: VAi7gp0oCSo
+script.js:51 [9:00:09 PM] Playing segment 1/1: 30s - 180s
+5Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('<URL>') does not match the recipient window's origin ('<URL>').Understand this warning
+script.js:51 [9:00:19 PM] YouTube player ready.
+script.js:51 [9:00:34 PM] STATE: playing_video
+script.js:51 [9:00:41 PM] STATE: playing_video
+script.js:51 [9:01:07 PM] STATE: playing_video
