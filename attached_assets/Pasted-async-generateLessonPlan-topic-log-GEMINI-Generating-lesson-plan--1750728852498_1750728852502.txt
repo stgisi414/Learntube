@@ -1,0 +1,157 @@
+async generateLessonPlan(topic) {
+            log("GEMINI: Generating lesson plan...");
+            
+            // Extract language/cultural context with enhanced detection
+            const extractCulturalContext = (topicText) => {
+                const text = topicText.toLowerCase();
+                
+                // Enhanced language detection with variations
+                const languagePatterns = {
+                    korean: /\b(korean|korea|hangul|한국|k-pop|kimchi|seoul)\b/gi,
+                    japanese: /\b(japanese|japan|nihongo|日本|hiragana|katakana|kanji|tokyo|anime|manga)\b/gi,
+                    chinese: /\b(chinese|china|mandarin|cantonese|中文|汉语|普通话|beijing|shanghai)\b/gi,
+                    spanish: /\b(spanish|spain|español|castellano|madrid|mexico|latin america)\b/gi,
+                    french: /\b(french|france|français|francais|paris|quebec)\b/gi,
+                    german: /\b(german|germany|deutsch|berlin|austria|swiss)\b/gi,
+                    italian: /\b(italian|italy|italiano|rome|milan)\b/gi,
+                    portuguese: /\b(portuguese|portugal|português|brazil|brasil|rio)\b/gi,
+                    russian: /\b(russian|russia|русский|moscow|soviet)\b/gi,
+                    arabic: /\b(arabic|arab|العربية|middle east|egypt|saudi)\b/gi,
+                    hindi: /\b(hindi|india|हिंदी|bollywood|delhi|mumbai)\b/gi
+                };
+                
+                // Cultural/linguistic terms
+                const culturalTerms = /\b(onomatopoeia|onomatopoeic|sound words|phonetic|linguistic|language|dialect|accent|pronunciation|grammar|syntax|vocabulary|idiom|phrase|expression|cultural|traditional|folk|native|indigenous)\b/gi;
+                
+                const detectedLanguages = [];
+                const detectedCultures = [];
+                
+                // Check for language matches
+                for (const [lang, pattern] of Object.entries(languagePatterns)) {
+                    if (pattern.test(text)) {
+                        detectedLanguages.push(lang);
+                    }
+                }
+                
+                // Check for cultural/linguistic terms
+                const culturalMatches = text.match(culturalTerms);
+                if (culturalMatches) {
+                    detectedCultures.push(...culturalMatches);
+                }
+                
+                return {
+                    languages: [...new Set(detectedLanguages)],
+                    culturalTerms: [...new Set(culturalMatches || [])],
+                    hasSpecificLanguage: detectedLanguages.length > 0,
+                    hasCulturalContext: culturalMatches && culturalMatches.length > 0
+                };
+            };
+            
+            const context = extractCulturalContext(topic);
+            const requiresStrictCulturalMaintenance = context.hasSpecificLanguage || context.hasCulturalContext;
+            
+            let prompt = `You are an expert curriculum designer. Create a learning plan for the EXACT topic: "${topic}".
+
+CORE PRINCIPLES:
+1.  TOPIC FIDELITY: Every learning point MUST directly relate to "${topic}". Do NOT generalize or use broader categories. The phrase "${topic}" must be present in each point.
+2.  PROGRESSIVE LEARNING: Structure the plan from basic to advanced across difficulty levels.
+3.  CULTURAL AUTHENTICITY: If the topic has specific cultural or linguistic elements (details below), ensure learning points reflect this authentically.
+
+${requiresStrictCulturalMaintenance ? `
+🚨 CRITICAL CULTURAL/LINGUISTIC CONTEXT DETECTED 🚨
+- Detected Languages: ${context.languages.join(', ') || 'None'}
+- Detected Cultural Keywords: ${context.culturalTerms.join(', ') || 'None'}
+
+CULTURALLY ENRICHED LEARNING POINTS REQUIRED:
+- Each learning point must not only include "${topic}" but also incorporate specific examples, facets, or contexts relevant to ${context.languages.join(' and/or ')} culture/language related to "${topic}".
+- For example, if the topic is "Korean onomatopoeia", points should be like "Exploring Korean onomatopoeia in K-Dramas" or "Comparing animal sound onomatopoeia in Korean vs. English".
+- Avoid generic points like "Basic concepts of ${topic}" if a cultural context is active. Instead, frame it as "Basic concepts of ${topic} within the ${context.languages[0]} cultural context".
+- If no specific language is detected but cultural terms are, ensure points reflect those terms. For example, if topic is "Linguistic relativity", points should be about "Linguistic relativity and its impact on thought" not just "Understanding Linguistic relativity".
+- Generic points that only append the topic string are NOT acceptable if a cultural context is identified.
+FORBIDDEN:
+- Do NOT substitute "${topic}" with general terms (e.g., "sound words" for "Korean onomatopoeia").
+` : `
+STANDARD LEARNING POINTS:
+- Focus on educational aspects of "${topic}".
+`}
+
+DIFFICULTY LEVELS & POINT COUNT:
+- Apprentice: 3 learning points
+- Journeyman: 5 learning points
+- Senior: 7 learning points
+- Master: 9 learning points
+
+OUTPUT FORMAT: Return ONLY valid JSON.
+Example structure:
+{
+  "Apprentice": ["Point 1 about ${topic}", "Point 2 about ${topic}", ...],
+  "Journeyman": ["More advanced Point 1 about ${topic}", ...],
+  "Senior": [...],
+  "Master": [...]
+}
+${requiresStrictCulturalMaintenance && context.languages.length > 0 ? `
+Example for a topic like "Korean Onomatopoeia":
+{
+  "Apprentice": [
+    "Introduction to Korean Onomatopoeia in daily Korean life",
+    "Basic categories of Korean Onomatopoeia (e.g., sounds, movements)",
+    "Common examples of Korean Onomatopoeia used in simple Korean conversations"
+  ], ...
+}` : `
+Example for a topic like "Photosynthesis":
+{
+  "Apprentice": [
+    "What is Photosynthesis?",
+    "Key components involved in Photosynthesis (sunlight, water, CO2)",
+    "Why Photosynthesis is important for plants"
+  ], ...
+}`}
+
+Ensure every learning point is distinct and directly contributes to understanding "${topic}" with the specified cultural context if applicable.`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.35 }); // Slightly increased temp for richer points
+            let parsedPlan = this.parseJSONResponse(response);
+
+            // Validation and potential retry
+            if (parsedPlan && requiresStrictCulturalMaintenance) {
+                const allPoints = Object.values(parsedPlan).flat();
+                let failedValidation = false;
+
+                for (const point of allPoints) {
+                    const pointLower = point.toLowerCase();
+                    if (!pointLower.includes(topic.toLowerCase())) {
+                        log(`LESSON PLAN VALIDATION FAIL (Topic): Point "${point}" missing base topic "${topic}"`);
+                        failedValidation = true;
+                        break;
+                    }
+                    // MVP Heuristic: Check if language or specific cultural term is present
+                    if (context.languages.length > 0 && !context.languages.some(lang => pointLower.includes(lang.toLowerCase()))) {
+                         // Check if the point is too generic by also checking for general cultural terms
+                        if (!context.culturalTerms.some(term => pointLower.includes(term.toLowerCase()))) {
+                            log(`LESSON PLAN VALIDATION FAIL (Language): Point "${point}" for topic "${topic}" lacks specific language enrichment for ${context.languages.join('/')}.`);
+                            failedValidation = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (failedValidation) {
+                    log(`LESSON PLAN VALIDATION: Strict cultural maintenance failed. Regenerating with a more direct retry prompt.`);
+                    const retryPrompt = `RETRY - Previous lesson plan for "${topic}" failed cultural specificity or topic fidelity.
+
+MUST-FOLLOW RULES:
+1.  The EXACT phrase "${topic}" MUST be in every learning point.
+2.  If cultural/linguistic context was specified (Languages: ${context.languages.join(', ') || 'N/A'}, Cultural Terms: ${context.culturalTerms.join(', ') || 'N/A'}), learning points MUST integrate this.
+    For "Korean onomatopoeia", points MUST be about KOREAN onomatopoeia in specific KOREAN contexts (e.g., "Korean onomatopoeia in webtoons"), not just "What is Korean onomatopoeia".
+3.  DO NOT generalize.
+4.  Output valid JSON for 4 levels: Apprentice (3), Journeyman (5), Senior (7), Master (9).
+
+Topic: "${topic}"
+Strive for culturally rich and specific learning points.`;
+                    const retryResponse = await this.makeRequest(retryPrompt, { temperature: 0.2 }); // Lower temp for stricter retry
+                    parsedPlan = this.parseJSONResponse(retryResponse);
+                }
+            }
+            
+            return parsedPlan;
+        }
