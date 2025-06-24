@@ -71,6 +71,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         parseJSONResponse(response) { if (!response) return null; try { let cleanedResponse = response.trim().replace(/```json\s*/g, '').replace(/```\s*/g, ''); const jsonMatch = cleanedResponse.match(/(\{[\s\S]*\}|\[[\s\S]*\])/); if (jsonMatch) { return JSON.parse(jsonMatch[0]); } logError(`No valid JSON found in response:`, response); return null; } catch (error) { logError(`Failed to parse JSON:`, error, `Raw response: "${response}"`); return null; } }
 
+        isAudioProductionTopic(topic, learningPoint) {
+            // Check if the main topic or learning point is specifically about audio/music production
+            const audioKeywords = [
+                'sound design', 'music production', 'audio editing', 'daw', 'digital audio',
+                'mixing', 'mastering', 'audio engineering', 'music software', 'recording',
+                'ableton', 'logic pro', 'fl studio', 'cubase', 'pro tools', 'audio synthesis',
+                'beat making', 'music composition software', 'audio effects', 'synthesizer programming'
+            ];
+            
+            const combinedText = `${topic} ${learningPoint}`.toLowerCase();
+            
+            // Look for audio production keywords in the topic/learning point
+            const hasAudioKeywords = audioKeywords.some(keyword => combinedText.includes(keyword));
+            
+            // Also check for phrases that indicate learning about audio production
+            const learningAudioPatterns = [
+                'learn sound design', 'how to produce music', 'audio production basics',
+                'daw tutorial', 'music software tutorial', 'audio editing tutorial'
+            ];
+            
+            const hasLearningAudioPatterns = learningAudioPatterns.some(pattern => 
+                combinedText.includes(pattern)
+            );
+            
+            return hasAudioKeywords || hasLearningAudioPatterns;
+        }
+
         async generateLessonPlan(topic) {
             log("GEMINI: Starting comprehensive lesson plan generation...");
 
@@ -341,15 +368,20 @@ Return ONLY a JSON array like: ["query1", "query2", "query3"]`;
             const topic = mainTopic.toLowerCase();
             const point = learningPoint.toLowerCase();
 
+            // Check if the topic itself is about audio/music production
+            const isAudioProductionTopic = this.isAudioProductionTopic(topic, point);
+
             // Immediate acceptance for clearly relevant content
             if (title.includes(topic) || title.includes(topic.split(' ')[0])) {
-                // Check for forbidden content that would make it irrelevant
-                const forbiddenTerms = ['music production', 'daw', 'sound design', 'beats', 'mixing', 'mastering', 'audio editing', 'ableton', 'logic pro', 'fl studio'];
-                const hasForbidden = forbiddenTerms.some(term => title.includes(term));
-                
-                if (hasForbidden) {
-                    log(`RELEVANCE: "${videoTitle}" - REJECTED for forbidden content`);
-                    return { relevant: false, reason: "Contains forbidden audio production terms", confidence: 0 };
+                // Only check for forbidden content if the topic is NOT about audio production
+                if (!isAudioProductionTopic) {
+                    const forbiddenTerms = ['music production', 'daw', 'sound design', 'beats', 'mixing', 'mastering', 'audio editing', 'ableton', 'logic pro', 'fl studio'];
+                    const hasForbidden = forbiddenTerms.some(term => title.includes(term));
+                    
+                    if (hasForbidden) {
+                        log(`RELEVANCE: "${videoTitle}" - REJECTED for forbidden content (not audio production topic)`);
+                        return { relevant: false, reason: "Contains audio production terms but topic is not audio-related", confidence: 0 };
+                    }
                 }
 
                 // Educational content indicators
