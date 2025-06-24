@@ -287,90 +287,102 @@ Return ONLY JSON:
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
             const mainTopic = currentLessonPlan?.topic || learningPoint;
 
-            const prompt = `You are an expert YouTube search strategist. Generate 4-6 highly specific search queries to find the BEST educational videos about "${learningPoint}" within the context of "${mainTopic}".
+            // Create focused, direct search queries based on the main topic
+            const topic = mainTopic.toLowerCase();
+            const queries = [];
 
-CRITICAL REQUIREMENTS:
-1. Each query must be 3-7 words maximum
-2. Must include educational keywords: "learn", "tutorial", "guide", "explained", "lesson", "how to"  
-3. Must be culturally and linguistically specific when relevant
-4. Must avoid terms that attract non-educational content
-5. Focus on what students would search for, not professionals
+            // Always include the main topic with educational terms
+            queries.push(`learn ${topic}`);
+            queries.push(`${topic} explained`);
+            queries.push(`${topic} tutorial`);
+            queries.push(`${topic} lesson`);
 
-CONTEXTUAL ANALYSIS:
-Main Topic: "${mainTopic}"
-Specific Learning Point: "${learningPoint}"
+            // Add specific educational combinations
+            if (topic.includes('korean')) {
+                queries.push('korean language tutorial');
+                queries.push('how to korean');
+            } else if (topic.includes('idiom')) {
+                queries.push('idioms explained');
+                queries.push('learn idioms');
+            }
 
-EXAMPLES OF EXCELLENT QUERIES:
-- For Korean idioms: ["learn korean idioms", "korean idioms explained", "korean proverbs tutorial", "korean sayings lesson"]
-- For photosynthesis: ["photosynthesis explained simply", "how photosynthesis works", "plant photosynthesis tutorial", "photosynthesis for students"]
-- For Renaissance art: ["renaissance art explained", "renaissance painting tutorial", "italian renaissance art history", "renaissance artists lesson"]
+            // Fallback to AI generation if we need more specific queries
+            try {
+                const prompt = `Generate 2-3 simple search queries for finding YouTube videos about "${mainTopic}". 
 
-AVOID these types of queries:
-- Generic terms without educational context
-- Professional/technical jargon 
-- Terms that could match entertainment instead of education
-- Overly broad queries that lack specificity
+Each query should be:
+- 2-4 words maximum
+- Include the main topic keywords
+- Include words like: learn, tutorial, explained, lesson, guide
 
-Generate 4-6 search queries that will find authentic, educational content about "${learningPoint}" in the context of "${mainTopic}".
+Return ONLY a JSON array like: ["query1", "query2", "query3"]`;
 
-Return ONLY a JSON array:
-["query1", "query2", "query3", "query4", "query5", "query6"]`;
+                const response = await this.makeRequest(prompt, { temperature: 0.3 });
+                const aiQueries = this.parseJSONResponse(response);
+                
+                if (Array.isArray(aiQueries)) {
+                    queries.push(...aiQueries);
+                }
+            } catch (error) {
+                log('Search query generation fallback used');
+            }
 
-            const response = await this.makeRequest(prompt, { temperature: 0.25 });
-            return this.parseJSONResponse(response);
+            // Remove duplicates and limit to 6
+            const uniqueQueries = [...new Set(queries)].slice(0, 6);
+            log(`Generated search queries:`, uniqueQueries);
+            return uniqueQueries;
         }
 
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
             log(`RELEVANCE CHECKER: Analyzing "${videoTitle}" for "${learningPoint}" in context of "${mainTopic}"`);
 
-            const prompt = `You are a strict educational content validator. Determine if this YouTube video is DIRECTLY relevant for learning about "${learningPoint}" within the context of "${mainTopic}".
+            // Simple but effective relevance checking
+            const title = videoTitle.toLowerCase();
+            const topic = mainTopic.toLowerCase();
+            const point = learningPoint.toLowerCase();
 
-Video Title: "${videoTitle}"
-Learning Point: "${learningPoint}"  
-Main Topic: "${mainTopic}"
-
-${transcript ? `Video Transcript (first 1500 chars): "${transcript.substring(0, 1500).replace(/"/g, "'")}"` : '(No transcript available - analyze based on title)'}
-
-STRICT CRITERIA:
-1. DIRECT RELEVANCE: Does the video directly teach/explain "${learningPoint}"?
-2. TOPIC ALIGNMENT: Is it clearly about "${mainTopic}"?
-3. CULTURAL/LINGUISTIC SPECIFICITY: If the topic involves a specific language/culture, the video MUST focus on that exact context
-4. EDUCATIONAL NATURE: Must be educational content (lessons, tutorials, explanations), NOT entertainment, music, or unrelated content
-
-EXAMPLES:
-- For "Korean idioms": Video must be about Korean idioms specifically, not general idioms
-- For "photosynthesis": Video must teach photosynthesis, not just mention plants
-- For "Renaissance art": Video must focus on Renaissance art history/education
-
-Respond with JSON:
-{
-  "isRelevant": boolean,
-  "confidenceScore": number, // 0-10 scale
-  "reasoning": "Brief explanation of decision"
-}
-
-Be very strict - reject if uncertain.`;
-
-            try {
-                const response = await this.makeRequest(prompt, { temperature: 0.1 });
-                const result = this.parseJSONResponse(response);
-
-                if (!result || typeof result.isRelevant !== 'boolean') {
-                    return { relevant: false, reason: "AI analysis failed", confidence: 0 };
+            // Immediate acceptance for clearly relevant content
+            if (title.includes(topic) || title.includes(topic.split(' ')[0])) {
+                // Check for forbidden content that would make it irrelevant
+                const forbiddenTerms = ['music production', 'daw', 'sound design', 'beats', 'mixing', 'mastering', 'audio editing', 'ableton', 'logic pro', 'fl studio'];
+                const hasForbidden = forbiddenTerms.some(term => title.includes(term));
+                
+                if (hasForbidden) {
+                    log(`RELEVANCE: "${videoTitle}" - REJECTED for forbidden content`);
+                    return { relevant: false, reason: "Contains forbidden audio production terms", confidence: 0 };
                 }
 
-                log(`RELEVANCE: "${videoTitle}" - Relevant: ${result.isRelevant}, Confidence: ${result.confidenceScore}`);
-                
-                return { 
-                    relevant: result.isRelevant && result.confidenceScore >= 7, 
-                    reason: result.reasoning, 
-                    confidence: result.confidenceScore || 0 
-                };
+                // Educational content indicators
+                const eduTerms = ['learn', 'lesson', 'tutorial', 'explained', 'guide', 'how to', 'course', 'teach', 'grammar', 'idiom'];
+                const hasEduTerms = eduTerms.some(term => title.includes(term));
 
-            } catch (error) {
-                logError('RELEVANCE CHECK ERROR:', error);
-                return { relevant: false, reason: "Analysis error", confidence: 0 };
+                if (hasEduTerms) {
+                    log(`RELEVANCE: "${videoTitle}" - ACCEPTED (topic match + educational)`);
+                    return { relevant: true, reason: "Topic match with educational content", confidence: 9 };
+                }
+
+                // Topic match without clear educational indicators - still likely good
+                log(`RELEVANCE: "${videoTitle}" - ACCEPTED (topic match)`);
+                return { relevant: true, reason: "Topic match", confidence: 7 };
             }
+
+            // Check for broader educational relevance
+            const broadEduTerms = ['learn', 'lesson', 'tutorial', 'explained', 'guide', 'how to', 'course'];
+            const hasBroadEdu = broadEduTerms.some(term => title.includes(term));
+
+            if (hasBroadEdu) {
+                // Check if it contains key topic words
+                const topicWords = topic.split(' ');
+                const hasTopicWords = topicWords.some(word => word.length > 2 && title.includes(word));
+
+                if (hasTopicWords) {
+                    log(`RELEVANCE: "${videoTitle}" - ACCEPTED (educational + topic words)`);
+                    return { relevant: true, reason: "Educational content with topic relevance", confidence: 6 };
+                }
+            }
+
+            log(`RELEVANCE: "${videoTitle}" - REJECTED (no clear relevance)`);
+            return { relevant: false, reason: "No clear topic relevance", confidence: 3 };
         }
 
         async generateNarration(learningPoint, previousPoint) {
