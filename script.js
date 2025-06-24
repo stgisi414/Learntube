@@ -220,7 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         async getVideoTranscript(youtubeId) {
             log(`TRANSCRIPT: Fetching for ${youtubeId}`);
-            if (!SUPADATA_API_KEY) {
+            const SUPADATA_API_KEY = "__SUPADATA_API_KEY__";
+            if (!SUPADATA_API_KEY || SUPADATA_API_KEY === "__SUPADATA_API_KEY__") {
                 log(`TRANSCRIPT: No API key available, skipping transcript for ${youtubeId}`);
                 return null;
             }
