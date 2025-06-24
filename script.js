@@ -42,9 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================================
     // --- API & CONFIGURATION ---
     // =================================================================================
-    const GEMINI_API_KEY = "AIzaSyAo4mWr5x3UPEACzFC3_6W0bd1DG8dCudA";
-    const YOUTUBE_API_KEY = "AIzaSyDbxmMIxsnVWW16iHrVrq1kNe9KTTSpNH4";
-    const CSE_ID = 'b53121b78d1c64563';
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+    const CSE_ID = process.env.CSE_ID;
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
     const SUPADATA_API_KEY = process.env.SUPADATA_API_KEY;
 
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Using your original, full SpeechEngine with multilingual support
     class SpeechEngine {
         constructor() { 
-            this.apiKey = "AIzaSyA43RRVypjAAXwYdpKrojWVmdRAGyLKwr8"; 
+            this.apiKey = process.env.GOOGLE_TTS_API_KEY; 
             this.apiUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize'; 
             this.onCompleteCallback = null; this.onProgressCallback = null; 
             this.isPaused = false; this.isPlaying = false;
