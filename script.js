@@ -72,161 +72,215 @@ document.addEventListener('DOMContentLoaded', () => {
         parseJSONResponse(response) { if (!response) return null; try { let cleanedResponse = response.trim().replace(/```json\s*/g, '').replace(/```\s*/g, ''); const jsonMatch = cleanedResponse.match(/(\{[\s\S]*\}|\[[\s\S]*\])/); if (jsonMatch) { return JSON.parse(jsonMatch[0]); } logError(`No valid JSON found in response:`, response); return null; } catch (error) { logError(`Failed to parse JSON:`, error, `Raw response: "${response}"`); return null; } }
 
         async generateLessonPlan(topic) {
-            log("GEMINI: Generating lesson plan...");
+            log("GEMINI: Starting comprehensive lesson plan generation...");
             
-            // Extract language/cultural context with enhanced detection
-            const extractCulturalContext = (topicText) => {
-                const text = topicText.toLowerCase();
-                
-                // Enhanced language detection with variations
-                const languagePatterns = {
-                    korean: /\b(korean|korea|hangul|한국|k-pop|kimchi|seoul)\b/gi,
-                    japanese: /\b(japanese|japan|nihongo|日本|hiragana|katakana|kanji|tokyo|anime|manga)\b/gi,
-                    chinese: /\b(chinese|china|mandarin|cantonese|中文|汉语|普通话|beijing|shanghai)\b/gi,
-                    spanish: /\b(spanish|spain|español|castellano|madrid|mexico|latin america)\b/gi,
-                    french: /\b(french|france|français|francais|paris|quebec)\b/gi,
-                    german: /\b(german|germany|deutsch|berlin|austria|swiss)\b/gi,
-                    italian: /\b(italian|italy|italiano|rome|milan)\b/gi,
-                    portuguese: /\b(portuguese|portugal|português|brazil|brasil|rio)\b/gi,
-                    russian: /\b(russian|russia|русский|moscow|soviet)\b/gi,
-                    arabic: /\b(arabic|arab|العربية|middle east|egypt|saudi)\b/gi,
-                    hindi: /\b(hindi|india|हिंदी|bollywood|delhi|mumbai)\b/gi
-                };
-                
-                // Cultural/linguistic terms
-                const culturalTerms = /\b(onomatopoeia|onomatopoeic|sound words|phonetic|linguistic|language|dialect|accent|pronunciation|grammar|syntax|vocabulary|idiom|phrase|expression|cultural|traditional|folk|native|indigenous)\b/gi;
-                
-                const detectedLanguages = [];
-                const detectedCultures = [];
-                
-                // Check for language matches
-                for (const [lang, pattern] of Object.entries(languagePatterns)) {
-                    if (pattern.test(text)) {
-                        detectedLanguages.push(lang);
-                    }
-                }
-                
-                // Check for cultural/linguistic terms
-                const culturalMatches = text.match(culturalTerms);
-                if (culturalMatches) {
-                    detectedCultures.push(...culturalMatches);
-                }
-                
-                return {
-                    languages: [...new Set(detectedLanguages)],
-                    culturalTerms: [...new Set(culturalMatches || [])],
-                    hasSpecificLanguage: detectedLanguages.length > 0,
-                    hasCulturalContext: culturalMatches && culturalMatches.length > 0
-                };
-            };
+            // Step 1: AI-driven topic analysis and context detection
+            log("GEMINI: Step 1 - Analyzing topic context and requirements");
+            const contextAnalysis = await this.analyzeTopicContext(topic);
             
-            const context = extractCulturalContext(topic);
-            const requiresStrictCulturalMaintenance = context.hasSpecificLanguage || context.hasCulturalContext;
+            // Step 2: AI-driven curriculum strategy planning
+            log("GEMINI: Step 2 - Developing curriculum strategy");
+            const curriculumStrategy = await this.developCurriculumStrategy(topic, contextAnalysis);
             
-            let prompt = `You are an expert curriculum designer. Create a learning plan for the EXACT topic: "${topic}".
+            // Step 3: AI-generated lesson plans for each difficulty level
+            log("GEMINI: Step 3 - Generating difficulty-specific lesson plans");
+            const lessonPlan = await this.generateDifficultyLevels(topic, contextAnalysis, curriculumStrategy);
+            
+            // Step 4: AI-driven quality assurance and refinement
+            log("GEMINI: Step 4 - Quality assurance and refinement");
+            const finalPlan = await this.qualityAssuranceReview(topic, lessonPlan, contextAnalysis);
+            
+            log("GEMINI: Lesson plan generation completed with AI oversight");
+            return finalPlan;
+        }
 
-CORE PRINCIPLES:
-1.  TOPIC FIDELITY: Every learning point MUST directly relate to "${topic}". Do NOT generalize or use broader categories. The phrase "${topic}" must be present in each point.
-2.  PROGRESSIVE LEARNING: Structure the plan from basic to advanced across difficulty levels.
-3.  CULTURAL AUTHENTICITY: If the topic has specific cultural or linguistic elements (details below), ensure learning points reflect this authentically.
+        async analyzeTopicContext(topic) {
+            log(`GEMINI: Analyzing context for "${topic}"`);
+            const prompt = `Analyze the topic "${topic}" and provide comprehensive context analysis.
 
-${requiresStrictCulturalMaintenance ? `
-🚨 CRITICAL CULTURAL/LINGUISTIC CONTEXT DETECTED 🚨
-- Detected Languages: ${context.languages.join(', ') || 'None'}
-- Detected Cultural Keywords: ${context.culturalTerms.join(', ') || 'None'}
+ANALYSIS REQUIREMENTS:
+1. Cultural/Linguistic Context: Identify any specific languages, cultures, or regional contexts
+2. Subject Domain: Determine the academic or knowledge domain (science, language, history, etc.)
+3. Complexity Level: Assess the inherent complexity and prerequisites
+4. Learning Approach: Recommend the best pedagogical approach for this topic
+5. Special Considerations: Any unique aspects that require special attention
 
-CULTURALLY ENRICHED LEARNING POINTS REQUIRED:
-- Each learning point must not only include "${topic}" but also incorporate specific examples, facets, or contexts relevant to ${context.languages.join(' and/or ')} culture/language related to "${topic}".
-- For example, if the topic is "Korean onomatopoeia", points should be like "Exploring Korean onomatopoeia in K-Dramas" or "Comparing animal sound onomatopoeia in Korean vs. English".
-- Avoid generic points like "Basic concepts of ${topic}" if a cultural context is active. Instead, frame it as "Basic concepts of ${topic} within the ${context.languages[0]} cultural context".
-- If no specific language is detected but cultural terms are, ensure points reflect those terms. For example, if topic is "Linguistic relativity", points should be about "Linguistic relativity and its impact on thought" not just "Understanding Linguistic relativity".
-- Generic points that only append the topic string are NOT acceptable if a cultural context is identified.
-FORBIDDEN:
-- Do NOT substitute "${topic}" with general terms (e.g., "sound words" for "Korean onomatopoeia").
-` : `
-STANDARD LEARNING POINTS:
-- Focus on educational aspects of "${topic}".
-`}
-
-DIFFICULTY LEVELS & POINT COUNT:
-- Apprentice: 3 learning points
-- Journeyman: 5 learning points
-- Senior: 7 learning points
-- Master: 9 learning points
-
-OUTPUT FORMAT: Return ONLY valid JSON.
-Example structure:
+Provide your analysis in JSON format:
 {
-  "Apprentice": ["Point 1 about ${topic}", "Point 2 about ${topic}", ...],
-  "Journeyman": ["More advanced Point 1 about ${topic}", ...],
-  "Senior": [...],
-  "Master": [...]
+  "topic": "${topic}",
+  "culturalContext": {
+    "hasSpecificCulture": boolean,
+    "languages": ["language1", "language2"],
+    "culturalTerms": ["term1", "term2"],
+    "culturalImportance": "explanation"
+  },
+  "subjectDomain": "domain name",
+  "complexityLevel": "beginner|intermediate|advanced",
+  "recommendedApproach": "detailed pedagogical recommendation",
+  "specialConsiderations": ["consideration1", "consideration2"],
+  "learningObjectives": ["objective1", "objective2"],
+  "potentialChallenges": ["challenge1", "challenge2"]
 }
-${requiresStrictCulturalMaintenance && context.languages.length > 0 ? `
-Example for a topic like "Korean Onomatopoeia":
+
+Be thorough and specific. This analysis will guide the entire lesson plan creation.`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.4 });
+            return this.parseJSONResponse(response);
+        }
+
+        async developCurriculumStrategy(topic, contextAnalysis) {
+            log(`GEMINI: Developing curriculum strategy for "${topic}"`);
+            const prompt = `Based on this topic analysis, develop a comprehensive curriculum strategy.
+
+TOPIC: "${topic}"
+CONTEXT ANALYSIS: ${JSON.stringify(contextAnalysis, null, 2)}
+
+Create a curriculum strategy that addresses:
+1. Progressive Learning Path: How should knowledge build from basic to advanced
+2. Cultural Integration: How to authentically integrate cultural/linguistic elements (if applicable)
+3. Engagement Strategies: What will keep learners engaged at each level
+4. Assessment Approach: How to evaluate understanding at each stage
+5. Content Types: What mix of content (videos, explanations, examples) works best
+
+Provide strategy in JSON format:
 {
-  "Apprentice": [
-    "Introduction to Korean Onomatopoeia in daily Korean life",
-    "Basic categories of Korean Onomatopoeia (e.g., sounds, movements)",
-    "Common examples of Korean Onomatopoeia used in simple Korean conversations"
-  ], ...
-}` : `
-Example for a topic like "Photosynthesis":
+  "progressionStrategy": "detailed explanation of how learning should progress",
+  "culturalIntegration": "how to authentically include cultural elements",
+  "engagementTactics": ["tactic1", "tactic2"],
+  "assessmentApproach": "how to evaluate learning",
+  "contentMix": "recommended content types and ratios",
+  "difficultyProgression": {
+    "Apprentice": "what characterizes this level",
+    "Journeyman": "what characterizes this level", 
+    "Senior": "what characterizes this level",
+    "Master": "what characterizes this level"
+  },
+  "keyPrinciples": ["principle1", "principle2"]
+}
+
+Focus on creating an exceptional learning experience that honors the topic's specific nature.`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.5 });
+            return this.parseJSONResponse(response);
+        }
+
+        async generateDifficultyLevels(topic, contextAnalysis, curriculumStrategy) {
+            log(`GEMINI: Generating learning points for all difficulty levels`);
+            const prompt = `Create exceptional learning points for "${topic}" across all difficulty levels.
+
+TOPIC: "${topic}"
+CONTEXT: ${JSON.stringify(contextAnalysis, null, 2)}
+STRATEGY: ${JSON.stringify(curriculumStrategy, null, 2)}
+
+CRITICAL REQUIREMENTS:
+1. Every learning point MUST contain the exact phrase "${topic}"
+2. Points must be culturally authentic if cultural context exists
+3. Progressive difficulty that builds knowledge systematically
+4. Engaging and specific (not generic)
+5. Each point should be distinct and valuable
+
+DIFFICULTY LEVELS:
+- Apprentice: 3 foundational learning points
+- Journeyman: 5 intermediate learning points  
+- Senior: 7 advanced learning points
+- Master: 9 expert-level learning points
+
+EXAMPLES OF EXCELLENT LEARNING POINTS:
+- Specific: "Korean onomatopoeia in modern K-pop lyrics and their emotional impact"
+- NOT Generic: "Understanding Korean onomatopoeia basics"
+
+- Specific: "Photosynthesis in extreme environments: Arctic plants and desert adaptations"  
+- NOT Generic: "How photosynthesis works in plants"
+
+Return ONLY valid JSON:
 {
-  "Apprentice": [
-    "What is Photosynthesis?",
-    "Key components involved in Photosynthesis (sunlight, water, CO2)",
-    "Why Photosynthesis is important for plants"
-  ], ...
-}`}
+  "Apprentice": ["specific point 1 about ${topic}", "specific point 2 about ${topic}", "specific point 3 about ${topic}"],
+  "Journeyman": ["specific point 1 about ${topic}", ...5 total],
+  "Senior": ["specific point 1 about ${topic}", ...7 total],
+  "Master": ["specific point 1 about ${topic}", ...9 total]
+}
 
-Ensure every learning point is distinct and directly contributes to understanding "${topic}" with the specified cultural context if applicable.`;
+Make each learning point compelling, specific, and worthy of dedicated study time.`;
 
-            const response = await this.makeRequest(prompt, { temperature: 0.35 }); // Slightly increased temp for richer points
-            let parsedPlan = this.parseJSONResponse(response);
+            const response = await this.makeRequest(prompt, { temperature: 0.6 });
+            return this.parseJSONResponse(response);
+        }
 
-            // Validation and potential retry
-            if (parsedPlan && requiresStrictCulturalMaintenance) {
-                const allPoints = Object.values(parsedPlan).flat();
-                let failedValidation = false;
+        async qualityAssuranceReview(topic, lessonPlan, contextAnalysis) {
+            log(`GEMINI: Conducting quality assurance review`);
+            const prompt = `Review and improve this lesson plan for "${topic}".
 
-                for (const point of allPoints) {
-                    const pointLower = point.toLowerCase();
-                    if (!pointLower.includes(topic.toLowerCase())) {
-                        log(`LESSON PLAN VALIDATION FAIL (Topic): Point "${point}" missing base topic "${topic}"`);
-                        failedValidation = true;
-                        break;
-                    }
-                    // MVP Heuristic: Check if language or specific cultural term is present
-                    if (context.languages.length > 0 && !context.languages.some(lang => pointLower.includes(lang.toLowerCase()))) {
-                         // Check if the point is too generic by also checking for general cultural terms
-                        if (!context.culturalTerms.some(term => pointLower.includes(term.toLowerCase()))) {
-                            log(`LESSON PLAN VALIDATION FAIL (Language): Point "${point}" for topic "${topic}" lacks specific language enrichment for ${context.languages.join('/')}.`);
-                            failedValidation = true;
-                            break;
-                        }
-                    }
-                }
-                
-                if (failedValidation) {
-                    log(`LESSON PLAN VALIDATION: Strict cultural maintenance failed. Regenerating with a more direct retry prompt.`);
-                    const retryPrompt = `RETRY - Previous lesson plan for "${topic}" failed cultural specificity or topic fidelity.
+ORIGINAL LESSON PLAN: ${JSON.stringify(lessonPlan, null, 2)}
+CONTEXT: ${JSON.stringify(contextAnalysis, null, 2)}
 
-MUST-FOLLOW RULES:
-1.  The EXACT phrase "${topic}" MUST be in every learning point.
-2.  If cultural/linguistic context was specified (Languages: ${context.languages.join(', ') || 'N/A'}, Cultural Terms: ${context.culturalTerms.join(', ') || 'N/A'}), learning points MUST integrate this.
-    For "Korean onomatopoeia", points MUST be about KOREAN onomatopoeia in specific KOREAN contexts (e.g., "Korean onomatopoeia in webtoons"), not just "What is Korean onomatopoeia".
-3.  DO NOT generalize.
-4.  Output valid JSON for 4 levels: Apprentice (3), Journeyman (5), Senior (7), Master (9).
+QUALITY CRITERIA:
+1. Topic Fidelity: Does every point contain "${topic}" and stay focused?
+2. Cultural Authenticity: Are cultural elements handled respectfully and accurately?
+3. Progressive Learning: Does difficulty increase appropriately?
+4. Engagement: Are points interesting and compelling?
+5. Specificity: Are points detailed enough to guide meaningful learning?
+6. Uniqueness: Is each point distinct and valuable?
 
-Topic: "${topic}"
-Strive for culturally rich and specific learning points.`;
-                    const retryResponse = await this.makeRequest(retryPrompt, { temperature: 0.2 }); // Lower temp for stricter retry
-                    parsedPlan = this.parseJSONResponse(retryResponse);
-                }
+REVIEW PROCESS:
+1. Identify any issues with the current plan
+2. Suggest improvements for problematic points
+3. Ensure cultural sensitivity and accuracy
+4. Verify progressive difficulty
+5. Enhance engagement where possible
+
+Return the IMPROVED lesson plan in JSON format:
+{
+  "Apprentice": ["improved point 1", "improved point 2", "improved point 3"],
+  "Journeyman": ["improved point 1", ...5 total],
+  "Senior": ["improved point 1", ...7 total], 
+  "Master": ["improved point 1", ...9 total],
+  "qualityNotes": {
+    "improvements": ["what was improved"],
+    "culturalConsiderations": ["cultural notes"],
+    "confidence": "high|medium|low"
+  }
+}
+
+If the plan is already excellent, return it unchanged but add quality notes explaining why it's good.`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.3 });
+            const reviewedPlan = this.parseJSONResponse(response);
+            
+            // If AI review indicates low confidence, do one more iteration
+            if (reviewedPlan?.qualityNotes?.confidence === 'low') {
+                log("GEMINI: Low confidence detected, performing additional refinement");
+                return await this.performAdditionalRefinement(topic, reviewedPlan, contextAnalysis);
             }
             
-            return parsedPlan;
+            return reviewedPlan;
+        }
+
+        async performAdditionalRefinement(topic, currentPlan, contextAnalysis) {
+            log(`GEMINI: Performing additional refinement for "${topic}"`);
+            const prompt = `The previous lesson plan for "${topic}" had quality concerns. Create a completely new, exceptional lesson plan.
+
+PREVIOUS PLAN (for reference): ${JSON.stringify(currentPlan, null, 2)}
+CONTEXT: ${JSON.stringify(contextAnalysis, null, 2)}
+
+EXCELLENCE STANDARDS:
+- Every point must be laser-focused on "${topic}"
+- Cultural elements must be deeply integrated, not superficial
+- Each point should be unique and compelling
+- Progressive difficulty that genuinely builds understanding
+- Specific examples and contexts, not generic statements
+
+Create the best possible lesson plan. No compromises.
+
+Return ONLY JSON:
+{
+  "Apprentice": [3 exceptional points],
+  "Journeyman": [5 exceptional points],
+  "Senior": [7 exceptional points],
+  "Master": [9 exceptional points]
+}`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.7 });
+            return this.parseJSONResponse(response);
         }
 
         async generateSearchQueries(learningPoint) {
