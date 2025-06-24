@@ -76,59 +76,150 @@ document.addEventListener('DOMContentLoaded', () => {
         // =========================================================================
 
         async generateLessonPlan(topic) {
-            log("GEMINI (V4 Architecture): Generating lesson plan for:", topic);
+            log("GEMINI (V5 Architecture): Generating culturally-aware lesson plan for:", topic);
 
-            const brainstormKeywords = async (topicForBrainstorm) => {
-                log("GEMINI (V4): Step 1 - Brainstorming keywords for:", topicForBrainstorm);
-                const prompt = `You are a curriculum research assistant. Your task is to analyze the user's topic and extract a list of essential, specific keywords that capture the core concepts and any cultural or linguistic context.
-                Topic: "${topicForBrainstorm}"
-                Instructions:
-                1. Identify the primary subject (e.g., "onomatopoeia").
-                2. Identify any specific language or cultural context (e.g., "Korean").
-                3. List 5-10 highly relevant sub-topics, technical terms, or cultural examples.
-                4. Output ONLY a comma-separated list of these keywords.
-                Example for "Korean Onomatopoeia": Keywords: 의성어 (uiseongeo), 의태어 (uitaeeo), sound symbolism, webtoons, K-dramas, mimetic words, phonetic aesthetics
-                Topic: "${topicForBrainstorm}"
-                Keywords:`;
+            // Analyze cultural context first
+            const context = this.analyzeCulturalContext(topic);
+            log(`GEMINI (V5): Detected context - Culture: ${context.primaryCulture}, Domain: ${context.domain}, Level: ${context.specificityLevel}`);
+
+            const brainstormCulturalKeywords = async (topicForBrainstorm, culturalContext) => {
+                log("GEMINI (V5): Step 1 - Brainstorming culturally-specific keywords for:", topicForBrainstorm);
+                
+                const prompt = `You are an expert curriculum designer specializing in culturally-accurate educational content.
+
+TOPIC ANALYSIS TASK:
+Topic: "${topicForBrainstorm}"
+Cultural Context: ${culturalContext.primaryCulture || 'General'}
+Subject Domain: ${culturalContext.domain}
+Required Specificity: ${culturalContext.specificityLevel}
+
+KEYWORD EXTRACTION REQUIREMENTS:
+1. PRIMARY CULTURAL TERMS: Extract authentic native language terms and concepts
+2. SPECIFIC SUBJECT VOCABULARY: Domain-specific terminology and concepts
+3. CULTURAL EXAMPLES: Real-world applications and cultural manifestations
+4. LEARNING PROGRESSION: Terms suitable for different learning levels
+5. AVOID GENERIC TERMS: Do not include broad, non-specific concepts
+
+${culturalContext.primaryCulture ? `
+CULTURAL FOCUS REQUIREMENTS for ${culturalContext.primaryCulture}:
+- Include native language terminology
+- Reference authentic cultural practices and examples
+- Avoid westernized or generic interpretations
+- Include cultural context that gives meaning to the concepts
+` : ''}
+
+OUTPUT FORMAT:
+Return a comma-separated list of 8-12 highly specific keywords that will enable creation of authentic, culturally-accurate learning content.
+
+Example for "Korean onomatopoeia":
+의성어 (uiseongeo), 의태어 (uitaeeo), Korean sound symbolism, webtoon sound effects, K-drama expressions, Korean phonetic aesthetics, mimetic words in Korean, Korean comic book sounds, traditional Korean sound words, modern Korean slang sounds
+
+Topic: "${topicForBrainstorm}"
+Keywords:`;
+
                 try {
-                    const response = await this.makeRequest(prompt, { temperature: 0.2 });
-                    if (typeof response === 'string' && response.length > 5) {
-                        log("GEMINI (V4): Brainstormed keywords:", response);
-                        return response.split(',').map(k => k.trim());
+                    const response = await this.makeRequest(prompt, { temperature: 0.3 });
+                    if (typeof response === 'string' && response.length > 10) {
+                        const keywords = response.split(',').map(k => k.trim()).filter(k => k.length > 0);
+                        log("GEMINI (V5): Brainstormed culturally-specific keywords:", keywords);
+                        return keywords;
                     }
                     throw new Error("Brainstorming returned invalid keyword format.");
                 } catch (error) {
-                    logError("GEMINI (V4): Keyword brainstorming failed. Falling back to topic words.", error);
-                    return topicForBrainstorm.split(' '); 
+                    logError("GEMINI (V5): Cultural keyword brainstorming failed. Using fallback.", error);
+                    return topicForBrainstorm.split(' ').concat(context.nativeTerms || []); 
                 }
             };
 
-            const createPlanFromKeywords = (topic, keywords) => {
-                log("Code Architecture: Step 2 - Building lesson plan template from keywords.");
+            const createCulturallyAwarePlan = (topic, keywords, culturalContext) => {
+                log("GEMINI (V5): Step 2 - Building culturally-aware lesson plan from keywords.");
+                
                 const usedKeywords = new Set();
                 const pickKeyword = () => {
-                    const available = keywords.filter(k => !usedKeywords.has(k) && k.toLowerCase() !== topic.toLowerCase());
-                    if (available.length === 0) return keywords[Math.floor(Math.random() * keywords.length)] || '';
-                    const keyword = available[0]; usedKeywords.add(keyword);
+                    const available = keywords.filter(k => 
+                        !usedKeywords.has(k) && 
+                        k.toLowerCase() !== topic.toLowerCase() &&
+                        k.length > 2
+                    );
+                    if (available.length === 0) {
+                        return keywords[Math.floor(Math.random() * keywords.length)] || 'advanced concepts';
+                    }
+                    const keyword = available[0]; 
+                    usedKeywords.add(keyword);
                     return keyword;
                 };
-                const apprenticePoints = [ `Introduction to ${topic}: Understanding the Core Concepts`, `Exploring a key aspect of ${topic}: ${pickKeyword()}`, `Practical application of ${topic}` ];
-                const journeymanPoints = [ ...apprenticePoints, `Advanced topic in ${topic}: The role of ${pickKeyword()}`, `Comparing and contrasting different elements of ${topic}` ];
-                const seniorPoints = [ ...journeymanPoints, `The historical context and evolution of ${topic}`, `Analyzing the impact of ${pickKeyword()} on ${topic}` ];
-                const masterPoints = [ ...seniorPoints, `Expert-level analysis: The intersection of ${topic} and ${pickKeyword()}`, `Synthesizing knowledge of ${topic} for creative application` ];
-                const lessonPlan = { "Apprentice": apprenticePoints, "Journeyman": journeymanPoints, "Senior": seniorPoints, "Master": masterPoints };
-                log("Code Architecture: Lesson plan template created successfully.");
+
+                // Create culturally-specific learning points
+                const culturePrefix = culturalContext.primaryCulture ? `${culturalContext.primaryCulture.charAt(0).toUpperCase() + culturalContext.primaryCulture.slice(1)} ` : '';
+                
+                const apprenticePoints = [
+                    `Introduction to ${culturePrefix}${topic}: Understanding the Core Concepts`,
+                    `Exploring fundamental aspects: ${pickKeyword()}`,
+                    `Basic examples and applications of ${topic} in ${culturalContext.primaryCulture || 'practical'} contexts`
+                ];
+
+                const journeymanPoints = [
+                    ...apprenticePoints,
+                    `Deeper understanding: The role of ${pickKeyword()} in ${topic}`,
+                    `Cultural significance and variations: ${pickKeyword()}`,
+                    `Comparing traditional and modern expressions of ${topic}`
+                ];
+
+                const seniorPoints = [
+                    ...journeymanPoints,
+                    `Historical development and cultural evolution of ${topic}`,
+                    `Advanced analysis: How ${pickKeyword()} shapes understanding`,
+                    `Cross-cultural perspectives and influences on ${topic}`
+                ];
+
+                const masterPoints = [
+                    ...seniorPoints,
+                    `Expert synthesis: The intersection of ${topic} and ${pickKeyword()}`,
+                    `Creative applications and contemporary innovations in ${topic}`,
+                    `Teaching and preserving ${culturePrefix}${topic} for future generations`
+                ];
+
+                const lessonPlan = { 
+                    "Apprentice": apprenticePoints, 
+                    "Journeyman": journeymanPoints, 
+                    "Senior": seniorPoints, 
+                    "Master": masterPoints 
+                };
+                
+                log("GEMINI (V5): Culturally-aware lesson plan created successfully.");
                 return lessonPlan;
             };
 
             try {
-                const brainstormedKeywords = await brainstormKeywords(topic);
-                const finalLessonPlan = createPlanFromKeywords(topic, brainstormedKeywords);
+                const culturalKeywords = await brainstormCulturalKeywords(topic, context);
+                const finalLessonPlan = createCulturallyAwarePlan(topic, culturalKeywords, context);
+                
+                // Validate cultural specificity in lesson plan
+                if (context.primaryCulture) {
+                    const hasSpecificity = this.validateLessonPlanCulturalSpecificity(finalLessonPlan, context);
+                    if (!hasSpecificity) {
+                        log("GEMINI (V5): Warning - Lesson plan lacks cultural specificity, regenerating...");
+                        // Add fallback cultural terms
+                        culturalKeywords.push(...(context.nativeTerms || []));
+                        return createCulturallyAwarePlan(topic, culturalKeywords, context);
+                    }
+                }
+                
                 return finalLessonPlan;
             } catch (error) {
-                logError("generateLessonPlan (V4) failed. Returning null.", error);
+                logError("generateLessonPlan (V5) failed. Returning null.", error);
                 return null;
             }
+        }
+
+        validateLessonPlanCulturalSpecificity(lessonPlan, context) {
+            if (!context.primaryCulture) return true;
+            
+            const allPoints = Object.values(lessonPlan).flat().join(' ').toLowerCase();
+            const requiredTerms = [context.primaryCulture];
+            if (context.nativeTerms) requiredTerms.push(...context.nativeTerms);
+            
+            return requiredTerms.some(term => allPoints.includes(term.toLowerCase()));
         }
         
         async generateNarration(learningPoint, previousPoint, mainTopic) {
@@ -145,50 +236,247 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async generateSearchQueries(learningPoint, mainTopic) {
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
-            const getForbiddenTerms = (topic) => {
-                const topicLower = topic.toLowerCase();
-                if (topicLower.includes('korean') && topicLower.includes('onomatopoeia')) { return ['music production', 'sound design', 'audio editing', 'daw', 'sfx']; }
-                return [];
+            
+            // Dynamic cultural and linguistic context extraction
+            const contextAnalysis = this.analyzeCulturalContext(mainTopic + ' ' + learningPoint);
+            
+            const prompt = `You are a specialized educational search query generator. Create 4-6 highly specific YouTube search queries for: "${learningPoint}" within the context of: "${mainTopic}".
+
+CONTEXT ANALYSIS:
+- Primary Language/Culture: ${contextAnalysis.primaryCulture || 'General'}
+- Subject Domain: ${contextAnalysis.domain}
+- Specificity Level: ${contextAnalysis.specificityLevel}
+- Educational Focus: ${contextAnalysis.educationalFocus}
+
+DYNAMIC QUERY GENERATION RULES:
+1. If cultural/linguistic context detected: ALL queries MUST include the specific culture/language terms
+2. Include educational keywords: "tutorial", "lesson", "learn", "how to", "explained"
+3. Avoid generic content that could match unrelated domains
+4. Use native language terms when culturally appropriate
+5. Target beginner-friendly educational content
+
+FORBIDDEN PATTERNS (dynamic based on context):
+${contextAnalysis.forbiddenPatterns.length > 0 ? `- Avoid: ${contextAnalysis.forbiddenPatterns.join(', ')}` : '- No specific forbidden patterns detected'}
+
+EXAMPLE FORMAT:
+If topic is "Korean onomatopoeia":
+✓ "Korean onomatopoeia 의성어 tutorial for beginners"
+✓ "Learn Korean sound words 의성어 explained"
+✗ "onomatopoeia sound design" (too generic)
+
+Return ONLY a valid JSON array of 4-6 specific search query strings.`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.2 });
+            const queries = this.parseJSONResponse(response);
+            
+            // Validate queries for cultural specificity
+            if (queries && contextAnalysis.primaryCulture) {
+                const validatedQueries = queries.filter(query => 
+                    this.validateCulturalSpecificity(query, contextAnalysis)
+                );
+                if (validatedQueries.length > 0) {
+                    log(`SEARCH: Validated ${validatedQueries.length}/${queries.length} culturally specific queries`);
+                    return validatedQueries;
+                }
+            }
+            
+            return queries || [];
+        }
+
+        analyzeCulturalContext(text) {
+            const textLower = text.toLowerCase();
+            
+            // Dynamic language/culture detection
+            const cultures = {
+                korean: { patterns: ['korean', '한국', 'hangul', '의성어', '의태어'], native: ['의성어', '의태어'] },
+                japanese: { patterns: ['japanese', '日本', 'hiragana', 'katakana', 'onomatopoeia'], native: ['擬音語', '擬態語'] },
+                chinese: { patterns: ['chinese', '中文', 'mandarin', 'cantonese'], native: ['象声词'] },
+                spanish: { patterns: ['spanish', 'español', 'castellano'], native: ['onomatopeya'] },
+                french: { patterns: ['french', 'français'], native: ['onomatopée'] },
+                german: { patterns: ['german', 'deutsch'], native: ['lautmalerei'] },
+                arabic: { patterns: ['arabic', 'عربي'], native: ['محاكاة الأصوات'] }
             };
-            const forbiddenTerms = getForbiddenTerms(mainTopic);
-            const prompt = `Generate 3-5 Youtube queries for a video about: "${learningPoint}". The overall lesson topic is: "${mainTopic}".
-            CRITICAL INSTRUCTIONS:
-            1. SPECIFICITY: Queries must be specific to "${learningPoint}" and reflect "${mainTopic}".
-            2. CONTENT TYPE: Target educational content like tutorials or explanations.
-            ${forbiddenTerms.length > 0 ? `3. NEGATIVE KEYWORDS: AVOID terms like: "${forbiddenTerms.join('", "')}".` : ''}
-            Return ONLY a valid JSON array of strings.`;
-            const response = await this.makeRequest(prompt, { temperature: 0.25 });
-            return this.parseJSONResponse(response);
+
+            // Subject domain detection
+            const domains = {
+                linguistics: ['onomatopoeia', 'phonetics', 'language', 'sound symbolism', 'linguistics'],
+                music: ['music', 'sound design', 'audio', 'production'],
+                history: ['history', 'historical', 'ancient', 'medieval'],
+                science: ['physics', 'chemistry', 'biology', 'quantum'],
+                art: ['art', 'painting', 'sculpture', 'renaissance']
+            };
+
+            let primaryCulture = null;
+            let detectedDomain = 'general';
+            
+            // Find primary culture
+            for (const [culture, data] of Object.entries(cultures)) {
+                if (data.patterns.some(pattern => textLower.includes(pattern))) {
+                    primaryCulture = culture;
+                    break;
+                }
+            }
+
+            // Find domain
+            for (const [domain, keywords] of Object.entries(domains)) {
+                if (keywords.some(keyword => textLower.includes(keyword))) {
+                    detectedDomain = domain;
+                    break;
+                }
+            }
+
+            // Generate forbidden patterns dynamically
+            const forbiddenPatterns = this.generateForbiddenPatterns(detectedDomain, primaryCulture);
+
+            return {
+                primaryCulture,
+                domain: detectedDomain,
+                specificityLevel: primaryCulture ? 'high' : 'medium',
+                educationalFocus: this.determineEducationalFocus(text),
+                forbiddenPatterns,
+                nativeTerms: primaryCulture ? cultures[primaryCulture].native : []
+            };
+        }
+
+        generateForbiddenPatterns(domain, culture) {
+            const forbiddenMap = {
+                linguistics: ['music production', 'sound design', 'audio engineering', 'daw', 'mixing'],
+                music: ['language learning', 'linguistics'],
+                history: ['modern politics', 'current events'],
+                science: ['pseudoscience', 'conspiracy']
+            };
+
+            const generalForbidden = ['compilation', 'reaction', 'meme', 'funny', 'compilation'];
+            return [...(forbiddenMap[domain] || []), ...generalForbidden];
+        }
+
+        determineEducationalFocus(text) {
+            if (text.includes('beginner') || text.includes('basic') || text.includes('introduction')) return 'beginner';
+            if (text.includes('advanced') || text.includes('expert') || text.includes('master')) return 'advanced';
+            return 'intermediate';
+        }
+
+        validateCulturalSpecificity(query, context) {
+            if (!context.primaryCulture) return true; // No specific culture requirement
+            
+            const queryLower = query.toLowerCase();
+            const culturePatterns = {
+                korean: ['korean', '한국', '의성어', '의태어'],
+                japanese: ['japanese', '日本', '擬音語', '擬態語'],
+                chinese: ['chinese', '中文', '象声词'],
+                spanish: ['spanish', 'español', 'onomatopeya'],
+                french: ['french', 'français', 'onomatopée'],
+                german: ['german', 'deutsch', 'lautmalerei'],
+                arabic: ['arabic', 'عربي', 'محاكاة الأصوات']
+            };
+
+            const requiredPatterns = culturePatterns[context.primaryCulture] || [];
+            return requiredPatterns.some(pattern => queryLower.includes(pattern));
         }
 
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
-            log(`RELEVANCE V4: Analyzing "${videoTitle}" for "${learningPoint}"`);
-            const extractKeywords = (topic) => {
-                const text = topic.toLowerCase();
-                const languages = ['korean', 'japanese', 'chinese', 'spanish', 'french', 'german', 'italian'];
-                const subjects = { onomatopoeia: ['onomatopoeia', 'sound words'], history: ['history', 'historical'] };
-                const forbidden = { onomatopoeia: ['music production', 'sound design', 'sfx'] };
-                const detectedLang = languages.find(lang => text.includes(lang)) || null;
-                const detectedSubj = Object.keys(subjects).find(subj => subjects[subj].some(kw => text.includes(kw))) || null;
-                return { lang: detectedLang, subj: detectedSubj, forbidden: detectedSubj ? (forbidden[detectedSubj] || []) : [] };
-            };
-            const keywords = extractKeywords(mainTopic + ' ' + learningPoint);
+            log(`RELEVANCE V5: Analyzing "${videoTitle}" for "${learningPoint}"`);
+            
+            // Use dynamic cultural context analysis
+            const context = this.analyzeCulturalContext(mainTopic + ' ' + learningPoint);
             const titleLower = videoTitle.toLowerCase();
+            const transcriptLower = transcript ? transcript.toLowerCase() : '';
 
-            if (keywords.forbidden.some(term => titleLower.includes(term))) { log(`RELEVANCE V4 REJECT (PRE-FILTER): Forbidden term.`); return { relevant: false }; }
-            if (keywords.lang && !titleLower.includes(keywords.lang)) { log(`RELEVANCE V4 REJECT (PRE-FILTER): Language missing.`); return { relevant: false }; }
-            
-            const prompt = `You are a Strict Educational Content Validator. Is the YouTube video "${videoTitle}" DIRECTLY relevant for learning about "${learningPoint}" (main topic: "${mainTopic}")?
-            ${transcript ? `Transcript Snippet: "${transcript.substring(0, 1500)}"` : `(No transcript)`}
-            CRITICAL: If the topic requires a specific language (e.g., Korean), a generic video is NOT relevant.
-            Return JSON: {"isRelevant": boolean, "confidenceScore": number, "reasoning": "...", "identifiedLanguageFocus": "e.g., korean, english"}`;
-            const aiResult = await this.makeRequest(prompt, { temperature: 0.1 }).then(this.parseJSONResponse);
+            // Pre-filtering with dynamic forbidden patterns
+            if (context.forbiddenPatterns.some(term => titleLower.includes(term) || transcriptLower.includes(term))) {
+                log(`RELEVANCE V5 REJECT (PRE-FILTER): Contains forbidden pattern from ${context.domain} domain`);
+                return { relevant: false, reason: 'forbidden_pattern' };
+            }
 
-            if (!aiResult?.isRelevant || aiResult.confidenceScore < 7) { log(`RELEVANCE V4 REJECT (AI)`); return { relevant: false }; }
-            if (keywords.lang && aiResult.identifiedLanguageFocus && !aiResult.identifiedLanguageFocus.toLowerCase().includes(keywords.lang)) { log(`RELEVANCE V4 REJECT (AI): Language mismatch.`); return { relevant: false }; }
-            
-            log(`RELEVANCE V4 ACCEPT: "${videoTitle}"`);
-            return { relevant: true, confidence: aiResult.confidenceScore };
+            // Cultural specificity validation
+            if (context.primaryCulture) {
+                const hasRequiredCulture = this.validateCulturalSpecificity(videoTitle + ' ' + (transcript || ''), context);
+                if (!hasRequiredCulture) {
+                    log(`RELEVANCE V5 REJECT (PRE-FILTER): Missing required ${context.primaryCulture} cultural context`);
+                    return { relevant: false, reason: 'missing_cultural_context' };
+                }
+            }
+
+            // Enhanced AI analysis with cultural context
+            const prompt = `You are an expert Educational Content Validator specializing in cultural and linguistic accuracy.
+
+VIDEO ANALYSIS TASK:
+- Video Title: "${videoTitle}"
+- Learning Objective: "${learningPoint}"
+- Main Topic Context: "${mainTopic}"
+${transcript ? `- Transcript Sample: "${transcript.substring(0, 2000)}"` : '- (No transcript available)'}
+
+CULTURAL CONTEXT REQUIREMENTS:
+- Primary Culture/Language: ${context.primaryCulture || 'General'}
+- Subject Domain: ${context.domain}
+- Educational Level: ${context.educationalFocus}
+- Required Specificity: ${context.specificityLevel}
+
+VALIDATION CRITERIA:
+1. CULTURAL ACCURACY: ${context.primaryCulture ? `Must genuinely focus on ${context.primaryCulture} culture/language, not just mention it` : 'No specific cultural requirements'}
+2. EDUCATIONAL VALUE: Must be instructional, not entertainment or compilation
+3. DOMAIN RELEVANCE: Must be about ${context.domain}, not tangentially related topics
+4. CONTENT QUALITY: Must provide substantive learning content
+
+STRICT REJECTION TRIGGERS:
+- Generic content that doesn't address the specific cultural/linguistic context
+- Entertainment/reaction videos disguised as educational content
+- Content from wrong subject domains (e.g., music production for linguistics topics)
+- Videos that only briefly mention the topic without deep coverage
+
+Return JSON with this exact structure:
+{
+  "isRelevant": boolean,
+  "confidenceScore": number (1-10),
+  "culturalAccuracy": number (1-10),
+  "educationalValue": number (1-10),
+  "reasoning": "detailed explanation",
+  "identifiedCulturalFocus": "detected culture/language or 'general'",
+  "contentType": "educational/entertainment/mixed/unclear"
+}`;
+
+            try {
+                const aiResult = await this.makeRequest(prompt, { temperature: 0.1 }).then(this.parseJSONResponse);
+                
+                if (!aiResult) {
+                    log(`RELEVANCE V5 REJECT: AI analysis failed`);
+                    return { relevant: false, reason: 'ai_analysis_failed' };
+                }
+
+                // Multi-criteria validation
+                const isRelevant = aiResult.isRelevant && 
+                                 aiResult.confidenceScore >= 7 && 
+                                 aiResult.culturalAccuracy >= 8 && 
+                                 aiResult.educationalValue >= 7 &&
+                                 aiResult.contentType === 'educational';
+
+                // Additional cultural focus validation
+                if (context.primaryCulture && aiResult.identifiedCulturalFocus) {
+                    const culturalMatch = aiResult.identifiedCulturalFocus.toLowerCase().includes(context.primaryCulture) ||
+                                        aiResult.identifiedCulturalFocus === context.primaryCulture;
+                    if (!culturalMatch) {
+                        log(`RELEVANCE V5 REJECT: Cultural focus mismatch - expected ${context.primaryCulture}, found ${aiResult.identifiedCulturalFocus}`);
+                        return { relevant: false, reason: 'cultural_mismatch' };
+                    }
+                }
+
+                if (isRelevant) {
+                    log(`RELEVANCE V5 ACCEPT: "${videoTitle}" (confidence: ${aiResult.confidenceScore}, cultural: ${aiResult.culturalAccuracy})`);
+                    return { 
+                        relevant: true, 
+                        confidence: aiResult.confidenceScore,
+                        culturalAccuracy: aiResult.culturalAccuracy,
+                        educationalValue: aiResult.educationalValue
+                    };
+                } else {
+                    log(`RELEVANCE V5 REJECT: Low scores - confidence: ${aiResult.confidenceScore}, cultural: ${aiResult.culturalAccuracy}, educational: ${aiResult.educationalValue}`);
+                    return { relevant: false, reason: 'low_quality_scores', details: aiResult };
+                }
+
+            } catch (error) {
+                logError(`RELEVANCE V5: Analysis error:`, error);
+                return { relevant: false, reason: 'analysis_error' };
+            }
         }
         
         async findVideoSegments(videoTitle, learningPoint, transcript = null) {
