@@ -123,351 +123,356 @@ document.addEventListener('DOMContentLoaded', () => {
             const context = extractCulturalContext(topic);
             const requiresStrictCulturalMaintenance = context.hasSpecificLanguage || context.hasCulturalContext;
             
-            let prompt = `You are creating a learning plan for the EXACT topic: "${topic}"
+            let prompt = `You are an expert curriculum designer. Create a learning plan for the EXACT topic: "${topic}".
 
-ABSOLUTE TOPIC FIDELITY RULES:
-1. NEVER generalize or substitute terms
-2. EVERY learning point must contain the complete original topic phrase "${topic}"
-3. NO broader categories or generic alternatives allowed
-4. Maintain 100% specificity to the original request
+CORE PRINCIPLES:
+1.  TOPIC FIDELITY: Every learning point MUST directly relate to "${topic}". Do NOT generalize or use broader categories. The phrase "${topic}" must be present in each point.
+2.  PROGRESSIVE LEARNING: Structure the plan from basic to advanced across difficulty levels.
+3.  CULTURAL AUTHENTICITY: If the topic has specific cultural or linguistic elements (details below), ensure learning points reflect this authentically.
 
 ${requiresStrictCulturalMaintenance ? `
-🚨 CRITICAL CULTURAL/LINGUISTIC SPECIFICITY REQUIRED 🚨
-This topic contains specific cultural/linguistic elements that MUST be preserved:
-- Detected languages: ${context.languages.join(', ') || 'None'}
-- Cultural terms: ${context.culturalTerms.join(', ') || 'None'}
+🚨 CRITICAL CULTURAL/LINGUISTIC CONTEXT DETECTED 🚨
+- Detected Languages: ${context.languages.join(', ') || 'None'}
+- Detected Cultural Keywords: ${context.culturalTerms.join(', ') || 'None'}
 
-MANDATORY REQUIREMENTS:
-- If topic mentions "Korean onomatopoeia" → ALL points must say "Korean onomatopoeia" 
-- If topic mentions "Japanese martial arts" → ALL points must say "Japanese martial arts"
-- If topic mentions "Chinese calligraphy" → ALL points must say "Chinese calligraphy"
-- NO generic substitutions like "sound words", "Asian fighting", "writing systems"
-- Include authentic cultural examples when possible
-- Reference specific cultural contexts and traditions
+CULTURALLY ENRICHED LEARNING POINTS REQUIRED:
+- Each learning point must not only include "${topic}" but also incorporate specific examples, facets, or contexts relevant to ${context.languages.join(' and/or ')} culture/language related to "${topic}".
+- For example, if the topic is "Korean onomatopoeia", points should be like "Exploring Korean onomatopoeia in K-Dramas" or "Comparing animal sound onomatopoeia in Korean vs. English".
+- Avoid generic points like "Basic concepts of ${topic}" if a cultural context is active. Instead, frame it as "Basic concepts of ${topic} within the ${context.languages[0]} cultural context".
+- If no specific language is detected but cultural terms are, ensure points reflect those terms. For example, if topic is "Linguistic relativity", points should be about "Linguistic relativity and its impact on thought" not just "Understanding Linguistic relativity".
+- Generic points that only append the topic string are NOT acceptable if a cultural context is identified.
+FORBIDDEN:
+- Do NOT substitute "${topic}" with general terms (e.g., "sound words" for "Korean onomatopoeia").
+` : `
+STANDARD LEARNING POINTS:
+- Focus on educational aspects of "${topic}".
+`}
 
-FORBIDDEN GENERALIZATIONS:
-❌ "sound categories" instead of "Korean onomatopoeia"
-❌ "animal sounds" instead of "Korean onomatopoeia" 
-❌ "noise patterns" instead of "Korean onomatopoeia"
-❌ Any term that removes the cultural/linguistic specificity
-` : ''}
-
-Create exactly 4 difficulty levels with these point counts:
+DIFFICULTY LEVELS & POINT COUNT:
 - Apprentice: 3 learning points
-- Journeyman: 5 learning points  
+- Journeyman: 5 learning points
 - Senior: 7 learning points
 - Master: 9 learning points
 
-EVERY SINGLE LEARNING POINT MUST:
-✅ Include the complete phrase "${topic}" exactly as written
-✅ Be educationally progressive (easy → advanced)
-✅ Maintain cultural authenticity if applicable
-✅ Use specific, not generic terminology
-
-EXAMPLE FORMAT for "${topic}":
+OUTPUT FORMAT: Return ONLY valid JSON.
+Example structure:
+{
+  "Apprentice": ["Point 1 about ${topic}", "Point 2 about ${topic}", ...],
+  "Journeyman": ["More advanced Point 1 about ${topic}", ...],
+  "Senior": [...],
+  "Master": [...]
+}
+${requiresStrictCulturalMaintenance && context.languages.length > 0 ? `
+Example for a topic like "Korean Onomatopoeia":
 {
   "Apprentice": [
-    "Introduction to ${topic}",
-    "Basic understanding of ${topic}",
-    "Fundamental concepts in ${topic}"
-  ],
-  "Journeyman": [
-    "Historical development of ${topic}",
-    "Cultural significance of ${topic}",
-    "Traditional techniques in ${topic}",
-    "Regional variations of ${topic}",
-    "Modern applications of ${topic}"
-  ],
-  [... continue with Senior and Master levels]
-}
+    "Introduction to Korean Onomatopoeia in daily Korean life",
+    "Basic categories of Korean Onomatopoeia (e.g., sounds, movements)",
+    "Common examples of Korean Onomatopoeia used in simple Korean conversations"
+  ], ...
+}` : `
+Example for a topic like "Photosynthesis":
+{
+  "Apprentice": [
+    "What is Photosynthesis?",
+    "Key components involved in Photosynthesis (sunlight, water, CO2)",
+    "Why Photosynthesis is important for plants"
+  ], ...
+}`}
 
-FINAL VERIFICATION - Each point must pass this test:
-- Does it contain "${topic}" exactly? ✓
-- Is it culturally/linguistically authentic? ✓
-- No generic substitutions? ✓
+Ensure every learning point is distinct and directly contributes to understanding "${topic}" with the specified cultural context if applicable.`;
 
-Return ONLY valid JSON. Topic: "${topic}"`;
+            const response = await this.makeRequest(prompt, { temperature: 0.35 }); // Slightly increased temp for richer points
+            let parsedPlan = this.parseJSONResponse(response);
 
-            const response = await this.makeRequest(prompt, { temperature: 0.3 });
-            const parsed = this.parseJSONResponse(response);
-            
-            // Additional validation to catch any generalization failures
-            if (parsed && requiresStrictCulturalMaintenance) {
-                const allPoints = [
-                    ...(parsed.Apprentice || []),
-                    ...(parsed.Journeyman || []),
-                    ...(parsed.Senior || []),
-                    ...(parsed.Master || [])
-                ];
-                
-                // Check if any points are missing the specific cultural/linguistic terms
-                const topicKeyTerms = topic.toLowerCase();
-                const failedPoints = allPoints.filter(point => {
+            // Validation and potential retry
+            if (parsedPlan && requiresStrictCulturalMaintenance) {
+                const allPoints = Object.values(parsedPlan).flat();
+                let failedValidation = false;
+
+                for (const point of allPoints) {
                     const pointLower = point.toLowerCase();
-                    return !context.languages.some(lang => pointLower.includes(lang)) && 
-                           !pointLower.includes(topicKeyTerms);
-                });
+                    if (!pointLower.includes(topic.toLowerCase())) {
+                        log(`LESSON PLAN VALIDATION FAIL (Topic): Point "${point}" missing base topic "${topic}"`);
+                        failedValidation = true;
+                        break;
+                    }
+                    // MVP Heuristic: Check if language or specific cultural term is present
+                    if (context.languages.length > 0 && !context.languages.some(lang => pointLower.includes(lang.toLowerCase()))) {
+                         // Check if the point is too generic by also checking for general cultural terms
+                        if (!context.culturalTerms.some(term => pointLower.includes(term.toLowerCase()))) {
+                            log(`LESSON PLAN VALIDATION FAIL (Language): Point "${point}" for topic "${topic}" lacks specific language enrichment for ${context.languages.join('/')}.`);
+                            failedValidation = true;
+                            break;
+                        }
+                    }
+                }
                 
-                if (failedPoints.length > 0) {
-                    log(`LESSON PLAN VALIDATION: Found ${failedPoints.length} points missing cultural specificity. Regenerating...`);
-                    
-                    // Retry with even more specific prompt
-                    const retryPrompt = `RETRY - Previous attempt failed cultural specificity validation.
+                if (failedValidation) {
+                    log(`LESSON PLAN VALIDATION: Strict cultural maintenance failed. Regenerating with a more direct retry prompt.`);
+                    const retryPrompt = `RETRY - Previous lesson plan for "${topic}" failed cultural specificity or topic fidelity.
+
+MUST-FOLLOW RULES:
+1.  The EXACT phrase "${topic}" MUST be in every learning point.
+2.  If cultural/linguistic context was specified (Languages: ${context.languages.join(', ') || 'N/A'}, Cultural Terms: ${context.culturalTerms.join(', ') || 'N/A'}), learning points MUST integrate this.
+    For "Korean onomatopoeia", points MUST be about KOREAN onomatopoeia in specific KOREAN contexts (e.g., "Korean onomatopoeia in webtoons"), not just "What is Korean onomatopoeia".
+3.  DO NOT generalize.
+4.  Output valid JSON for 4 levels: Apprentice (3), Journeyman (5), Senior (7), Master (9).
 
 Topic: "${topic}"
-
-ABSOLUTE REQUIREMENT: Every learning point must contain these exact words from the original topic.
-
-Create learning points that ALL include "${topic}" exactly as written. No exceptions, no alternatives, no generalizations.
-
-Return valid JSON with 4 levels: Apprentice (3), Journeyman (5), Senior (7), Master (9).
-
-Each point format: "[Learning action] + ${topic}"`;
-
-                    const retryResponse = await this.makeRequest(retryPrompt, { temperature: 0.1 });
-                    return this.parseJSONResponse(retryResponse);
+Strive for culturally rich and specific learning points.`;
+                    const retryResponse = await this.makeRequest(retryPrompt, { temperature: 0.2 }); // Lower temp for stricter retry
+                    parsedPlan = this.parseJSONResponse(retryResponse);
                 }
             }
             
-            return parsed;
+            return parsedPlan;
         }
 
         async generateSearchQueries(learningPoint) {
             log(`GEMINI: Generating search queries for "${learningPoint}"`);
             const mainTopic = currentLessonPlan?.topic || learningPoint;
-            
-            // Extract key cultural/linguistic terms for stronger search focus
-            const extractKeyTerms = (topic) => {
-                const terms = [];
-                const culturalMarkers = topic.match(/\b(korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi)\b/gi);
-                if (culturalMarkers) terms.push(...culturalMarkers);
-                
-                const topicKeywords = topic.match(/\b(onomatopoeia|art|music|language|culture|history|literature|cooking|martial arts|dance|architecture)\b/gi);
-                if (topicKeywords) terms.push(...topicKeywords);
-                
-                return [...new Set(terms)]; // Remove duplicates
+
+            // Re-use extractCulturalContext logic (or make it a shared utility)
+            // For now, defining it locally for clarity during refactor
+            const extractCulturalContextForQuery = (topicText) => {
+                const text = topicText.toLowerCase();
+                const languagePatterns = {
+                    korean: /\b(korean|korea|hangul|한국)\b/gi,
+                    japanese: /\b(japanese|japan|nihongo|日本)\b/gi,
+                    chinese: /\b(chinese|china|mandarin|中文)\b/gi,
+                    spanish: /\b(spanish|español)\b/gi,
+                    french: /\b(french|français)\b/gi,
+                };
+                const detectedLanguages = [];
+                for (const [lang, pattern] of Object.entries(languagePatterns)) {
+                    if (pattern.test(text)) detectedLanguages.push(lang);
+                }
+                return {
+                    languages: [...new Set(detectedLanguages)],
+                    hasSpecificLanguage: detectedLanguages.length > 0,
+                };
             };
             
-            const keyTerms = extractKeyTerms(mainTopic);
-            const requiredTermsStr = keyTerms.length > 0 ? keyTerms.join(' ') : mainTopic;
-            
-            const prompt = `Generate 3 highly specific YouTube search queries for "${learningPoint}" within the context of "${mainTopic}".
+            // Get forbidden terms based on main topic + learning point
+            const getForbiddenTermsForQuery = (topic) => {
+                const keywords = { languages: [], subjects: [], forbidden: [] };
+                const langMatches = topic.match(/\b(korean|japanese|chinese|spanish|french)\b/gi);
+                if (langMatches) keywords.languages = [...new Set(langMatches.map(l => l.toLowerCase()))];
+                const subjectMatches = topic.match(/\b(onomatopoeia|language|linguistics)\b/gi);
+                if (subjectMatches) keywords.subjects = [...new Set(subjectMatches.map(s => s.toLowerCase()))];
 
-CRITICAL REQUIREMENTS:
-- EVERY query must include these key terms: "${requiredTermsStr}"
-- Queries must be educational/tutorial focused (not entertainment or software)
-- Each query should be 3-7 words maximum
-- Target academic, educational, or instructional content
-- Avoid generic terms that could match unrelated content
+                if (keywords.languages.includes('korean') && keywords.subjects.includes('onomatopoeia')) {
+                    keywords.forbidden = ['music production', 'sound design', 'audio editing', 'daw', 'fl studio', 'ableton', 'logic pro'];
+                }
+                // Add more rules as needed for other contexts
+                return keywords.forbidden;
+            };
 
-DOMAIN FILTERING:
-- If topic is linguistic/cultural, focus on language learning, cultural education, academic content
-- Avoid software names, music production tools, or technical applications
-- Prioritize "tutorial", "explained", "lesson", "guide", "learning" terms
+            const culturalContext = extractCulturalContextForQuery(mainTopic);
+            const forbiddenTerms = getForbiddenTermsForQuery(mainTopic + " " + learningPoint);
 
-Required format: ["query with ${requiredTermsStr}", "tutorial ${requiredTermsStr}", "learn ${requiredTermsStr}"]
+            let requiredTermsStr = `"${learningPoint}"`;
+            if (culturalContext.hasSpecificLanguage) {
+                requiredTermsStr += ` ${culturalContext.languages.join(' ')}`;
+            }
 
-Main topic: "${mainTopic}"
-Learning point: "${learningPoint}"
-Key terms to include: "${requiredTermsStr}"
+            let prompt = `Generate 3-5 YouTube search queries for a video about: "${learningPoint}".
+The overall lesson topic is: "${mainTopic}".
 
-Return ONLY a JSON array of 3 strings.`;
-            const response = await this.makeRequest(prompt, { temperature: 0.2 });
+CRITICAL INSTRUCTIONS FOR QUERIES:
+1.  SPECIFICITY: Queries MUST be highly specific to "${learningPoint}". If "${mainTopic}" includes a language (e.g., Korean, Japanese), ensure the queries reflect this. For example, for "Korean onomatopoeia", queries should be like "learn Korean onomatopoeia", "Korean onomatopoeia examples".
+2.  CONTENT TYPE: Target educational content, tutorials, lessons, explanations, or "how-to" guides.
+3.  LENGTH: Each query should be 3-7 words.
+4.  KEYWORDS: Queries MUST include core terms from "${learningPoint}" and relevant cultural/linguistic terms from "${mainTopic}" if applicable (e.g., ${culturalContext.languages.join(', ') || 'specific cultural terms'}).
+5.  AVOID GENERIC: Do not generate overly broad queries.
+
+${forbiddenTerms.length > 0 ? `
+NEGATIVE KEYWORDS: Queries should actively AVOID terms related to: "${forbiddenTerms.join('", "')}".
+Focus strictly on the educational and cultural aspects, not these unrelated domains.
+Example: If learning "Korean onomatopoeia", AVOID queries like "sound design tutorial" or "music production software".
+` : ''}
+
+Examples of GOOD queries for "Learning Korean Vowel Sounds":
+- "Korean vowel pronunciation guide"
+- "learn basic Korean vowels"
+- "how to pronounce Korean vowels for beginners"
+
+Main Topic: "${mainTopic}"
+Current Learning Point: "${learningPoint}"
+${culturalContext.hasSpecificLanguage ? `Language Context: ${culturalContext.languages.join(', ')}` : ''}
+
+Return ONLY a valid JSON array of 3-5 unique query strings.`;
+
+            const response = await this.makeRequest(prompt, { temperature: 0.25 });
             return this.parseJSONResponse(response);
         }
 
         async checkVideoRelevance(videoTitle, learningPoint, mainTopic, transcript = null) {
-            log(`RELEVANCE CHECKER: Analyzing "${videoTitle}" for "${learningPoint}"`);
+            log(`RELEVANCE CHECKER V2: Analyzing "${videoTitle}" for learningPoint "${learningPoint}" (mainTopic: "${mainTopic}")`);
 
-            // Step 1: Extract key terms and context from the main topic
-            const extractTopicKeywords = (topic) => {
+            // Step 1: Enhanced Keyword Extraction
+            const extractTopicKeywords = (topicString) => {
                 const keywords = {
-                    languages: [],
-                    subjects: [],
-                    forbidden: []
+                    requiredLangs: [], // e.g., "korean" from "Korean onomatopoeia"
+                    requiredSubjects: [], // e.g., "onomatopoeia"
+                    optionalSubjects: [], // general related terms like "language", "linguistics"
+                    forbiddenDomains: [], // e.g., "music production"
+                    fullTopicPhrase: topicString
                 };
+                const topicLower = topicString.toLowerCase();
 
-                // Language detection
-                const langMatches = topic.match(/\b(korean|japanese|chinese|spanish|french|german|italian|portuguese|russian|arabic|hindi|mandarin|cantonese|hangul|hiragana|katakana)\b/gi);
-                if (langMatches) keywords.languages = [...new Set(langMatches.map(l => l.toLowerCase()))];
+                // Detect specific languages mentioned in the topic itself
+                if (/\b(korean|korea|hangul|한국)\b/gi.test(topicLower)) keywords.requiredLangs.push("korean");
+                if (/\b(japanese|japan|nihongo|日本)\b/gi.test(topicLower)) keywords.requiredLangs.push("japanese");
+                if (/\b(chinese|china|mandarin|中文)\b/gi.test(topicLower)) keywords.requiredLangs.push("chinese");
+                // Add other languages as needed
 
-                // Subject detection
-                const subjectMatches = topic.match(/\b(onomatopoeia|sound words|language|music|art|history|science|math|cooking|dance|martial arts|literature|philosophy|technology|programming)\b/gi);
-                if (subjectMatches) keywords.subjects = [...new Set(subjectMatches.map(s => s.toLowerCase()))];
+                // Detect core subject
+                if (/\b(onomatopoeia|sound words)\b/gi.test(topicLower)) keywords.requiredSubjects.push("onomatopoeia");
+                if (/\b(calligraphy)\b/gi.test(topicLower)) keywords.requiredSubjects.push("calligraphy");
+                if (/\b(verb conjugation)\b/gi.test(topicLower)) keywords.requiredSubjects.push("verb conjugation");
+                 // Add other core subjects
 
-                // Forbidden terms for this context
-                if (keywords.languages.length > 0 && keywords.subjects.includes('onomatopoeia')) {
-                    keywords.forbidden = ['music production', 'audio editing', 'sound design', 'daw', 'ableton', 'logic', 'pro tools', 'maschine', 'fl studio', 'beats', 'mixing', 'mastering', 'recording'];
+                // Optional related terms
+                if (/\b(language|linguistic|grammar|vocabulary|phonetic)\b/gi.test(topicLower)) {
+                    keywords.optionalSubjects.push("language", "linguistics");
                 }
 
+                // Define forbidden domains based on context
+                if (keywords.requiredLangs.includes("korean") && keywords.requiredSubjects.includes("onomatopoeia")) {
+                    keywords.forbiddenDomains = ['music production', 'audio editing', 'sound design', 'daw', 'ableton', 'logic pro', 'fl studio', 'sound effects library', 'sfx pack', 'game audio'];
+                }
+                if (keywords.requiredSubjects.includes("calligraphy")) {
+                    keywords.forbiddenDomains = ['graphic design software', 'digital art tutorial', 'photoshop', 'illustrator'];
+                }
+
+                keywords.requiredLangs = [...new Set(keywords.requiredLangs)];
+                keywords.requiredSubjects = [...new Set(keywords.requiredSubjects)];
+                keywords.optionalSubjects = [...new Set(keywords.optionalSubjects)];
+
+                log("Extracted keywords for relevance:", keywords);
                 return keywords;
             };
 
-            const topicKeywords = extractTopicKeywords(mainTopic + ' ' + learningPoint);
-            
-            // Step 2: Pre-filter obviously wrong videos
-            const preFilter = (title, keywords) => {
-                const titleLower = title.toLowerCase();
-                
-                // Hard rejection rules
-                if (keywords.forbidden.length > 0) {
-                    for (const forbidden of keywords.forbidden) {
-                        if (titleLower.includes(forbidden)) {
-                            return {
-                                pass: false,
-                                reason: `Contains forbidden term "${forbidden}" which indicates wrong domain`
-                            };
+            const extractedKeywords = extractTopicKeywords(mainTopic + " " + learningPoint); // Combine for broader context
+
+            // --- Stage 1: Strict Pre-filtering (Code-based) ---
+            const titleLower = videoTitle.toLowerCase();
+            let preFilterRejectReason = null;
+
+            // Check for forbidden domain terms in title
+            if (extractedKeywords.forbiddenDomains.length > 0) {
+                for (const forbidden of extractedKeywords.forbiddenDomains) {
+                    if (titleLower.includes(forbidden)) {
+                        preFilterRejectReason = `Title contains forbidden domain term: "${forbidden}"`;
+                        break;
                     }
                 }
+            }
 
-                // For language + subject combinations, require both
-                if (keywords.languages.length > 0 && keywords.subjects.length > 0) {
-                    const hasLanguage = keywords.languages.some(lang => titleLower.includes(lang));
-                    const hasSubject = keywords.subjects.some(subj => titleLower.includes(subj));
-                    
-                    if (!hasLanguage && !hasSubject) {
-                        return {
-                            pass: false,
-                            reason: `Missing both language (${keywords.languages.join('/')}) and subject (${keywords.subjects.join('/')}) keywords`
-                        };
+            // Check for required language if specified in topic
+            if (!preFilterRejectReason && extractedKeywords.requiredLangs.length > 0) {
+                if (!extractedKeywords.requiredLangs.some(lang => titleLower.includes(lang))) {
+                    preFilterRejectReason = `Title does not explicitly mention required language(s): "${extractedKeywords.requiredLangs.join(', ')}"`;
+                }
+            }
+
+            // Check for required subject if specified
+            if (!preFilterRejectReason && extractedKeywords.requiredSubjects.length > 0) {
+                if (!extractedKeywords.requiredSubjects.some(subj => titleLower.includes(subj))) {
+                     // Allow if at least one optional subject is present (e.g. "Korean language lesson" for "Korean onomatopoeia")
+                    if (!extractedKeywords.optionalSubjects.some(optSubj => titleLower.includes(optSubj))) {
+                        preFilterRejectReason = `Title missing required subject: "${extractedKeywords.requiredSubjects.join(', ')}" and no strong optional subject.`;
                     }
-                    
-                    // If has subject but wrong/no language, be very strict
-                    if (hasSubject && !hasLanguage) {
-                        const hasWrongLanguage = ['english', 'spanish', 'french', 'german', 'italian', 'japanese', 'chinese', 'korean']
-                            .filter(l => !keywords.languages.includes(l))
-                            .some(wrongLang => titleLower.includes(wrongLang));
-                        
-                        if (hasWrongLanguage) {
-                            return {
-                                pass: false,
-                                reason: `Has subject but wrong language context`
-                            };
+                }
+            }
+
+            if (preFilterRejectReason) {
+                log(`RELEVANCE PRE-FILTER REJECT: "${videoTitle}" for topic "${mainTopic}". Reason: ${preFilterRejectReason}`);
+                return { relevant: false, reason: `Pre-filter: ${preFilterRejectReason}`, confidence: 0 };
+            }
+            log(`RELEVANCE PRE-FILTER PASS: "${videoTitle}" for topic "${mainTopic}"`);
+
+            // --- Stage 2: AI-Assisted Relevance Check (Gemini) ---
+            let prompt = `You are a Strict Educational Content Validator.
+Your task is to determine if the YouTube video titled "${videoTitle}" is DIRECTLY and SPECIFICALLY relevant for a user learning about "${learningPoint}", which is part of the main lesson topic "${mainTopic}".
+
+Video Title: "${videoTitle}"
+Learning Point: "${learningPoint}"
+Main Lesson Topic: "${mainTopic}"
+
+Contextual Keywords & Rules:
+- Required Language(s) in Topic: ${extractedKeywords.requiredLangs.join(', ') || "None specified"}
+- Required Subject(s) in Topic: ${extractedKeywords.requiredSubjects.join(', ') || "None specified"}
+- Related Subject Keywords: ${extractedKeywords.optionalSubjects.join(', ') || "None"}
+- FORBIDDEN DOMAINS/TERMS (video must NOT be about these): ${extractedKeywords.forbiddenDomains.join(', ') || "None"}
+
+${transcript ? `
+Video Transcript Snippet (first 1500 chars):
+"${transcript.substring(0, 1500).replace(/"/g, "'")}"
+` : `(No transcript provided for analysis - rely on title and keywords more heavily)`}
+
+CRITICAL EVALUATION CRITERIA:
+1.  DIRECT RELEVANCE: Does the video *directly teach or explain* "${learningPoint}"?
+2.  TOPIC ALIGNMENT: Is it clearly aligned with "${mainTopic}"?
+3.  CULTURAL/LINGUISTIC ACCURACY:
+    - If "Required Language(s)" are specified, does the video content demonstrably focus on that language/culture in relation to the subject?
+    - A video about "onomatopoeia in general" is NOT relevant if the topic is "Korean onomatopoeia". It MUST be about KOREAN onomatopoeia.
+4.  EDUCATIONAL NATURE: Is the video educational (lesson, tutorial, explanation)? It should NOT be purely entertainment, music, a software demo unrelated to learning the core topic, or a vlog.
+5.  FORBIDDEN DOMAINS: Does the video fall into any of the FORBIDDEN DOMAINS/TERMS listed above? If yes, it's an automatic REJECT.
+
+Based on your analysis, provide a JSON response with the following structure:
+{
+  "isRelevant": boolean, // True if it meets ALL criteria, false otherwise
+  "confidenceScore": number, // From 0 (not relevant) to 10 (perfectly relevant)
+  "reasoning": "Detailed explanation for your decision, referencing specific criteria and keywords.",
+  "identifiedLanguageFocus": "e.g., korean, english, japanese, general, none_clear" // What language context does the video seem to have?
+}
+
+Decision Guidance:
+- If "Required Language(s)" are specified (e.g., Korean), and the video is about the subject (e.g., onomatopoeia) but in a *different* language (e.g., English onomatopoeia) or is generic, it is NOT relevant.
+- If the video title or transcript mentions terms from FORBIDDEN DOMAINS, it is NOT relevant.
+- Be very strict. Prefer to reject if uncertain.
+`;
+            try {
+                const response = await this.makeRequest(prompt, { temperature: 0.05 }); // Low temperature for rule-following
+                const aiResult = this.parseJSONResponse(response);
+
+                if (!aiResult || typeof aiResult.isRelevant !== 'boolean' || typeof aiResult.confidenceScore !== 'number') {
+                    logError('RELEVANCE CHECKER V2: AI response malformed or incomplete.', aiResult);
+                    return { relevant: false, reason: "AI analysis failed to produce valid structured output.", confidence: 0 };
+                }
+
+                log(`RELEVANCE CHECKER V2 AI RESULT for "${videoTitle}": Relevant: ${aiResult.isRelevant}, Confidence: ${aiResult.confidenceScore}, Reason: ${aiResult.reasoning}, LangFocus: ${aiResult.identifiedLanguageFocus}`);
+
+                // --- Stage 3: Final Decision Logic ---
+                if (!aiResult.isRelevant) {
+                    return { relevant: false, reason: `AI Rejection: ${aiResult.reasoning}`, confidence: aiResult.confidenceScore };
+                }
+                if (aiResult.confidenceScore < 7) { // Stricter threshold
+                    return { relevant: false, reason: `AI Confidence Low (${aiResult.confidenceScore}/10): ${aiResult.reasoning}`, confidence: aiResult.confidenceScore };
+                }
+
+                // If specific language context is required, verify AI's language identification
+                if (extractedKeywords.requiredLangs.length > 0) {
+                    const primaryRequiredLang = extractedKeywords.requiredLangs[0];
+                    if (!aiResult.identifiedLanguageFocus || !aiResult.identifiedLanguageFocus.toLowerCase().includes(primaryRequiredLang)) {
+                         // Allow if AI says 'general' but title strongly implies the language (e.g. "Learn Korean...")
+                        const titleHasLang = extractedKeywords.requiredLangs.some(lang => titleLower.includes(lang));
+                        if (!(aiResult.identifiedLanguageFocus === 'general' && titleHasLang)) {
+                            return { relevant: false, reason: `Language Mismatch: Topic requires ${primaryRequiredLang}, AI identified video focus as ${aiResult.identifiedLanguageFocus}.`, confidence: aiResult.confidenceScore };
                         }
                     }
                 }
 
-                return { pass: true, reason: "Passed pre-filter" };
-            };
+                log(`RELEVANCE CHECKER V2 FINAL ACCEPT: "${videoTitle}" (Confidence: ${aiResult.confidenceScore})`);
+                return { relevant: true, reason: aiResult.reasoning, confidence: aiResult.confidenceScore };
 
-            const preFilterResult = preFilter(videoTitle, topicKeywords);
-            if (!preFilterResult.pass) {
-                log(`PRE-FILTER REJECT: "${videoTitle}" - ${preFilterResult.reason}`);
-                return {
-                    relevant: false,
-                    reason: `Pre-filter rejection: ${preFilterResult.reason}`,
-                    confidence: 8
-                };
-            }
-
-            // Step 3: Build context-aware prompt
-            const buildSmartPrompt = (title, learning, main, keywords, transcript) => {
-                let prompt = `STRICT VIDEO RELEVANCE ANALYSIS
-
-TASK: Determine if this YouTube video is DIRECTLY relevant for learning "${learning}" within "${main}".
-
-VIDEO: "${title}"
-TARGET LEARNING: "${learning}"
-MAIN TOPIC: "${main}"
-
-CONTEXT ANALYSIS:`;
-
-                if (keywords.languages.length > 0) {
-                    prompt += `
-LANGUAGE FOCUS: ${keywords.languages.join(', ')}
-- Video MUST discuss this specific language/culture
-- Generic content about the subject is NOT sufficient`;
-                }
-
-                if (keywords.subjects.length > 0) {
-                    prompt += `
-SUBJECT FOCUS: ${keywords.subjects.join(', ')}
-- Video MUST teach about this specific subject
-- Technical/production content is NOT suitable for educational topics`;
-                }
-
-                if (keywords.forbidden.length > 0) {
-                    prompt += `
-FORBIDDEN DOMAINS: ${keywords.forbidden.join(', ')}
-- Videos about these topics are AUTOMATICALLY rejected
-- This is an educational context, not technical production`;
-                }
-
-                if (transcript && transcript.trim().length > 0) {
-                    const cleanTranscript = transcript.length > 1500 ? transcript.substring(0, 1500) + "..." : transcript;
-                    prompt += `
-
-TRANSCRIPT ANALYSIS:
-"${cleanTranscript}"
-
-TRANSCRIPT REQUIREMENTS:
-- Must contain specific discussion of "${main}"
-- Must be educational/instructional in nature
-- Must match the cultural/linguistic context if specified
-- Generic or tangentially related content = REJECT`;
-                } else {
-                    prompt += `
-
-TITLE-ONLY ANALYSIS:
-- Must explicitly reference the target topic
-- Must indicate educational content
-- Generic or production-focused titles = REJECT`;
-                }
-
-                prompt += `
-
-STRICT DECISION CRITERIA:
-✅ ACCEPT only if:
-1. Video directly teaches about "${main}"
-2. Content matches required language/cultural context
-3. Educational/instructional approach (not entertainment/production)
-4. Title and/or transcript specifically address the learning goal
-
-❌ REJECT if:
-1. Wrong domain (production vs education)
-2. Wrong language/cultural context
-3. Generic/tangential relationship
-4. Technical tutorials unrelated to the educational topic
-5. Entertainment content without educational value
-
-SCORING:
-- 9-10: Perfect educational match with exact topic coverage
-- 7-8: Good educational content, minor context issues
-- 4-6: Somewhat related but missing key elements
-- 1-3: Poor match or wrong domain
-- 0: Completely irrelevant
-
-RESPONSE FORMAT: {"relevant": true/false, "reason": "specific explanation", "confidence": 0-10}`;
-
-                return prompt;
-            };
-
-            const smartPrompt = buildSmartPrompt(videoTitle, learningPoint, mainTopic, topicKeywords, transcript);
-
-            try {
-                const response = await this.makeRequest(smartPrompt, { temperature: 0.05 });
-                const result = this.parseJSONResponse(response);
-
-                if (result && typeof result.relevant === 'boolean') {
-                    const contextNote = topicKeywords.languages.length > 0 ? ` [${topicKeywords.languages.join('/')}]` : '';
-                    const transcriptNote = transcript ? " (transcript)" : " (title-only)";
-                    
-                    log(`RELEVANCE RESULT${contextNote}: ${result.relevant ? '✅ RELEVANT' : '❌ REJECTED'} (${result.confidence}/10)${transcriptNote}`);
-                    log(`REASON: ${result.reason}`);
-                    
-                    return result;
-                }
             } catch (error) {
-                logError('RELEVANCE CHECK: AI analysis failed:', error);
+                logError('RELEVANCE CHECKER V2: AI analysis failed with error:', error);
+                return { relevant: false, reason: "AI analysis threw an exception.", confidence: 0 };
             }
-
-            // Fallback: Conservative rejection
-            log('RELEVANCE CHECK: Analysis failed, defaulting to REJECT (conservative approach)');
-            return { 
-                relevant: false, 
-                reason: "Analysis failed - defaulting to rejection for safety", 
-                confidence: 1 
-            };
         }
 
         async generateNarration(learningPoint, previousPoint) {
