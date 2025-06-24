@@ -1363,7 +1363,7 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                         if (Math.abs(confidenceDiff) > 2) return confidenceDiff;
                         return b.educationalScore - a.educationalScore;
                     });
-                    relevantVideos = relevantVideos.slice(0, 4); // Keep only top 4 most relevant
+                    relevantVideos.splice(4); // Keep only top 4 most relevant
                 }
 
                 log(`Relevant videos after filtering: ${relevantVideos.length}`);
@@ -1373,7 +1373,8 @@ If you can't determine specific segments, return one comprehensive segment: [{"s
                     log("WARNING: No relevant videos found, using top search results as fallback");
                     currentVideoChoices = uniqueVideos.slice(0, 3);
                 } else {
-                    currentVideoChoices = relevantVideos.sort((a, b) => b.educationalScore - a.educationalScore);
+                    relevantVideos.sort((a, b) => b.educationalScore - a.educationalScore);
+                    currentVideoChoices = relevantVideos;
                 }
 
                 if (currentVideoChoices.length === 0) {
